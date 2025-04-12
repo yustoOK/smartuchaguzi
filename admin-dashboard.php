@@ -2,11 +2,6 @@
 session_start();
 date_default_timezone_set('Africa/Dar_es_Salaam');
 
-// Security: Set secure session cookie parameters
-//ini_set('session.cookie_httponly', 1);
-//ini_set('session.use_only_cookies', 1);
-//ini_set('session.cookie_secure', 0); 
-
 // Database connection
 $host = 'localhost';
 $dbname = 'smartuchaguzi_db';
@@ -28,7 +23,7 @@ if (!isset($_SESSION['user_id']) || !isset($_SESSION['role']) || $_SESSION['role
     exit;
 }
 
-// Validate session integrity (e.g., check user agent to detect session hijacking)
+// Validating session integrity (e.g., check user agent to detect session hijacking)
 if (!isset($_SESSION['user_agent']) || $_SESSION['user_agent'] !== $_SERVER['HTTP_USER_AGENT']) {
     error_log("Session hijacking detected: user agent mismatch. Session destroyed.");
     session_unset();
@@ -79,51 +74,12 @@ $_SESSION['last_activity'] = time();
 
 // Fetch user details
 $user_id = $_SESSION['user_id'];
-$stmt = $pdo->prepare("SELECT email, profile_picture FROM users WHERE id = ?");
+$stmt = $pdo->prepare("SELECT email FROM users WHERE id = ?");
 $stmt->execute([$user_id]);
 $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-// Setting default profile picture if none exists
-$profile_picture = $user['profile_picture'] ?? 'images/general.png';
-
-// Handle profile picture upload
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['profile_picture'])) {
-    $upload_dir = 'uploads/passports/';
-    if (!is_dir($upload_dir)) {
-        mkdir($upload_dir, 0755, true);
-    }
-
-    $file = $_FILES['profile_picture'];
-    $file_name = $file['name'];
-    $file_tmp = $file['tmp_name'];
-    $file_ext = strtolower(pathinfo($file_name, PATHINFO_EXTENSION));
-    $allowed_exts = ['jpg', 'jpeg', 'png'];
-
-    if (in_array($file_ext, $allowed_exts)) {
-        $new_file_name = $user_id . '_' . time() . '.' . $file_ext;
-        $destination = $upload_dir . $new_file_name;
-
-        if (move_uploaded_file($file_tmp, $destination)) {
-            // Update the database with the new profile picture path
-            $stmt = $pdo->prepare("UPDATE users SET profile_picture = ? WHERE id = ?");
-            $stmt->execute([$destination, $user_id]);
-
-            // Log the action
-            $action = "User updated profile picture: {$user['email']}";
-            $stmt = $pdo->prepare("INSERT INTO audit_log (user_id, action, created_at) VALUES (?, ?, NOW())");
-            $stmt->execute([$user_id, $action]);
-
-            // Update the session variable
-            $profile_picture = $destination;
-            header("Location: admin-dashboard.php?success=" . urlencode("Profile picture updated successfully."));
-            exit;
-        } else {
-            $error = "Failed to upload the profile picture.";
-        }
-    } else {
-        $error = "Only JPG, JPEG, and PNG files are allowed.";
-    }
-}
+// Set default profile picture
+$profile_picture = 'images/general.png';
 ?>
 
 <!DOCTYPE html>
@@ -274,8 +230,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['profile_picture'])) 
             display: flex;
         }
 
-        .header .user .dropdown a,
-        .header .user .dropdown label {
+        .header .user .dropdown a {
             color: #e6e6e6;
             padding: 10px 20px;
             text-decoration: none;
@@ -284,13 +239,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['profile_picture'])) 
             cursor: pointer;
         }
 
-        .header .user .dropdown a:hover,
-        .header .user .dropdown label:hover {
+        .header .user .dropdown a:hover {
             background: rgba(244, 162, 97, 0.3);
-        }
-
-        .header .user .dropdown input[type="file"] {
-            display: none;
         }
 
         .header .user .logout-link {
@@ -384,10 +334,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['profile_picture'])) 
         .user-section,
         .audit-section {
             background: rgba(255, 255, 255, 0.1);
-            transition: all 0.3s ease;
-            margin: 10px 0;
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
         }
-        
+
+        .management-section h3,
+        .upcoming-section h3,
+        .user-section h3,
+        .audit-section h3 {
+            font-size: 22px;
+            color: #1a3c34;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .management-section .action-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .management-section button,
+        .upcoming-section button,
+        .user-section button {
+            background: linear-gradient(135deg, #f4a261, #e76f51);
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 16px;
+            font-weight: 500;
+        }
 
         .management-section button:hover,
         .upcoming-section button:hover,
@@ -456,26 +438,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['profile_picture'])) 
             background: #f4a261;
             color: #fff;
             transform: scale(1.05);
-        }
-
-        .success-message {
-            color: #1a3c34;
-            background: rgba(26, 60, 52, 0.2);
-            padding: 10px;
-            border-radius: 6px;
-            margin-bottom: 20px;
-            border: 1px solid #1a3c34;
-            text-align: center;
-        }
-
-        .error-message {
-            color: #e76f51;
-            background: rgba(231, 111, 81, 0.2);
-            padding: 10px;
-            border-radius: 6px;
-            margin-bottom: 20px;
-            border: 1px solid #e76f51;
-            text-align: center;
         }
 
         .modal {
@@ -579,10 +541,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['profile_picture'])) 
             <img src="<?php echo htmlspecialchars($profile_picture); ?>" alt="User Profile Picture" id="profile-pic">
             <div class="dropdown" id="user-dropdown">
                 <span style="color: #e6e6e6; padding: 10px 20px;"><?php echo htmlspecialchars($_SESSION['email'] ?? 'Admin'); ?></span>
-                <form action="admin-dashboard.php" method="POST" enctype="multipart/form-data">
-                    <label for="profile_picture_upload">Upload Profile Picture</label>
-                    <input type="file" id="profile_picture_upload" name="profile_picture" accept="image/jpeg,image/png">
-                </form>
                 <a href="admin-profile.php">My Profile</a>
                 <a href="logout.php">Logout</a>
             </div>
@@ -593,23 +551,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['profile_picture'])) 
     <section class="dashboard">
         <div class="dash-content">
             <h2>Admin Dashboard</h2>
-            <?php if (isset($_GET['success'])): ?>
-                <p class="success-message">
-                    <?php echo htmlspecialchars(urldecode($_GET['success'])); ?>
-                </p>
-            <?php endif; ?>
-            <?php if (isset($error)): ?>
-                <p class="error-message">
-                    <?php echo htmlspecialchars($error); ?>
-                </p>
-            <?php endif; ?>
 
             <div class="content-section active" id="management">
                 <h3>Election Management</h3>
                 <div class="management-section">
-                    <button onclick="window.location.href='add-election.php'">Add New Election</button>
-                    <button onclick="window.location.href='edit-election.php'">Edit Existing Election</button>
-                    <button onclick="window.location.href='manage-candidates.php'">Manage Candidates</button>
+                    <div class="action-buttons">
+                        <button onclick="window.location.href='add-election.php'">Add New Election</button>
+                        <button onclick="window.location.href='edit-election.php'">Edit Existing Election</button>
+                        <button onclick="window.location.href='manage-candidates.php'">Manage Candidates</button>
+                    </div>
                 </div>
             </div>
 
@@ -628,9 +578,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['profile_picture'])) 
             <div class="content-section" id="users">
                 <h3>User Management</h3>
                 <div class="user-section">
-                    <button onclick="window.location.href='add-user.php'">Add New User</button>
-                    <button onclick="window.location.href='edit-user.php'">Edit User</button>
-                    <button onclick="window.location.href='assign-observer.php'">Assign Observer</button>
+                    <div class="action-buttons">
+                        <button onclick="window.location.href='add-user.php'">Add New User</button>
+                        <button onclick="window.location.href='edit-user.php'">Edit User</button>
+                        <button onclick="window.location.href='assign-observer.php'">Assign Observer</button>
+                    </div>
                 </div>
             </div>
 
@@ -728,11 +680,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['profile_picture'])) 
             if (!dropdown.contains(e.target) && e.target !== profilePic) {
                 dropdown.classList.remove('active');
             }
-        });
-
-        const fileInput = document.getElementById('profile_picture_upload');
-        fileInput.addEventListener('change', () => {
-            fileInput.closest('form').submit();
         });
 
         // Session timeout logic
