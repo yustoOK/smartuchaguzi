@@ -15,7 +15,7 @@ try {
     die("Connection failed: " . $e->getMessage());
 }
 
-// Function to connect to the original_db for user verification
+// Function to connect to the original_db for user verification (This is to simulate the original university database connection in order to fetch the user details)
 function connectToOriginalDB()
 {
     $host = 'localhost';
@@ -38,7 +38,7 @@ function sendVerificationEmail($email, $token)
     $subject = "Verify Your SmartUchaguzi Account";
     $verificationLink = "http://localhost/smartuchaguzi/verify_email.php?token=" . urlencode($token);
     $message = "Hello,\n\nPlease verify your email by clicking the link below:\n$verificationLink\n\nIf you did not register, please ignore this email.\n\nBest regards,\nSmartUchaguzi Team 2025";
-    $headers = "From: yustobitalio20@gmail.com\r\n";
+    $headers = "From: yustobitalio20@gmail.com\r\n"; //We shall create this email to match the system email address
 
     // For testing, we can use mail() or a library like PHPMailer for production
     if (mail($email, $subject, $message, $headers)) {
