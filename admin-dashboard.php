@@ -83,8 +83,8 @@ $stmt = $pdo->prepare("SELECT email, profile_picture FROM users WHERE id = ?");
 $stmt->execute([$user_id]);
 $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-// Set default profile picture if none exists
-$profile_picture = $user['profile_picture'] ?? 'images/default.png';
+// Setting default profile picture if none exists
+$profile_picture = $user['profile_picture'] ?? 'images/general.png';
 
 // Handle profile picture upload
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['profile_picture'])) {
