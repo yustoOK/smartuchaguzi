@@ -3,9 +3,9 @@ session_start();
 date_default_timezone_set('Africa/Dar_es_Salaam');
 
 // Security: Set secure session cookie parameters
-ini_set('session.cookie_httponly', 1);
-ini_set('session.use_only_cookies', 1);
-ini_set('session.cookie_secure', 0); // Set to 1 if using HTTPS in production
+//ini_set('session.cookie_httponly', 1);
+//ini_set('session.use_only_cookies', 1);
+//ini_set('session.cookie_secure', 0); 
 
 // Database connection
 $host = 'localhost';
