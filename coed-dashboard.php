@@ -1,5 +1,5 @@
 <?php
-include 'db.php'; // Database connection
+include 'db.php';
 session_start();
 if (!isset($_SESSION['user_id'])) {
   header('Location: login.html');
@@ -447,7 +447,7 @@ if (!isset($_SESSION['user_id'])) {
 
   <section class="dashboard">
     <div class="dash-content">
-      <h2>COED UDOSO Election Dashboard</h2>
+      <h2>College of Education | UDOSO Election</h2>
 
       <div class="overview">
         <div class="card">
