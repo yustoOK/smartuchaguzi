@@ -566,7 +566,7 @@ $profile_picture = 'images/general.png';
             <div class="content-section" id="upcoming">
                 <h3>Update Upcoming Elections</h3>
                 <div class="upcoming-section">
-                    <form action="/api/update-upcoming.php" method="POST">
+                    <form action="./admin-operations/update-upcoming.php" method="POST">
                         <input type="text" name="title" placeholder="Election Title" required>
                         <input type="date" name="date" required>
                         <textarea name="description" placeholder="Election Description" rows="4" required></textarea>
