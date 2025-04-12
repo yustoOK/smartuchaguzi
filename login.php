@@ -1,53 +1,18 @@
 <?php
-// login.php
-include 'db.php';
 session_start();
+date_default_timezone_set('Africa/Dar_es_Salaam');
 
-// Redirect if already logged in
-if (isset($_SESSION['user_id'])) {
-    redirectUser($_SESSION['role'], $_SESSION['college'], $_SESSION['association']);
-    exit;
-}
+// Database connection
+$host = 'localhost';
+$dbname = 'smartuchaguzi_db';
+$username = 'root';
+$password = 'Leonida1972@@@@';
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $email = filter_var($_POST['email'], FILTER_SANITIZE_EMAIL);
-    $password = $_POST['password'];
-
-    // Validate input
-    if (empty($email) || empty($password)) {
-        $error = "Please fill in all fields.";
-    } else {
-        // Fetch user
-        $stmt = $db->prepare("SELECT id, email, password_hash, role, college, association, is_verified FROM users WHERE email = ?");
-        $stmt->bind_param("s", $email);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        $user = $result->fetch_assoc();
-        $stmt->close();
-
-        if ($user && password_verify($password, $user['password_hash'])) {
-            if ($user['is_verified'] == 0) {
-                $error = "Please verify your email before logging in.";
-            } else {
-                // Set session variables
-                $_SESSION['user_id'] = $user['id'];
-                $_SESSION['email'] = $user['email'];
-                $_SESSION['role'] = $user['role'];
-                $_SESSION['college'] = $user['college'];
-                $_SESSION['association'] = $user['association'];
-
-                // Log login action
-                $action = "User logged in: {$user['email']}";
-                $db->query("INSERT INTO audit_log (user_id, action) VALUES ('{$user['id']}', '$action')");
-
-                // Redirect based on role, college, and association
-                redirectUser($user['role'], $user['college'], $user['association']);
-                exit;
-            }
-        } else {
-            $error = "Invalid email or password.";
-        }
-    }
+try {
+    $pdo = new PDO("mysql:host=$host;dbname=$dbname", $username, $password);
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+} catch (PDOException $e) {
+    die("Connection failed: " . $e->getMessage());
 }
 
 // Function to redirect users based on role, college, and association
@@ -56,27 +21,80 @@ function redirectUser($role, $college, $association) {
         header('Location: admin-dashboard.php');
     } elseif ($role === 'observer') {
         header('Location: observer-dashboard.php');
-    } elseif ($role === 'voter') {
-        // College-based redirection
-        if ($college === 'CIVE') {
-            header('Location: cive-dashboard.php');
-        } elseif ($college === 'COED') {
-            header('Location: coed-dashboard.php');
-        } elseif ($college === 'CNMS') {
-            header('Location: cnms-dashboard.php');
-        }
-        // Association-based redirection
-        elseif ($association === 'TAHLISO') {
-            header('Location: tahliso-dashboard.php');
-        } elseif ($association === 'UDOMASA') {
-            header('Location: udomasa-dashboard.php');
-        } else {
-            // Default redirect if no specific college or association
-            header('Location: index.html');
-        }
+    } elseif ($college === 'CIVE' && $association === 'UDOSO') {
+        header('Location: cive-students.php');
+    } elseif ($college === 'CNMS' && $association === 'UDOSO') {
+        header('Location: cnms-students.php');
+    } elseif ($college === 'COED' && $association === 'UDOSO') {
+        header('Location: ceod-students.php');
+    } elseif ($college === 'CIVE' && $association === 'UDOMASA') {
+        header('Location: cive-teachers.php');
+    } elseif ($college === 'CNMS' && $association === 'UDOMASA') {
+        header('Location: cnms-teachers.php');
+    } elseif ($college === 'COED' && $association === 'UDOMASA') {
+        header('Location: ceod-teachers.php');
     } else {
-        // Unknown role, redirect to login
-        header('Location: login.html');
+        // Default redirect if no specific role, college, or association matches
+        header('Location: index.html');
+    }
+    exit;
+}
+
+// Redirect if already logged in
+if (isset($_SESSION['user_id'])) {
+    redirectUser($_SESSION['role'], $_SESSION['college'], $_SESSION['association']);
+    exit;
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Sanitize and validate inputs
+    $email = filter_input(INPUT_POST, 'email', FILTER_SANITIZE_EMAIL);
+    $password = $_POST['password'] ?? '';
+
+    // Basic validation
+    if (empty($email) || empty($password)) {
+        header("Location: login.html?error=" . urlencode("All fields are required."));
+        exit;
+    }
+
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        header("Location: login.html?error=" . urlencode("Invalid email format."));
+        exit;
+    }
+
+    try {
+        // Fetch user from the database
+        $stmt = $pdo->prepare("SELECT id, email, password_hash, role, college, association, is_verified FROM users WHERE email = ?");
+        $stmt->execute([$email]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($user && password_verify($password, $user['password_hash'])) {
+            if ($user['is_verified'] == 0) {
+                header("Location: login.html?error=" . urlencode("Please verify your email before logging in."));
+                exit;
+            }
+
+            // Set session variables
+            $_SESSION['user_id'] = $user['id'];
+            $_SESSION['email'] = $user['email'];
+            $_SESSION['role'] = $user['role'];
+            $_SESSION['college'] = $user['college'];
+            $_SESSION['association'] = $user['association'];
+
+            // Log login action in audit_log table
+            $action = "User logged in: {$user['email']}";
+            $stmt = $pdo->prepare("INSERT INTO audit_log (user_id, action, created_at) VALUES (?, ?, NOW())");
+            $stmt->execute([$user['id'], $action]);
+
+            // Redirect based on role, college, and association
+            redirectUser($user['role'], $user['college'], $user['association']);
+        } else {
+            header("Location: login.html?error=" . urlencode("Invalid email or password."));
+            exit;
+        }
+    } catch (PDOException $e) {
+        header("Location: login.html?error=" . urlencode("Login failed due to a server error. Please try again."));
+        exit;
     }
 }
 ?>
