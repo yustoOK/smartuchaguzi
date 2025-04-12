@@ -1,6 +1,7 @@
 <?php
 session_start();
-date_default_timezone_set('Africa/Dar_es_Salaam');
+date_default_timezone_set('Africa/Dar_es_Salaam'); //We set this because the default timezone for PHP is alywas Europe/London so we need to set it to our timezone in order to make sure that the tokens will not expire due to time differences i.e if the token is generated at 10:00 AM in Dar es salaam and the server is in London, the token will expire at 8:00 AM London time which is not the same as 10:00 AM Dar es salaam time.
+// This is the login page for the Smart Uchaguzi system. It handles user authentication and redirects users based on their roles, colleges, and associations.
 
 // Database connection
 $host = 'localhost';
@@ -40,14 +41,14 @@ function redirectUser($role, $college, $association) {
     exit;
 }
 
-// Redirect if already logged in
+// Redirecting if already logged in
 if (isset($_SESSION['user_id'])) {
     redirectUser($_SESSION['role'], $_SESSION['college'], $_SESSION['association']);
     exit;
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Sanitize and validate inputs
+    // Sanitization and validatio of inputs
     $email = filter_input(INPUT_POST, 'email', FILTER_SANITIZE_EMAIL);
     $password = $_POST['password'] ?? '';
 
