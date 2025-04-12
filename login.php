@@ -26,13 +26,13 @@ function redirectUser($role, $college, $association) {
     } elseif ($college === 'CNMS' && $association === 'UDOSO') {
         header('Location: cnms-students.php');
     } elseif ($college === 'COED' && $association === 'UDOSO') {
-        header('Location: ceod-students.php');
+        header('Location: coed-students.php');
     } elseif ($college === 'CIVE' && $association === 'UDOMASA') {
         header('Location: cive-teachers.php');
     } elseif ($college === 'CNMS' && $association === 'UDOMASA') {
         header('Location: cnms-teachers.php');
     } elseif ($college === 'COED' && $association === 'UDOMASA') {
-        header('Location: ceod-teachers.php');
+        header('Location: coed-teachers.php');
     } else {
         // Default redirect if no specific role, college, or association matches
         header('Location: index.html');
