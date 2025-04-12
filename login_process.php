@@ -2,6 +2,11 @@
 session_start();
 date_default_timezone_set('Africa/Dar_es_Salaam');
 
+// Security: Set secure session cookie parameters
+ini_set('session.cookie_httponly', 1);
+ini_set('session.use_only_cookies', 1);
+ini_set('session.cookie_secure', 0); // Set to 1 if using HTTPS in production
+
 // Database connection
 $host = 'localhost';
 $dbname = 'smartuchaguzi_db';
@@ -70,16 +75,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 exit;
             }
 
+            // Regenerate session ID to prevent session fixation
+            session_regenerate_id(true);
+
+            // Set session variables
             $_SESSION['user_id'] = $user['id'];
             $_SESSION['email'] = $user['email'];
             $_SESSION['role'] = $user['role'];
             $_SESSION['college'] = $user['college'];
             $_SESSION['association'] = $user['association'];
+            $_SESSION['user_agent'] = $_SERVER['HTTP_USER_AGENT'];
+            $_SESSION['start_time'] = time();
+            $_SESSION['last_activity'] = time();
 
+            // Log login action in audit_log table
             $action = "User logged in: {$user['email']}";
             $stmt = $pdo->prepare("INSERT INTO audit_log (user_id, action, created_at) VALUES (?, ?, NOW())");
             $stmt->execute([$user['id'], $action]);
 
+            // Redirect based on role, college, and association
             redirectUser($user['role'], $user['college'], $user['association']);
         } else {
             header("Location: login.php?error=" . urlencode("Invalid email or password."));
