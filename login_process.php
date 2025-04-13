@@ -2,7 +2,6 @@
 session_start();
 date_default_timezone_set('Africa/Dar_es_Salaam');
 
-// Database connection
 $host = 'localhost';
 $dbname = 'smartuchaguzi_db';
 $username = 'root';
@@ -12,34 +11,37 @@ try {
     $pdo = new PDO("mysql:host=$host;dbname=$dbname", $username, $password);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 } catch (PDOException $e) {
-    die("Connection failed: " . $e->getMessage());
+    error_log("Database connection failed: " . $e->getMessage());
+    die("Database connection failed. Please try again later.");
 }
 
-// Function to redirect users based on role, college, and association
 function redirectUser($role, $college, $association) {
     if ($role === 'admin') {
         header('Location: admin-dashboard.php');
     } elseif ($role === 'observer') {
         header('Location: observer-dashboard.php');
-    } elseif ($college === 'CIVE' && $association === 'UDOSO') {
-        header('Location: cive-students.php');
-    } elseif ($college === 'CNMS' && $association === 'UDOSO') {
-        header('Location: cnms-students.php');
-    } elseif ($college === 'COED' && $association === 'UDOSO') {
-        header('Location: ceod-students.php');
-    } elseif ($college === 'CIVE' && $association === 'UDOMASA') {
-        header('Location: cive-teachers.php');
-    } elseif ($college === 'CNMS' && $association === 'UDOMASA') {
-        header('Location: cnms-teachers.php');
-    } elseif ($college === 'COED' && $association === 'UDOMASA') {
-        header('Location: ceod-teachers.php');
+    } elseif ($role === 'voter') {
+        if ($college === 'CIVE' && $association === 'UDOSO') {
+            header('Location: cive-students.php');
+        } elseif ($college === 'CNMS' && $association === 'UDOSO') {
+            header('Location: cnms-students.php');
+        } elseif ($college === 'COED' && $association === 'UDOSO') {
+            header('Location: ceod-students.php');
+        } elseif ($college === 'CIVE' && $association === 'UDOMASA') {
+            header('Location: cive-teachers.php');
+        } elseif ($college === 'CNMS' && $association === 'UDOMASA') {
+            header('Location: cnms-teachers.php');
+        } elseif ($college === 'COED' && $association === 'UDOMASA') {
+            header('Location: ceod-teachers.php');
+        } else {
+            header('Location: index.html');
+        }
     } else {
         header('Location: index.html');
     }
     exit;
 }
 
-// Redirect if already logged in
 if (isset($_SESSION['user_id'])) {
     redirectUser($_SESSION['role'], $_SESSION['college'], $_SESSION['association']);
     exit;
@@ -70,10 +72,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 exit;
             }
 
-            // Regenerate session ID to prevent session fixation
             session_regenerate_id(true);
 
-            // Set session variables
             $_SESSION['user_id'] = $user['id'];
             $_SESSION['email'] = $user['email'];
             $_SESSION['role'] = $user['role'];
@@ -83,18 +83,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['start_time'] = time();
             $_SESSION['last_activity'] = time();
 
-            // Log login action in audit_log table
             $action = "User logged in: {$user['email']}";
             $stmt = $pdo->prepare("INSERT INTO audit_log (user_id, action, created_at) VALUES (?, ?, NOW())");
             $stmt->execute([$user['id'], $action]);
 
-            // Redirect based on role, college, and association
             redirectUser($user['role'], $user['college'], $user['association']);
         } else {
             header("Location: login.php?error=" . urlencode("Invalid email or password."));
             exit;
         }
     } catch (PDOException $e) {
+        error_log("Login query failed: " . $e->getMessage());
         header("Location: login.php?error=" . urlencode("Login failed due to a server error. Please try again."));
         exit;
     }

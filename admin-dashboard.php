@@ -2,7 +2,6 @@
 session_start();
 date_default_timezone_set('Africa/Dar_es_Salaam');
 
-// Database connection
 $host = 'localhost';
 $dbname = 'smartuchaguzi_db';
 $username = 'root';
@@ -30,34 +29,29 @@ if (!isset($_SESSION['user_agent']) || $_SESSION['user_agent'] !== $_SERVER['HTT
     exit;
 }
 
-// Session timeout settings
-$inactivity_timeout = 5 * 60; // 5 minutes in seconds
-$max_session_duration = 30 * 60; // 30 minutes in seconds
-$warning_time = 60; // 1 minute before logout for warning
+$inactivity_timeout = 5 * 60;
+$max_session_duration = 30 * 60;
+$warning_time = 60;
 
-// Initializing session start time if not set (this is the first time the user logs in)
 if (!isset($_SESSION['start_time'])) {
     error_log("Session start_time not set. Initializing now.");
     $_SESSION['start_time'] = time();
 }
 
-// Initialize last activity time if not set 
 if (!isset($_SESSION['last_activity'])) {
     error_log("Session last_activity not set. Initializing now.");
     $_SESSION['last_activity'] = time();
 }
 
-// Checking session start time (maximum session duration)
 $time_elapsed = time() - $_SESSION['start_time'];
 if ($time_elapsed >= $max_session_duration) {
-    error_log("Session expired: $time_elapsed seconds elapsed.");
+    error_log("Session expired due to maximum duration: $time_elapsed seconds elapsed.");
     session_unset();
     session_destroy();
-    header('Location: login.php?error=' . urlencode('Session expired. Please log in again.'));
+    header('Location: login.php?error=' . urlencode('Session expired due to maximum duration. Please log in again.'));
     exit;
 }
 
-// Checking for inactivity (timeout)
 $inactive_time = time() - $_SESSION['last_activity'];
 if ($inactive_time >= $inactivity_timeout) {
     error_log("Session expired due to inactivity: $inactive_time seconds elapsed.");
@@ -69,19 +63,16 @@ if ($inactive_time >= $inactivity_timeout) {
 
 $_SESSION['last_activity'] = time();
 
-// Fetching user details
 $user_id = $_SESSION['user_id'];
-$stmt = $pdo->prepare("SELECT email FROM users WHERE id = ?");
+$stmt = $pdo->prepare("SELECT fname FROM users WHERE id = ?");
 $stmt->execute([$user_id]);
 $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-// Setting default profile picture
-$profile_picture = 'images/general.png';
+$profile_picture = 'images/default.jpeg';
 ?>
 
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -520,7 +511,6 @@ $profile_picture = 'images/general.png';
         }
     </style>
 </head>
-
 <body>
     <header class="header">
         <div class="logo">
@@ -537,7 +527,7 @@ $profile_picture = 'images/general.png';
         <div class="user">
             <img src="<?php echo htmlspecialchars($profile_picture); ?>" alt="User Profile Picture" id="profile-pic">
             <div class="dropdown" id="user-dropdown">
-                <span style="color: #e6e6e6; padding: 10px 20px;"><?php echo htmlspecialchars($_SESSION['email'] ?? 'Admin'); ?></span>
+                <span style="color: #e6e6e6; padding: 10px 20px;"><?php echo htmlspecialchars($user['fname'] ?? 'Admin'); ?></span>
                 <a href="admin-profile.php">My Profile</a>
                 <a href="logout.php">Logout</a>
             </div>
@@ -563,11 +553,11 @@ $profile_picture = 'images/general.png';
             <div class="content-section" id="upcoming">
                 <h3>Update Upcoming Elections</h3>
                 <div class="upcoming-section">
-                    <form action="./admin-operations/update-upcoming.php" method="POST">
+                    <form action="/api/update-upcoming.php" method="POST">
                         <input type="text" name="title" placeholder="Election Title" required>
                         <input type="date" name="date" required>
                         <textarea name="description" placeholder="Election Description" rows="4" required></textarea>
-                        <button type="submit">Add to Upcoming Elections</button>
+                        <button type="submit">Add  Add to Upcoming Elections</button>
                     </form>
                 </div>
             </div>
@@ -651,7 +641,6 @@ $profile_picture = 'images/general.png';
     </div>
 
     <script>
-        // Navigation section toggle
         const links = document.querySelectorAll('.header .nav a');
         const sections = document.querySelectorAll('.content-section');
         links.forEach(link => {
@@ -665,7 +654,6 @@ $profile_picture = 'images/general.png';
             });
         });
 
-        // Dropdown toggle
         const profilePic = document.getElementById('profile-pic');
         const dropdown = document.getElementById('user-dropdown');
         profilePic.addEventListener('click', (e) => {
@@ -679,7 +667,6 @@ $profile_picture = 'images/general.png';
             }
         });
 
-        // Session timeout logic
         const inactivityTimeout = <?php echo $inactivity_timeout; ?> * 1000;
         const maxSessionDuration = <?php echo $max_session_duration; ?> * 1000;
         const warningTime = <?php echo $warning_time; ?> * 1000;
@@ -699,14 +686,14 @@ $profile_picture = 'images/general.png';
                 timeoutMessage.textContent = "Your session will expire in 1 minute due to maximum duration.";
                 modal.style.display = 'flex';
             } else if (sessionTime >= maxSessionDuration) {
-                window.location.href = 'login.php?error=' + encodeURIComponent('Session expired due to maximum duration. Please log in again.');
+                window.location.href = 'logout.php';
             }
 
             if (inactiveTime >= inactivityTimeout - warningTime && inactiveTime < inactivityTimeout) {
                 timeoutMessage.textContent = "You will be logged out in 1 minute due to inactivity.";
                 modal.style.display = 'flex';
             } else if (inactiveTime >= inactivityTimeout) {
-                window.location.href = 'login.php?error=' + encodeURIComponent('Session expired due to inactivity. Please log in again.');
+                window.location.href = 'logout.php';
             }
         }
 
@@ -725,5 +712,4 @@ $profile_picture = 'images/general.png';
         setInterval(checkTimeouts, 1000);
     </script>
 </body>
-
 </html>

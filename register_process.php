@@ -1,8 +1,7 @@
 <?php
 session_start();
-date_default_timezone_set('Africa/Dar_es_Salaam'); //We set this timezone to avoid issues with date and time eg when sending emails the default timezone of PHP server is Europe/London then we need to update it in order to avoid unexpected token expiry time
+date_default_timezone_set('Africa/Dar_es_Salaam');
 
-// Database connection for smartuchaguzi_db
 $host = 'localhost';
 $dbname = 'smartuchaguzi_db';
 $username = 'root';
@@ -12,10 +11,10 @@ try {
     $pdo = new PDO("mysql:host=$host;dbname=$dbname", $username, $password);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 } catch (PDOException $e) {
-    die("Connection failed: " . $e->getMessage());
+    error_log("Connection to smartuchaguzi_db failed: " . $e->getMessage());
+    die("Connection failed. Please try again later.");
 }
 
-// Function to connect to the original_db for user verification
 function connectToOriginalDB()
 {
     $host = 'localhost';
@@ -28,11 +27,11 @@ function connectToOriginalDB()
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         return $pdo;
     } catch (PDOException $e) {
-        die("Connection to original_db failed: " . $e->getMessage());
+        error_log("Connection to original_db failed: " . $e->getMessage());
+        die("Connection to original_db failed. Please try again later.");
     }
 }
 
-// Function to send verification email
 function sendVerificationEmail($email, $token)
 {
     $subject = "Verify Your SmartUchaguzi Account";
@@ -44,13 +43,11 @@ function sendVerificationEmail($email, $token)
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Sanitize and validate inputs
     $official_id = filter_input(INPUT_POST, 'official_id', FILTER_SANITIZE_FULL_SPECIAL_CHARS);
     $email = filter_input(INPUT_POST, 'email', FILTER_SANITIZE_EMAIL);
     $password = $_POST['password'] ?? '';
     $confirm_password = $_POST['confirm_password'] ?? '';
 
-    // Basic validation
     if (empty($official_id) || empty($email) || empty($password) || empty($confirm_password)) {
         header("Location: register.php?error=" . urlencode("All fields are required."));
         exit;
@@ -66,34 +63,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    // Connect to original_db to verify user
     $original_pdo = connectToOriginalDB();
-    $stmt = $original_pdo->prepare("SELECT * FROM all_users WHERE official_id = ? AND email = ?");
-    $stmt->execute([$official_id, $email]);
-    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+    try {
+        $stmt = $original_pdo->prepare("SELECT official_id, email, fname, mname, lname, college, association, role FROM all_users WHERE official_id = ? AND email = ?");
+        $stmt->execute([$official_id, $email]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    if (!$user) {
-        header("Location: register.php?error=" . urlencode("User not found or email does not match official ID."));
+        if (!$user) {
+            header("Location: register.php?error=" . urlencode("User not found or email does not match official ID."));
+            exit;
+        }
+    } catch (PDOException $e) {
+        error_log("Query to original_db failed: " . $e->getMessage());
+        header("Location: register.php?error=" . urlencode("Failed to verify user in original database. Please try again."));
         exit;
     }
 
-    // Checking if user already exists in smartuchaguzi_db
-    $stmt = $pdo->prepare("SELECT * FROM users WHERE official_id = ? OR email = ?");
-    $stmt->execute([$official_id, $email]);
-    if ($stmt->fetch()) {
-        header("Location: register.php?error=" . urlencode("User already registered."));
+    try {
+        $stmt = $pdo->prepare("SELECT * FROM users WHERE official_id = ? OR email = ?");
+        $stmt->execute([$official_id, $email]);
+        if ($stmt->fetch()) {
+            header("Location: register.php?error=" . urlencode("User already registered."));
+            exit;
+        }
+    } catch (PDOException $e) {
+        error_log("Check for existing user in smartuchaguzi_db failed: " . $e->getMessage());
+        header("Location: register.php?error=" . urlencode("Failed to check existing user. Please try again."));
         exit;
     }
 
-    // Generation of verification token and the password hash
     $verification_token = bin2hex(random_bytes(16));
     $password_hash = password_hash($password, PASSWORD_DEFAULT);
 
     try {
-        // Inserting user into smartuchaguzi_db with is_verified set to 0 initially
         $stmt = $pdo->prepare(
-            "INSERT INTO users (official_id, email, fname,mname,lname, college, association, password_hash, verification_token, is_verified, created_at, role) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NOW(), ?)"
+            "INSERT INTO users (official_id, email, fname, mname, lname, college, association, password_hash, verification_token, is_verified, role) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)"
         );
         $stmt->execute([
             $official_id,
@@ -108,14 +113,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $user['role'] ?? 'voter'
         ]);
 
-        // Attempt to send verification email
         if (sendVerificationEmail($email, $verification_token)) {
             header("Location: login.php?success=" . urlencode("Registration successful! Please check your email to verify your account."));
         } else {
             header("Location: register.php?error=" . urlencode("Failed to send verification email. Please try again."));
         }
     } catch (PDOException $e) {
+        error_log("Insert into smartuchaguzi_db failed: " . $e->getMessage());
         header("Location: register.php?error=" . urlencode("Registration failed due to a server error. Please try again."));
+        exit;
     }
     exit;
 }
