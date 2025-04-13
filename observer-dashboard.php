@@ -2,7 +2,7 @@
 include 'db.php';
 session_start();
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'observer') {
-  header('Location: login.html');
+  header('Location: login.php');
   exit;
 }
 ?>
