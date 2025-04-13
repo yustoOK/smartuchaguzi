@@ -16,14 +16,12 @@ try {
     die("Connection failed. Please try again later.");
 }
 
-// Redirect if not logged in or not an admin
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
     error_log("Session validation failed: user_id or role not set. Redirecting to login.php");
     header('Location: login.php?error=' . urlencode('Please log in to access the admin dashboard.'));
     exit;
 }
 
-// Validating session integrity (e.g., check user agent to detect session hijacking)
 if (!isset($_SESSION['user_agent']) || $_SESSION['user_agent'] !== $_SERVER['HTTP_USER_AGENT']) {
     error_log("Session hijacking detected: user agent mismatch. Session destroyed.");
     session_unset();
@@ -37,29 +35,29 @@ $inactivity_timeout = 5 * 60; // 5 minutes in seconds
 $max_session_duration = 30 * 60; // 30 minutes in seconds
 $warning_time = 60; // 1 minute before logout for warning
 
-// Initialize session start time if not set
+// Initializing session start time if not set (this is the first time the user logs in)
 if (!isset($_SESSION['start_time'])) {
     error_log("Session start_time not set. Initializing now.");
     $_SESSION['start_time'] = time();
 }
 
-// Initialize last activity time if not set
+// Initialize last activity time if not set 
 if (!isset($_SESSION['last_activity'])) {
     error_log("Session last_activity not set. Initializing now.");
     $_SESSION['last_activity'] = time();
 }
 
-// Check session start time (maximum session duration)
+// Checking session start time (maximum session duration)
 $time_elapsed = time() - $_SESSION['start_time'];
 if ($time_elapsed >= $max_session_duration) {
-    error_log("Session expired due to maximum duration: $time_elapsed seconds elapsed.");
+    error_log("Session expired: $time_elapsed seconds elapsed.");
     session_unset();
     session_destroy();
-    header('Location: login.php?error=' . urlencode('Session expired due to maximum duration. Please log in again.'));
+    header('Location: login.php?error=' . urlencode('Session expired. Please log in again.'));
     exit;
 }
 
-// Check for inactivity
+// Checking for inactivity (timeout)
 $inactive_time = time() - $_SESSION['last_activity'];
 if ($inactive_time >= $inactivity_timeout) {
     error_log("Session expired due to inactivity: $inactive_time seconds elapsed.");
@@ -69,16 +67,15 @@ if ($inactive_time >= $inactivity_timeout) {
     exit;
 }
 
-// Update last activity time
 $_SESSION['last_activity'] = time();
 
-// Fetch user details
+// Fetching user details
 $user_id = $_SESSION['user_id'];
 $stmt = $pdo->prepare("SELECT email FROM users WHERE id = ?");
 $stmt->execute([$user_id]);
 $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-// Set default profile picture
+// Setting default profile picture
 $profile_picture = 'images/general.png';
 ?>
 
