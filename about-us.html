@@ -3,14 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>About Us - SmartUchaguzi</title>
+    <title>SmartUchaguzi | About Us</title>
     <link rel="icon" href="./uploads/Vote.jpeg" type="image/x-icon">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            font-family: 'Arial', sans-serif;
+            font-family: 'Poppins', sans-serif;
         }
 
         body {
@@ -21,21 +23,28 @@
             color: #2d3748;
             line-height: 1.6;
             min-height: 100vh;
+            scroll-behavior: smooth;
         }
 
         .header {
-            background: linear-gradient(135deg, #1a3c34, #2d3748);
-            color: #e6e6e6;
-            width: 100%;
-            padding: 15px 40px;
             position: fixed;
             top: 0;
             left: 0;
-            z-index: 1000;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            width: 100%;
+            background: rgba(26, 60, 52, 0.9);
+            backdrop-filter: blur(10px);
+            padding: 15px 40px;
             display: flex;
             align-items: center;
             justify-content: space-between;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+            animation: gradientShift 5s infinite alternate;
+        }
+
+        @keyframes gradientShift {
+            0% { background: rgba(26, 60, 52, 0.9); }
+            100% { background: rgba(44, 82, 76, 0.9); }
         }
 
         .header .logo-container {
@@ -53,11 +62,22 @@
             width: 40px;
             height: 40px;
             margin-right: 15px;
+            border-radius: 50%;
+            border: 2px solid #f4a261;
+            transition: transform 0.3s ease;
+        }
+
+        .header .logo img:hover {
+            transform: rotate(360deg);
         }
 
         .header .logo h1 {
             font-size: 20px;
             font-weight: 600;
+            background: linear-gradient(to right, #f4a261, #e76f51);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
         }
 
         .breadcrumb {
@@ -68,7 +88,23 @@
             color: #e6e6e6;
             text-decoration: none;
             padding: 0 5px;
+            position: relative;
             transition: color 0.3s ease;
+        }
+
+        .breadcrumb a::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 0;
+            height: 1px;
+            background: #f4a261;
+            transition: width 0.3s ease;
+        }
+
+        .breadcrumb a:hover::after {
+            width: 100%;
         }
 
         .breadcrumb a:hover {
@@ -82,7 +118,7 @@
         }
 
         .about-section {
-            background: rgba(255, 255, 255, 0.9);
+            background: rgba(255, 255, 255, 0.95);
             border-radius: 12px;
             padding: 40px;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
@@ -96,7 +132,6 @@
 
         .about-section h2 {
             font-size: 36px;
-            color: #1a3c34;
             text-align: center;
             margin-bottom: 30px;
             background: linear-gradient(to right, #1a3c34, #f4a261);
@@ -121,12 +156,32 @@
             font-size: 24px;
             color: #1a3c34;
             margin-bottom: 15px;
+            background: linear-gradient(to right, #1a3c34, #f4a261);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
         }
 
         .about-text p {
-            line-height: 1.6;
+            line-height: 1.8;
             margin-bottom: 20px;
             color: #4a5568;
+            font-size: 16px;
+        }
+
+        .team-section {
+            margin-top: 40px;
+        }
+
+        .team-section h3 {
+            font-size: 28px;
+            color: #1a3c34;
+            text-align: center;
+            margin-bottom: 30px;
+            background: linear-gradient(to right, #1a3c34, #f4a261);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
         }
 
         .team-grid {
@@ -137,7 +192,8 @@
         }
 
         .team-member {
-            background: #fff;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
             padding: 20px;
             border-radius: 8px;
             text-align: center;
@@ -146,7 +202,7 @@
 
         .team-member:hover {
             transform: translateY(-5px);
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 5px 15px rgba(244, 162, 97, 0.3);
         }
 
         .team-member img {
@@ -155,16 +211,64 @@
             border-radius: 50%;
             margin-bottom: 15px;
             border: 2px solid #f4a261;
+            object-fit: cover;
+        }
+
+        .team-member img:not([src]),
+        .team-member img[src=""] {
+            background: #e6e6e6;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #718096;
+            font-size: 14px;
+            text-align: center;
         }
 
         .team-member h4 {
             color: #1a3c34;
             margin-bottom: 5px;
+            font-size: 18px;
         }
 
         .team-member p {
             font-size: 14px;
             color: #4a5568;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+        }
+
+        .team-member p i {
+            color: #f4a261;
+        }
+
+        .vision-section {
+            margin-top: 40px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 30px;
+            border-radius: 12px;
+            text-align: center;
+        }
+
+        .vision-section h3 {
+            font-size: 28px;
+            color: #1a3c34;
+            margin-bottom: 20px;
+            background: linear-gradient(to right, #1a3c34, #f4a261);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        .vision-section p {
+            font-size: 16px;
+            color: #4a5568;
+            max-width: 800px;
+            margin: 0 auto;
+            line-height: 1.8;
         }
 
         .contact-details {
@@ -173,9 +277,13 @@
         }
 
         .contact-details h3 {
-            font-size: 24px;
+            font-size: 28px;
             color: #1a3c34;
             margin-bottom: 20px;
+            background: linear-gradient(to right, #1a3c34, #f4a261);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
         }
 
         .contact-list {
@@ -190,6 +298,10 @@
         .contact-list span.label {
             font-weight: 500;
             color: #1a3c34;
+        }
+
+        .contact-list span.value {
+            color: #4a5568;
         }
 
         .contact-list span.value a {
@@ -230,30 +342,103 @@
         .social-links {
             display: flex;
             justify-content: center;
-            gap: 20px;
+            gap: 15px;
             margin-top: 15px;
         }
 
         .social-links a {
-            display: inline-block;
-            transition: transform 0.3s ease;
+            color: #e6e6e6;
+            font-size: 18px;
+            transition: all 0.3s ease;
         }
 
         .social-links a:hover {
+            color: #f4a261;
             transform: scale(1.1);
-        }
-
-        .social-links img {
-            width: 32px;
-            height: 32px;
         }
 
         footer {
             background: linear-gradient(135deg, #1a3c34, #2d3748);
             color: #e6e6e6;
+            padding: 40px 20px;
             text-align: center;
-            padding: 20px;
             margin-top: 40px;
+        }
+
+        footer .footer-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            gap: 20px;
+        }
+
+        footer p {
+            font-size: 14px;
+        }
+
+        footer .footer-links {
+            display: flex;
+            gap: 20px;
+        }
+
+        footer .footer-links a {
+            color: #f4a261;
+            text-decoration: none;
+            font-size: 14px;
+            transition: color 0.3s ease;
+        }
+
+        footer .footer-links a:hover {
+            color: #e76f51;
+        }
+
+        footer .social-icons {
+            display: flex;
+            gap: 15px;
+        }
+
+        footer .social-icons a {
+            color: #e6e6e6;
+            font-size: 18px;
+            transition: all 0.3s ease;
+        }
+
+        footer .social-icons a:hover {
+            color: #f4a261;
+            transform: scale(1.1);
+        }
+
+        .back-to-top {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: linear-gradient(135deg, #f4a261, #e76f51);
+            color: #fff;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+            text-decoration: none;
+        }
+
+        .back-to-top.show {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .back-to-top:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 20px rgba(244, 162, 97, 0.5);
         }
 
         @media (max-width: 768px) {
@@ -261,7 +446,10 @@
                 padding: 30px;
             }
 
-            .about-section h2 {
+            .about-section h2,
+            .team-section h3,
+            .vision-section h3,
+            .contact-details h3 {
                 font-size: 30px;
             }
 
@@ -274,22 +462,43 @@
                 height: 80px;
             }
 
-            .social-links img {
-                width: 28px;
-                height: 28px;
+            .social-links a,
+            footer .social-icons a {
+                font-size: 16px;
             }
 
             .contact-list {
                 grid-template-columns: 1fr;
             }
+
+            footer .footer-content {
+                flex-direction: column;
+                text-align: center;
+            }
         }
 
         @media (max-width: 480px) {
+            .header {
+                padding: 10px 20px;
+            }
+
+            .header .logo h1 {
+                font-size: 18px;
+            }
+
+            .header .logo img {
+                width: 35px;
+                height: 35px;
+            }
+
             .about-section {
                 padding: 20px;
             }
 
-            .about-section h2 {
+            .about-section h2,
+            .team-section h3,
+            .vision-section h3,
+            .contact-details h3 {
                 font-size: 24px;
             }
 
@@ -302,17 +511,17 @@
                 height: 60px;
             }
 
-            .social-links img {
-                width: 24px;
-                height: 24px;
+            .social-links a,
+            footer .social-icons a {
+                font-size: 14px;
             }
 
-            .header {
-                padding: 10px 20px;
-            }
-
-            .header .logo h1 {
-                font-size: 18px;
+            .back-to-top {
+                width: 40px;
+                height: 40px;
+                font-size: 20px;
+                bottom: 20px;
+                right: 20px;
             }
         }
     </style>
@@ -329,55 +538,65 @@
             </div>
         </div>
     </div>
+
     <div class="container">
         <div class="about-section">
             <h2>Who We Are</h2>
             <div class="about-content">
                 <div class="about-text">
                     <h3>Our Story</h3>
-                    <p>SmartUchaguzi is a groundbreaking project by Group 4 at the University of Dodoma, Tanzania, as part of our Bachelor's Degree in Information Systems. Titled "SmartUchaguzi: Transparent and Secure Web-Based Election System at the University of Dodoma Elections," this initiative leverages cutting-edge technology to revolutionize student elections.</p>
-                    <p>Backed by a neural network model for real-time fraud detection and blockchain technology for secure vote storage, our system ensures transparency, integrity, and accessibility in the electoral process.</p>
+                    <p>SmartUchaguzi is a pioneering project developed by Group 4 at the University of Dodoma, Tanzania, as part of our Bachelor's Degree in Information Systems. Titled "SmartUchaguzi: Transparent and Secure Web-Based Election System at the University of Dodoma Elections," this initiative leverages cutting-edge technology to revolutionize student elections.</p>
+                    <p>Our platform integrates a neural network model for real-time fraud detection and blockchain technology for secure vote storage, ensuring transparency, integrity, and accessibility in the electoral process. We started this project to address the challenges of traditional voting systems, such as fraud, inefficiency, and lack of trust, by providing a digital solution that empowers every voter.</p>
                     <h3>Our Mission</h3>
-                    <p>We aim to create a secure, transparent, and user-friendly voting platform that empowers students at UDOM to participate in fair elections, setting a new standard for university governance.</p>
+                    <p>We aim to create a secure, transparent, and user-friendly voting platform that empowers students at UDOM to participate in fair elections, setting a new standard for university governance. By combining advanced technology with a user-centric design, we strive to make voting accessible to all eligible members of the UDOM community, whether they are students voting for UDOSO or academic staff voting for UDOMASA.</p>
                 </div>
             </div>
-            <h3>Meet Our Team</h3>
-            <div class="team-grid">
-                <div class="team-member">
-                    <img src="./uploads/team/default.png" alt="Yusto Theobard Bitalio">
-                    <h4>Yusto Theobard Bitalio</h4>
-                    <p>Group Leader & Project Manager</p>
-                </div>
-                <div class="team-member">
-                    <img src="./uploads/team/default.png" alt="Nickson G. Leo">
-                    <h4>Nickson G. Leo</h4>
-                    <p>Developer & Financial Manager</p>
-                </div>
-                <div class="team-member">
-                    <img src="./uploads/team/default-female.png" alt="Shaira H. Adamu">
-                    <h4>Shaira H. Adamu</h4>
-                    <p>Model Designer</p>
-                </div>
-                <div class="team-member">
-                    <img src="./uploads/team/default-female.png" alt="Asha S. Mkuto">
-                    <h4>Asha S. Mkuto</h4>
-                    <p>Implementation Specialist</p>
-                </div>
-                <div class="team-member">
-                    <img src="./uploads/team/default.png" alt="Zakayo Bumela">
-                    <h4>Zakayo Bumela</h4>
-                    <p>Coding & Support</p>
-                </div>
-                <div class="team-member">
-                    <img src="./uploads/team/default.png" alt="Prof. Hector Mongi">
-                    <h4>Prof. Hector Mongi</h4>
-                    <p>Project Supervisor</p>
+
+            <div class="team-section">
+                <h3>Meet Our Team</h3>
+                <div class="team-grid">
+                    <div class="team-member">
+                        <img src="./uploads/team/default.png" alt="Yusto Theobard Bitalio" onerror="this.onerror=null; this.src=''; this.parentElement.innerHTML='Image Not Available';">
+                        <h4>Yusto Theobard Bitalio</h4>
+                        <p><i class="fas fa-user-tie"></i> Group Leader & Project Manager</p>
+                    </div>
+                    <div class="team-member">
+                        <img src="./uploads/team/default.png" alt="Nickson G. Leo" onerror="this.onerror=null; this.src=''; this.parentElement.innerHTML='Image Not Available';">
+                        <h4>Nickson G. Leo</h4>
+                        <p><i class="fas fa-code"></i> Developer & Financial Manager</p>
+                    </div>
+                    <div class="team-member">
+                        <img src="./uploads/team/default-female.png" alt="Shaira H. Adamu" onerror="this.onerror=null; this.src=''; this.parentElement.innerHTML='Image Not Available';">
+                        <h4>Shaira H. Adamu</h4>
+                        <p><i class="fas fa-brain"></i> Model Designer</p>
+                    </div>
+                    <div class="team-member">
+                        <img src="./uploads/team/default-female.png" alt="Asha S. Mkuto" onerror="this.onerror=null; this.src=''; this.parentElement.innerHTML='Image Not Available';">
+                        <h4>Asha S. Mkuto</h4>
+                        <p><i class="fas fa-tools"></i> Implementation Specialist</p>
+                    </div>
+                    <div class="team-member">
+                        <img src="./uploads/team/default.png" alt="Zakayo Bumela" onerror="this.onerror=null; this.src=''; this.parentElement.innerHTML='Image Not Available';">
+                        <h4>Zakayo Bumela</h4>
+                        <p><i class="fas fa-laptop-code"></i> Coding & Support</p>
+                    </div>
+                    <div class="team-member">
+                        <img src="./uploads/team/default.png" alt="Prof. Hector Mongi" onerror="this.onerror=null; this.src=''; this.parentElement.innerHTML='Image Not Available';">
+                        <h4>Prof. Hector Mongi</h4>
+                        <p><i class="fas fa-chalkboard-teacher"></i> Project Supervisor</p>
+                    </div>
                 </div>
             </div>
+
+            <div class="vision-section">
+                <h3>Our Vision</h3>
+                <p>We envision a future where every university election at UDOM is conducted with unparalleled transparency and efficiency. By expanding SmartUchaguzi, we hope to inspire other institutions to adopt secure, technology-driven voting systems, fostering trust and participation in democratic processes across Tanzania and beyond.</p>
+            </div>
+
             <div class="contact-details">
                 <h3>Contact Details</h3>
                 <div class="contact-list">
-                    <span class="label">Email:</span> <span class="value">yustobitalio20@gmail.com</span>
+                    <span class="label">Email:</span> <span class="value"><a href="mailto:yustobitalio20@gmail.com">yustobitalio20@gmail.com</a></span>
                     <span class="label">Location:</span> <span class="value">University of Dodoma, Tanzania</span>
                     <span class="label">Website:</span> <span class="value"><a href="https://www.udom.ac.tz" target="_blank" rel="noopener">www.udom.ac.tz</a></span>
                     <span class="label">Department:</span> <span class="value">Department of Information Systems</span>
@@ -385,25 +604,44 @@
                     <span class="label">Project ID:</span> <span class="value">UDOM/IS/2025/GRP4</span>
                 </div>
                 <div class="social-links">
-                    <a href="https://instagram.com/smartuchaguzi" target="_blank" rel="noopener">
-                        <img src="./uploads/social/instagram.jpg" alt="Instagram">
-                    </a>
-                    <a href="https://facebook.com/smartuchaguzi" target="_blank" rel="noopener">
-                        <img src="./uploads/social/Facebook.jpeg" alt="Facebook">
-                    </a>
-                    <a href="https://x.com/SmartUchaguzi" target="_blank" rel="noopener">
-                        <img src="./uploads/social/X.png" alt="X">
-                    </a>
-                    <a href="https://wa.me/255719950708" target="_blank" rel="noopener">
-                        <img src="./uploads/social/WhatsApp.jpg" alt="WhatsApp">
-                    </a>
+                    <a href="https://instagram.com/smartuchaguzi" target="_blank" rel="noopener"><i class="fab fa-instagram"></i></a>
+                    <a href="https://facebook.com/smartuchaguzi" target="_blank" rel="noopener"><i class="fab fa-facebook-f"></i></a>
+                    <a href="https://x.com/SmartUchaguzi" target="_blank" rel="noopener"><i class="fab fa-x-twitter"></i></a>
+                    <a href="https://wa.me/255719950708" target="_blank" rel="noopener"><i class="fab fa-whatsapp"></i></a>
                 </div>
                 <p>Follow us on social media for updates and news!</p>
             </div>
         </div>
     </div>
+
     <footer>
-        <p>© 2025 SmartUchaguzi | Group 4, University of Dodoma</p>
+        <div class="footer-content">
+            <p>© 2025 SmartUchaguzi | Group 4, University of Dodoma</p>
+            <div class="footer-links">
+                <a href="index.html">Home</a>
+                <a href="contact.php">Contact Us</a>
+                <a href="privacy-policy.html">Privacy Policy</a>
+            </div>
+            <div class="social-icons">
+                <a href="https://instagram.com/smartuchaguzi" target="_blank" rel="noopener"><i class="fab fa-instagram"></i></a>
+                <a href="https://facebook.com/smartuchaguzi" target="_blank" rel="noopener"><i class="fab fa-facebook-f"></i></a>
+                <a href="https://x.com/SmartUchaguzi" target="_blank" rel="noopener"><i class="fab fa-x-twitter"></i></a>
+                <a href="https://wa.me/255719950708" target="_blank" rel="noopener"><i class="fab fa-whatsapp"></i></a>
+            </div>
+        </div>
     </footer>
+
+    <a href="#" class="back-to-top" id="back-to-top"><i class="fas fa-chevron-up"></i></a>
+
+    <script>
+        window.addEventListener('scroll', function() {
+            const backToTop = document.getElementById('back-to-top');
+            if (window.scrollY > 300) {
+                backToTop.classList.add('show');
+            } else {
+                backToTop.classList.remove('show');
+            }
+        });
+    </script>
 </body>
 </html>
