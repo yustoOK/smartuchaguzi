@@ -68,7 +68,7 @@ $stmt = $pdo->prepare("SELECT fname FROM users WHERE id = ?");
 $stmt->execute([$user_id]);
 $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-$profile_picture = 'images/default.jpeg';
+$profile_picture = 'images/default.png';
 ?>
 
 <!DOCTYPE html>
