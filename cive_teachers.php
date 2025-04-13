@@ -33,7 +33,6 @@ if (!isset($_SESSION['user_id'])) {
       min-height: 100vh;
     }
 
-    /* Header */
     .header {
       position: fixed;
       top: 0;
@@ -145,7 +144,6 @@ if (!isset($_SESSION['user_id'])) {
       box-shadow: 0 0 10px rgba(231, 111, 81, 0.5);
     }
 
-    /* Main Content */
     .dashboard {
       padding: 100px 20px 20px;
     }
@@ -209,7 +207,6 @@ if (!isset($_SESSION['user_id'])) {
       margin-top: 5px;
     }
 
-    /* Content Sections */
     .content-section {
       display: none;
     }
@@ -395,7 +392,7 @@ if (!isset($_SESSION['user_id'])) {
       transform: scale(1.05);
     }
 
-    /* Responsive */
+    /* Responsiveness */
     @media (max-width: 768px) {
       .header {
         padding: 15px 20px;
@@ -572,7 +569,7 @@ if (!isset($_SESSION['user_id'])) {
       });
     });
 
-    const electionEnd = new Date('2025-06-10T23:59:59').getTime(); // Adjusted for UDOMASA
+    const electionEnd = new Date('2025-06-10T23:59:59').getTime(); 
     function updateTimer() {
       const now = new Date().getTime();
       const distance = electionEnd - now;

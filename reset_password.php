@@ -254,14 +254,14 @@ date_default_timezone_set('Africa/Dar_es_Salaam');
             die("Connection failed: " . $e->getMessage());
         }
 
-        $token = isset($_GET['token']) ? filter_input(INPUT_GET, 'token', FILTER_SANITIZE_STRING) : null;
+        $token = isset($_GET['token']) ? htmlspecialchars($_GET['token'], ENT_QUOTES, 'UTF-8') : null;
 
         if (!$token) {
             echo '<p class="message error">No reset token provided.</p>';
             exit;
         }
 
-        // Check if token is valid
+        // Checking if token is valid
         $stmt = $pdo->prepare("SELECT * FROM password_resets WHERE token = ? AND expires_at > NOW()");
         $stmt->execute([$token]);
         $reset = $stmt->fetch(PDO::FETCH_ASSOC);

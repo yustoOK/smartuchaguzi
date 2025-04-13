@@ -573,7 +573,6 @@ if (!isset($_SESSION['user_id'])) {
       });
     });
 
-    // Timer
     const electionEnd = new Date('2025-05-15T23:59:59').getTime();
     function updateTimer() {
       const now = new Date().getTime();

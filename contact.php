@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Contact Us - SmartUchaguzi</title>
+    <title>Contact Us | SmartUchaguzi</title>
     <link rel="icon" href="./uploads/Vote.jpeg" type="image/x-icon">
     <style>
         * {
@@ -84,7 +84,7 @@
         }
 
         .container {
-            max-width: 1000px; /* Increased width to make the form larger */
+            max-width: 1000px; 
             margin: 100px auto 40px;
             padding: 20px;
             flex: 1;
@@ -93,7 +93,7 @@
         .contact-section {
             background: rgba(255, 255, 255, 0.9);
             border-radius: 12px;
-            padding: 50px; /* Increased padding for a more spacious feel */
+            padding: 50px; 
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
             animation: fadeIn 0.5s ease-in-out;
         }
@@ -104,10 +104,10 @@
         }
 
         .contact-section h2 {
-            font-size: 40px; /* Slightly larger heading */
+            font-size: 40px; 
             color: #1a3c34;
             text-align: center;
-            margin-bottom: 40px; /* More space below the heading */
+            margin-bottom: 40px; 
             background: linear-gradient(to right, #1a3c34, #f4a261);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
@@ -130,13 +130,13 @@
         }
 
         .contact-form textarea {
-            padding: 15px; /* Increased padding for a larger textarea */
+            padding: 15px; 
             border: none;
-            border-radius: 8px; /* Slightly larger border-radius */
+            border-radius: 8px; 
             box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
             font-size: 16px;
             resize: vertical;
-            min-height: 200px; /* Increased height for a larger textarea */
+            min-height: 200px; 
             transition: box-shadow 0.3s ease;
         }
 
@@ -185,8 +185,8 @@
         .success-message {
             text-align: center;
             color: #1a3c34;
-            margin-top: 30px; /* More space above the success message */
-            font-size: 18px; /* Larger font size */
+            margin-top: 30px; 
+            font-size: 18px; 
             background: rgba(255, 255, 255, 0.8);
             padding: 15px; /* More padding */
             border-radius: 8px;
@@ -203,7 +203,7 @@
 
         @media (max-width: 768px) {
             .container {
-                max-width: 90%; /* Use more width on smaller screens */
+                max-width: 90%; 
             }
 
             .contact-section {

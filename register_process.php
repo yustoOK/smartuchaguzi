@@ -77,7 +77,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    // Check if user already exists in smartuchaguzi_db
+    // Checking if user already exists in smartuchaguzi_db
     $stmt = $pdo->prepare("SELECT * FROM users WHERE official_id = ? OR email = ?");
     $stmt->execute([$official_id, $email]);
     if ($stmt->fetch()) {
@@ -85,12 +85,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    // Generate verification token and hash the password
+    // Generation of verification token and the password hash
     $verification_token = bin2hex(random_bytes(16));
     $password_hash = password_hash($password, PASSWORD_DEFAULT);
 
     try {
-        // Insert user into smartuchaguzi_db with is_verified set to 0 initially
+        // Inserting user into smartuchaguzi_db with is_verified set to 0 initially
         $stmt = $pdo->prepare(
             "INSERT INTO users (official_id, email, full_name, college, association, password_hash, verification_token, is_verified, created_at, role) 
             VALUES (?, ?, ?, ?, ?, ?, ?, 0, NOW(), ?)"
