@@ -1,5 +1,58 @@
 <?php
 date_default_timezone_set('Africa/Dar_es_Salaam');
+
+// Handle form submission before any output
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $host = 'localhost';
+    $dbname = 'smartuchaguzi_db';
+    $username = 'root';
+    $password = 'Leonida1972@@@@';
+
+    try {
+        $pdo = new PDO("mysql:host=$host;dbname=$dbname", $username, $password);
+        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    } catch (PDOException $e) {
+        die("Connection failed: " . $e->getMessage());
+    }
+
+    $email = filter_input(INPUT_POST, 'email', FILTER_SANITIZE_EMAIL);
+
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        header("Location: forgot_password.php?error=" . urlencode("Invalid email format."));
+        exit;
+    }
+
+    // Check if user exists
+    $stmt = $pdo->prepare("SELECT * FROM users WHERE email = ?");
+    $stmt->execute([$email]);
+    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$user) {
+        header("Location: forgot_password.php?error=" . urlencode("Email not found."));
+        exit;
+    }
+
+    // Generate reset token
+    $token = bin2hex(random_bytes(16));
+    $expires_at = date('Y-m-d H:i:s', strtotime('+1 hour')); // Token expires in 1 hour
+
+    // Store token in password_resets table
+    $stmt = $pdo->prepare("INSERT INTO password_resets (email, token, expires_at) VALUES (?, ?, ?)");
+    $stmt->execute([$email, $token, $expires_at]);
+
+    // Send reset email
+    $subject = "Reset Your SmartUchaguzi Password";
+    $resetLink = "http://localhost/smartuchaguzi/reset_password.php?token=" . urlencode($token);
+    $message = "Hello,\n\nYou requested a password reset. Click the link below to reset your password:\n$resetLink\n\nThis link will expire in 1 hour.\nIf you did not request this, kindly ignore the link!. \n\nBest regards,\nSmartUchaguzi Team";
+    $headers = "From: yustobitalio20@gmail.com\r\n";
+
+    if (mail($email, $subject, $message, $headers)) {
+        header("Location: forgot_password.php?success=" . urlencode("Password reset link sent! Please check your email."));
+    } else {
+        header("Location: forgot_password.php?error=" . urlencode("Failed to send reset email. Please try again."));
+    }
+    exit;
+}
 ?>
 
 <!DOCTYPE html>
@@ -259,57 +312,3 @@ date_default_timezone_set('Africa/Dar_es_Salaam');
 </body>
 
 </html>
-
-<?php
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $host = 'localhost';
-    $dbname = 'smartuchaguzi_db';
-    $username = 'root';
-    $password = 'Leonida1972@@@@';
-
-    try {
-        $pdo = new PDO("mysql:host=$host;dbname=$dbname", $username, $password);
-        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-    } catch (PDOException $e) {
-        die("Connection failed: " . $e->getMessage());
-    }
-
-    $email = filter_input(INPUT_POST, 'email', FILTER_SANITIZE_EMAIL);
-
-    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        header("Location: forgot_password.php?error=" . urlencode("Invalid email format."));
-        exit;
-    }
-
-    // Check if user exists
-    $stmt = $pdo->prepare("SELECT * FROM users WHERE email = ?");
-    $stmt->execute([$email]);
-    $user = $stmt->fetch(PDO::FETCH_ASSOC);
-
-    if (!$user) {
-        header("Location: forgot_password.php?error=" . urlencode("Email not found."));
-        exit;
-    }
-
-    // Generate reset token
-    $token = bin2hex(random_bytes(16));
-    $expires_at = date('Y-m-d H:i:s', strtotime('+1 hour')); // Token expires in 1 hour
-
-    // Store token in password_resets table
-    $stmt = $pdo->prepare("INSERT INTO password_resets (email, token, expires_at) VALUES (?, ?, ?)");
-    $stmt->execute([$email, $token, $expires_at]);
-
-    // Send reset email
-    $subject = "Reset Your SmartUchaguzi Password";
-    $resetLink = "http://localhost/smartuchaguzi/reset_password.php?token=" . urlencode($token);
-    $message = "Hello,\n\nYou requested a password reset. Click the link below to reset your password:\n$resetLink\n\nThis link will expire in 1 hour.\nIf you did not request this, kindly ignore the link!. \n\nBest regards,\nSmartUchaguzi Team";
-    $headers = "From: yustobitalio20@gmail.com\r\n";
-
-    if (mail($email, $subject, $message, $headers)) {
-        header("Location: forgot_password.php?success=" . urlencode("Password reset link sent! Please check your email."));
-    } else {
-        header("Location: forgot_password.php?error=" . urlencode("Failed to send reset email. Please try again."));
-    }
-    exit;
-}
-?>
