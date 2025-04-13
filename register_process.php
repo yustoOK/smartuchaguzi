@@ -1,6 +1,6 @@
 <?php
 session_start();
-date_default_timezone_set('Africa/Dar_es_Salaam');
+date_default_timezone_set('Africa/Dar_es_Salaam'); //We set this timezone to avoid issues with date and time eg when sending emails the default timezone of PHP server is Europe/London then we need to update it in order to avoid unexpected token expiry time
 
 // Database connection for smartuchaguzi_db
 $host = 'localhost';
@@ -92,13 +92,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         // Inserting user into smartuchaguzi_db with is_verified set to 0 initially
         $stmt = $pdo->prepare(
-            "INSERT INTO users (official_id, email, full_name, college, association, password_hash, verification_token, is_verified, created_at, role) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, 0, NOW(), ?)"
+            "INSERT INTO users (official_id, email, fname,mname,lname, college, association, password_hash, verification_token, is_verified, created_at, role) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NOW(), ?)"
         );
         $stmt->execute([
             $official_id,
             $email,
-            $user['full_name'],
+            $user['fname'],
+            $user['mname'],
+            $user['lname'],
             $user['college'],
             $user['association'],
             $password_hash,
