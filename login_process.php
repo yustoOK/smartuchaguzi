@@ -20,24 +20,28 @@ function redirectUser($role, $college, $association) {
         header('Location: admin-dashboard.php');
     } elseif ($role === 'observer') {
         header('Location: observer-dashboard.php');
-    } elseif ($role === 'voter') {
-        if ($college === 'CIVE' && $association === 'UDOSO') {
+    } elseif ($role === 'voter' && $association === 'UDOSO') {
+        if ($college === 'CIVE') {
             header('Location: cive-students.php');
-        } elseif ($college === 'CNMS' && $association === 'UDOSO') {
+        } elseif ($college === 'CNMS') {
             header('Location: cnms-students.php');
-        } elseif ($college === 'COED' && $association === 'UDOSO') {
-            header('Location: ceod-students.php');
-        } elseif ($college === 'CIVE' && $association === 'UDOMASA') {
+        } elseif ($college === 'COED') {
+            header('Location: coed-students.php'); 
+        } else {
+            header('Location: index.html');
+        }
+    } elseif ($role === 'teacher-voter' && $association === 'UDOMASA') {
+        if ($college === 'CIVE') {
             header('Location: cive-teachers.php');
-        } elseif ($college === 'CNMS' && $association === 'UDOMASA') {
+        } elseif ($college === 'CNMS') {
             header('Location: cnms-teachers.php');
-        } elseif ($college === 'COED' && $association === 'UDOMASA') {
-            header('Location: ceod-teachers.php');
+        } elseif ($college === 'COED') {
+            header('Location: coed-teachers.php'); 
         } else {
             header('Location: index.html');
         }
     } else {
-        header('Location: index.html');
+        header('Location: index.html'); //This is the default location in case everything fails but this does not mean error
     }
     exit;
 }
