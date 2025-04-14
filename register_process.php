@@ -65,12 +65,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $original_pdo = connectToOriginalDB();
     try {
-        $stmt = $original_pdo->prepare("SELECT official_id, email, fname, mname, lname, college, association, role FROM all_users WHERE official_id = ? AND email = ?");
+        // Check if user exists and is active in original_db
+        $stmt = $original_pdo->prepare("SELECT official_id, email, fname, mname, lname, college, association, role FROM all_users WHERE official_id = ? AND email = ? AND is_active = 1");
         $stmt->execute([$official_id, $email]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if (!$user) {
-            header("Location: register.php?error=" . urlencode("User not found or email does not match official ID."));
+            header("Location: register.php?error=" . urlencode("User not found, email does not match official ID, or user is inactive."));
             exit;
         }
     } catch (PDOException $e) {
@@ -97,8 +98,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     try {
         $stmt = $pdo->prepare(
-            "INSERT INTO users (official_id, email, fname, mname, lname, college, association, password_hash, verification_token, is_verified, role) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)"
+            "INSERT INTO users (
+                official_id, 
+                email, 
+                fname, 
+                mname, 
+                lname, 
+                college, 
+                association, 
+                password, 
+                verification_token, 
+                is_verified, 
+                role, 
+                last_login, 
+                privacy_consent, 
+                consent_timestamp
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, NULL, 0, NULL)"
         );
         $stmt->execute([
             $official_id,
@@ -125,4 +140,3 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     exit;
 }
-?>
