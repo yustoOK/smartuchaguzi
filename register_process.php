@@ -65,13 +65,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $original_pdo = connectToOriginalDB();
     try {
-        // Check if user exists and is active in original_db
-        $stmt = $original_pdo->prepare("SELECT official_id, email, fname, mname, lname, college, association, role FROM all_users WHERE official_id = ? AND email = ? AND is_active = 1");
+        $stmt = $original_pdo->prepare("SELECT official_id, email, fname, mname, lname, college, hostel, association, role, is_active FROM all_users WHERE official_id = ? AND email = ?");
         $stmt->execute([$official_id, $email]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if (!$user) {
-            header("Location: register.php?error=" . urlencode("User not found, email does not match official ID, or user is inactive."));
+            header("Location: register.php?error=" . urlencode("User not found or email does not match official ID."));
+            exit;
+        }
+
+        if ($user['is_active'] != 1) {
+            header("Location: register.php?error=" . urlencode("User is not active. Please contact support."));
             exit;
         }
     } catch (PDOException $e) {
@@ -105,6 +109,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 mname, 
                 lname, 
                 college, 
+                hostel, 
                 association, 
                 password, 
                 verification_token, 
@@ -113,7 +118,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 last_login, 
                 privacy_consent, 
                 consent_timestamp
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, NULL, 0, NULL)"
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, NULL, 0, NULL)"
         );
         $stmt->execute([
             $official_id,
@@ -122,6 +127,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $user['mname'],
             $user['lname'],
             $user['college'],
+            $user['hostel'],
             $user['association'],
             $password_hash,
             $verification_token,
@@ -140,3 +146,4 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     exit;
 }
+?>

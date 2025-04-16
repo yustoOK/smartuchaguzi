@@ -15,39 +15,39 @@ try {
     die("Database connection failed. Please try again later.");
 }
 
-function redirectUser($role, $college, $association) {
+function redirectUser($role, $college_id, $association) {
     if ($role === 'admin') {
         header('Location: admin-dashboard.php');
     } elseif ($role === 'observer') {
         header('Location: observer-dashboard.php');
     } elseif ($role === 'voter' && $association === 'UDOSO') {
-        if ($college === 'CIVE') {
+        if ($college_id === 1) { // CIVE
             header('Location: cive-students.php');
-        } elseif ($college === 'CNMS') {
+        } elseif ($college_id === 3) { // CNMS
             header('Location: cnms-students.php');
-        } elseif ($college === 'COED') {
+        } elseif ($college_id === 2) { // COED
             header('Location: coed-students.php'); 
         } else {
             header('Location: index.html');
         }
     } elseif ($role === 'teacher-voter' && $association === 'UDOMASA') {
-        if ($college === 'CIVE') {
+        if ($college_id === 1) { // CIVE
             header('Location: cive-teachers.php');
-        } elseif ($college === 'CNMS') {
+        } elseif ($college_id === 3) { // CNMS
             header('Location: cnms-teachers.php');
-        } elseif ($college === 'COED') {
+        } elseif ($college_id === 2) { // COED
             header('Location: coed-teachers.php'); 
         } else {
             header('Location: index.html');
         }
     } else {
-        header('Location: index.html'); //This is the default location in case everything fails but this does not mean error
+        header('Location: index.html'); 
     }
     exit;
 }
 
 if (isset($_SESSION['user_id'])) {
-    redirectUser($_SESSION['role'], $_SESSION['college'], $_SESSION['association']);
+    redirectUser($_SESSION['role'], $_SESSION['college_id'], $_SESSION['association']);
     exit;
 }
 
@@ -81,7 +81,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['user_id'] = $user['id'];
             $_SESSION['email'] = $user['email'];
             $_SESSION['role'] = $user['role'];
-            $_SESSION['college'] = $user['college'];
+            $_SESSION['college_id'] = $user['college']; // Changed to college_id
             $_SESSION['association'] = $user['association'];
             $_SESSION['user_agent'] = $_SERVER['HTTP_USER_AGENT'];
             $_SESSION['start_time'] = time();
