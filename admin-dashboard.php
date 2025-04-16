@@ -64,15 +64,25 @@ if ($inactive_time >= $inactivity_timeout) {
 $_SESSION['last_activity'] = time();
 
 $user_id = $_SESSION['user_id'];
-$stmt = $pdo->prepare("SELECT fname FROM users WHERE id = ?");
+$stmt = $pdo->prepare("SELECT fname, college FROM users WHERE id = ?"); // Added college
 $stmt->execute([$user_id]);
 $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+
+$college_name = '';
+if ($user['college']) {
+    $college_stmt = $pdo->prepare("SELECT name FROM colleges WHERE id = ?");
+    $college_stmt->execute([$user['college']]);
+    $college_result = $college_stmt->fetchColumn();
+    $college_name = $college_result ?: '';
+}
 
 $profile_picture = 'images/default.png';
 ?>
 
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -118,6 +128,7 @@ $profile_picture = 'images/default.png';
             0% {
                 background: rgba(26, 60, 52, 0.9);
             }
+
             100% {
                 background: rgba(44, 82, 76, 0.9);
             }
@@ -511,6 +522,7 @@ $profile_picture = 'images/default.png';
         }
     </style>
 </head>
+
 <body>
     <header class="header">
         <div class="logo">
@@ -527,7 +539,7 @@ $profile_picture = 'images/default.png';
         <div class="user">
             <img src="<?php echo htmlspecialchars($profile_picture); ?>" alt="User Profile Picture" id="profile-pic">
             <div class="dropdown" id="user-dropdown">
-                <span style="color: #e6e6e6; padding: 10px 20px;"><?php echo htmlspecialchars($user['fname'] ?? 'Admin'); ?></span>
+                <span style="color: #e6e6e6; padding: 10px 20px;"><?php echo htmlspecialchars($user['fname'] ?? 'Admin') . ' (' . htmlspecialchars($college_name) . ')'; ?></span>
                 <a href="admin-profile.php">My Profile</a>
                 <a href="logout.php">Logout</a>
             </div>
@@ -557,7 +569,7 @@ $profile_picture = 'images/default.png';
                         <input type="text" name="title" placeholder="Election Title" required>
                         <input type="date" name="date" required>
                         <textarea name="description" placeholder="Election Description" rows="4" required></textarea>
-                        <button type="submit">Add  Add to Upcoming Elections</button>
+                        <button type="submit">Add to Upcoming Elections</button>
                     </form>
                 </div>
             </div>
@@ -712,4 +724,5 @@ $profile_picture = 'images/default.png';
         setInterval(checkTimeouts, 1000);
     </script>
 </body>
+
 </html>
