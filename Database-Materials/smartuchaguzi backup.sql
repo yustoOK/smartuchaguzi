@@ -4,9 +4,6 @@
 -- ------------------------------------------------------
 -- Server version	8.0.41
 
---NOTE: To recorver the database, run (mysql -u your_username -p smartuchaguzi_db < C:\path\to\backup\smartuchaguzi_db_backup.sql)
---However, you first need to create 1, before running the script
-
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
 /*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
 /*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
@@ -120,6 +117,30 @@ LOCK TABLES `candidates` WRITE;
 UNLOCK TABLES;
 
 --
+-- Table structure for table `colleges`
+--
+
+DROP TABLE IF EXISTS `colleges`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `colleges` (
+  `college_id` int NOT NULL AUTO_INCREMENT,
+  `name` varchar(50) NOT NULL,
+  PRIMARY KEY (`college_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `colleges`
+--
+
+LOCK TABLES `colleges` WRITE;
+/*!40000 ALTER TABLE `colleges` DISABLE KEYS */;
+INSERT INTO `colleges` VALUES (1,'College of Informatics and Virtual Education'),(2,'College of Education'),(3,'College Mathematics and Natural Science');
+/*!40000 ALTER TABLE `colleges` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
 -- Table structure for table `contactmessages`
 --
 
@@ -164,7 +185,10 @@ CREATE TABLE `electionpositions` (
   `name` varchar(100) NOT NULL,
   `description` text,
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`position_id`)
+  `hostel_id` int DEFAULT NULL,
+  PRIMARY KEY (`position_id`),
+  KEY `fk_positions_hostel` (`hostel_id`),
+  CONSTRAINT `fk_positions_hostel` FOREIGN KEY (`hostel_id`) REFERENCES `hostels` (`hostel_id`) ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -274,6 +298,33 @@ CREATE TABLE `frauddetectionlogs` (
 LOCK TABLES `frauddetectionlogs` WRITE;
 /*!40000 ALTER TABLE `frauddetectionlogs` DISABLE KEYS */;
 /*!40000 ALTER TABLE `frauddetectionlogs` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `hostels`
+--
+
+DROP TABLE IF EXISTS `hostels`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `hostels` (
+  `hostel_id` int NOT NULL AUTO_INCREMENT,
+  `name` varchar(50) NOT NULL,
+  `college_id` int DEFAULT NULL,
+  PRIMARY KEY (`hostel_id`),
+  KEY `college_id` (`college_id`),
+  CONSTRAINT `hostels_ibfk_1` FOREIGN KEY (`college_id`) REFERENCES `colleges` (`college_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=37 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `hostels`
+--
+
+LOCK TABLES `hostels` WRITE;
+/*!40000 ALTER TABLE `hostels` DISABLE KEYS */;
+INSERT INTO `hostels` VALUES (1,'Hostel 1',1),(2,'Hostel 2',1),(3,'Hostel 3',1),(4,'Hostel 4',1),(5,'Hostel 5',1),(6,'Hostel 6',1),(7,'Hostel 1',2),(8,'Hostel 2',2),(9,'Hostel 3',2),(10,'Hostel 4',2),(11,'Hostel 5',2),(12,'Hostel 6',2),(13,'Hostel 7',2),(14,'Hostel 8',2),(15,'Hostel 9',2),(16,'Hostel 10',2),(17,'Hostel 1',3),(18,'Hostel 2',3),(19,'Hostel 3',3),(20,'Hostel 4',3),(21,'Hostel 5',3),(22,'Hostel 6',3),(23,'Hostel 7',3),(24,'Hostel 8',3),(25,'Hostel 9',3),(26,'Hostel 10',3),(27,'Hostel 11',3),(28,'Hostel 12',3),(29,'Hostel 13',3),(30,'Hostel 14',3),(31,'Hostel 15',3),(32,'Hostel 16',3),(33,'Hostel 17',3),(34,'Hostel 18',3),(35,'Hostel 19',3),(36,'Hostel 20',3);
+/*!40000 ALTER TABLE `hostels` ENABLE KEYS */;
 UNLOCK TABLES;
 
 --
@@ -451,9 +502,15 @@ CREATE TABLE `users` (
   `last_login` timestamp NULL DEFAULT NULL,
   `privacy_consent` tinyint(1) DEFAULT '0',
   `consent_timestamp` timestamp NULL DEFAULT NULL,
+  `college_id` int DEFAULT NULL,
+  `hostel_id` int DEFAULT NULL,
   PRIMARY KEY (`user_id`),
   UNIQUE KEY `official_id` (`official_id`),
   UNIQUE KEY `email` (`email`),
+  KEY `fk_user_college` (`college_id`),
+  KEY `fk_user_hostel` (`hostel_id`),
+  CONSTRAINT `fk_user_college` FOREIGN KEY (`college_id`) REFERENCES `colleges` (`college_id`) ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT `fk_user_hostel` FOREIGN KEY (`hostel_id`) REFERENCES `hostels` (`hostel_id`) ON DELETE SET NULL ON UPDATE CASCADE,
   CONSTRAINT `users_ibfk_1` FOREIGN KEY (`official_id`) REFERENCES `original_db`.`all_users` (`official_id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -464,7 +521,7 @@ CREATE TABLE `users` (
 
 LOCK TABLES `users` WRITE;
 /*!40000 ALTER TABLE `users` DISABLE KEYS */;
-INSERT INTO `users` VALUES (1,'ADMIN001','yustobitalio24@gmail.com',NULL,'ADMIN','$2y$10$93rKrfmKSYHcLGAEUFVbz.qqgOGku2xWbr4Tb7zHVqwkwNPo4g.4q',1,NULL,'2025-04-10 11:47:55','admin','Admin',NULL,'Admin',NULL,0,NULL),(2,'T22-03-06448','ashamkuto2@gmail.com','CIVE','UDOSO','$2y$10$Bq3mxjgYrklAEtlRIS6ja.ONrl38Bhykw0M1efQR3VHZTp3ymco4K',1,NULL,'2025-04-13 07:04:41','voter','asha',NULL,'mkuto',NULL,0,NULL);
+INSERT INTO `users` VALUES (1,'ADMIN001','yustobitalio24@gmail.com',NULL,'ADMIN','$2y$10$93rKrfmKSYHcLGAEUFVbz.qqgOGku2xWbr4Tb7zHVqwkwNPo4g.4q',1,NULL,'2025-04-10 11:47:55','admin','Admin',NULL,'Admin',NULL,0,NULL,NULL,NULL),(2,'T22-03-06448','ashamkuto2@gmail.com','CIVE','UDOSO','$2y$10$Bq3mxjgYrklAEtlRIS6ja.ONrl38Bhykw0M1efQR3VHZTp3ymco4K',1,NULL,'2025-04-13 07:04:41','voter','asha',NULL,'mkuto',NULL,0,NULL,NULL,NULL);
 /*!40000 ALTER TABLE `users` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -507,4 +564,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-04-14 13:44:39
+-- Dump completed on 2025-04-16 15:57:46
