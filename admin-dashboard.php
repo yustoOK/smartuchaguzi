@@ -669,6 +669,91 @@ $profile_picture = 'images/default.png';
             color: #e76f51;
             font-size: 16px;
         }
+
+        .analytics-filter {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+            justify-content: center;
+        }
+
+        .analytics-filter label {
+            font-weight: 500;
+            color: #2d3748;
+        }
+
+        .analytics-filter select {
+            padding: 8px;
+            border: 1px solid #e8ecef;
+            border-radius: 6px;
+            font-size: 16px;
+            min-width: 200px;
+        }
+
+        .analytics-filter button {
+            background: #f4a261;
+            color: #fff;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        .analytics-filter button:hover {
+            background: #e76f51;
+        }
+
+        .overview {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            width: 30%;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .card i {
+            font-size: 24px;
+            color: #f4a261;
+            margin-bottom: 10px;
+        }
+
+        .card .text {
+            display: block;
+            font-size: 16px;
+            color: #2d3748;
+        }
+
+        .card .number {
+            font-size: 24px;
+            font-weight: 600;
+            color: #1a3c34;
+        }
+
+        .vote-analytics {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        .vote-analytics canvas {
+            max-width: 100%;
+            margin: 20px auto;
+        }
+
+        .vote-analytics .error {
+            color: #e76f51;
+            font-size: 16px;
+        }
     </style>
 </head>
 

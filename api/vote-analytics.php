@@ -5,8 +5,8 @@ include '../db.php';
 $election_id = isset($_GET['election_id']) ? (int)$_GET['election_id'] : 0;
 
 try {
-    // Fetch verified votes
-    $votes_response = file_get_contents("http://localhost/smartuchaguzi/api/get-votes.php" . ($election_id ? "?election_id=$election_id" : ''));
+    // Fetch verified votes from blockchain
+    $votes_response = file_get_contents("http://localhost/smartuchaguzi/api/blockchain/get-votes.php" . ($election_id ? "?election_id=$election_id" : ''));
     $votes_data = json_decode($votes_response, true);
     if (isset($votes_data['error'])) {
         throw new Exception($votes_data['error']);
