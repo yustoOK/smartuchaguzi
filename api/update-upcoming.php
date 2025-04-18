@@ -273,7 +273,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_notification']
         </form>
         <h3>Existing Upcoming Elections</h3>
         <?php if (empty($notifications)): ?>
-            <p>No upcoming elections announced.</p>
+            <p>No upcoming and/or ongoing elections announced.</p>
         <?php else: ?>
             <table>
                 <tr>
