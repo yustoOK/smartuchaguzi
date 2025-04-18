@@ -53,7 +53,8 @@ if ($inactive_time >= $inactivity_timeout) {
 $_SESSION['last_activity'] = time();
 
 $user_id = $_SESSION['user_id'];
-$stmt = $pdo->prepare("SELECT fname, college_id, hostel_id FROM users WHERE user_id = ?");
+$stmt = $conn->prepare("SELECT fname, college_id, hostel_id FROM users WHERE user_id = ?");
+$stmt->bind_param("i", $user_id);
 $stmt->execute([$user_id]);
 $user = $stmt->fetch(PDO::FETCH_ASSOC);
 $profile_picture = 'images/general.png';
