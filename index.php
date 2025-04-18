@@ -635,7 +635,7 @@ date_default_timezone_set('Africa/Dar_es_Salaam');
 
     <div class="elections">
         <div class="election-card">
-            <img src="images/students.jpeg" alt="UDOSO Elections" onerror="this.onerror=null; this.src=''; this.parentElement.innerHTML='Image Not Available';">
+            <img src="images/udoso.jpeg" alt="UDOSO Elections" onerror="this.onerror=null; this.src=''; this.parentElement.innerHTML='Image Not Available';">
             <div class="content">
                 <h3>UDOSO Elections</h3>
                 <p>Elect student leaders such as President, Vice President, and Secretary General for the University of
@@ -644,7 +644,7 @@ date_default_timezone_set('Africa/Dar_es_Salaam');
             </div>
         </div>
         <div class="election-card">
-            <img src="images/union.jpeg" alt="UDOMASA Elections" onerror="this.onerror=null; this.src=''; this.parentElement.innerHTML='Image Not Available';">
+            <img src="images/teachers.jpeg" alt="UDOMASA Elections" onerror="this.onerror=null; this.src=''; this.parentElement.innerHTML='Image Not Available';">
             <div class="content">
                 <h3>UDOMASA Elections</h3>
                 <p>Vote for Chairperson, Treasurer, and other key roles in the University of Dodoma Academic Staff
