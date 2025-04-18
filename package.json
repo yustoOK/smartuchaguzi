@@ -1,0 +1,27 @@
+{
+  "name": "smartuchaguzi",
+  "version": "1.0.0",
+  "description": "**Smartuchaguzi** is a secure and intelligent online election platform developed for the University of Dodoma. It integrates **Neural Networks** for fraud detection and **Blockchain** for secure, transparent vote recording. The institutions considered here are UDOSO and UDOMASA for students and teachers, respectively.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yustoOK/smartuchaguzi.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/yustoOK/smartuchaguzi/issues"
+  },
+  "homepage": "https://github.com/yustoOK/smartuchaguzi#readme",
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.3.0",
+    "dotenv": "^16.5.0",
+    "ethers": "^6.13.5",
+    "glob": "^9.0.0",
+    "lru-cache": "^11.1.0"
+  },
+ 

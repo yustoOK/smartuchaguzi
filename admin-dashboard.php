@@ -101,6 +101,7 @@ $profile_picture = 'images/default.png';
 
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -108,6 +109,7 @@ $profile_picture = 'images/default.png';
     <link rel="icon" href="./Uploads/Vote.jpeg" type="image/x-icon">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         * {
             margin: 0;
@@ -538,8 +540,138 @@ $profile_picture = 'images/default.png';
                 height: 30px;
             }
         }
+
+        .audit-section {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .audit-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        .audit-table th,
+        .audit-table td {
+            padding: 10px;
+            border: 1px solid #e8ecef;
+            text-align: left;
+        }
+
+        .audit-table th {
+            background: #f4a261;
+            color: #fff;
+        }
+
+        .audit-table tr:nth-child(even) {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .error {
+            color: #e76f51;
+            margin-bottom: 15px;
+            font-size: 16px;
+        }
+
+        .no-logs {
+            color: #2d3748;
+            font-size: 16px;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .analytics-filter {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+            justify-content: center;
+        }
+
+        .analytics-filter label {
+            font-weight: 500;
+            color: #2d3748;
+        }
+
+        .analytics-filter select {
+            padding: 8px;
+            border: 1px solid #e8ecef;
+            border-radius: 6px;
+            font-size: 16px;
+            min-width: 200px;
+        }
+
+        .analytics-filter button {
+            background: #f4a261;
+            color: #fff;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        .analytics-filter button:hover {
+            background: #e76f51;
+        }
+
+        .overview {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            width: 30%;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .card i {
+            font-size: 24px;
+            color: #f4a261;
+            margin-bottom: 10px;
+        }
+
+        .card .text {
+            display: block;
+            font-size: 16px;
+            color: #2d3748;
+        }
+
+        .card .number {
+            font-size: 24px;
+            font-weight: 600;
+            color: #1a3c34;
+        }
+
+        .vote-analytics {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        .vote-analytics canvas {
+            max-width: 100%;
+            margin: 20px auto;
+        }
+
+        .vote-analytics .error {
+            color: #e76f51;
+            font-size: 16px;
+        }
     </style>
 </head>
+
 <body>
     <header class="header">
         <div class="logo">
@@ -580,13 +712,13 @@ $profile_picture = 'images/default.png';
             </div>
 
             <div class="content-section" id="upcoming">
-    <h3>Upcoming Elections</h3>
-    <div class="upcoming-section">
-        <div class="action-buttons">
-            <button onclick="window.location.href='./api/update-upcoming.php'">Manage Upcoming Elections</button>
-        </div>
-    </div>
-</div>
+                <h3>Upcoming Elections</h3>
+                <div class="upcoming-section">
+                    <div class="action-buttons">
+                        <button onclick="window.location.href='./api/update-upcoming.php'">Manage Upcoming Elections</button>
+                    </div>
+                </div>
+            </div>
 
             <div class="content-section" id="users">
                 <h3>User Management</h3>
@@ -601,6 +733,26 @@ $profile_picture = 'images/default.png';
 
             <div class="content-section" id="analytics">
                 <h3>Election Analytics</h3>
+                <div class="analytics-filter">
+                    <label for="election-select">Select Election:</label>
+                    <select id="election-select">
+                        <option value="">All Elections</option>
+                        <?php
+                        include 'db.php';
+                        try {
+                            $result = $db->query("SELECT id, CONCAT(association, ' - ', start_time) AS name FROM elections ORDER BY start_time DESC");
+                            while ($row = $result->fetch_assoc()) {
+                                echo "<option value='{$row['id']}'>" . htmlspecialchars($row['name']) . "</option>";
+                            }
+                            $result->free();
+                        } catch (Exception $e) {
+                            error_log("Election select query failed: " . $e->getMessage());
+                            echo "<option value=''>Failed to load elections</option>";
+                        }
+                        ?>
+                    </select>
+                    <button id="download-report">Download Report</button>
+                </div>
                 <div class="overview">
                     <div class="card">
                         <i class="fas fa-users"></i>
@@ -608,9 +760,11 @@ $profile_picture = 'images/default.png';
                         <span class="number">
                             <?php
                             try {
-                                $stmt = $pdo->query("SELECT COUNT(*) FROM candidates");
-                                echo $stmt->fetchColumn();
-                            } catch (PDOException $e) {
+                                $result = $db->query("SELECT COUNT(*) AS count FROM candidates");
+                                $row = $result->fetch_assoc();
+                                echo $row['count'];
+                                $result->free();
+                            } catch (Exception $e) {
                                 error_log("Candidates count query failed: " . $e->getMessage());
                                 echo 'N/A';
                             }
@@ -623,9 +777,11 @@ $profile_picture = 'images/default.png';
                         <span class="number">
                             <?php
                             try {
-                                $stmt = $pdo->query("SELECT COUNT(*) FROM votes");
-                                echo $stmt->fetchColumn();
-                            } catch (PDOException $e) {
+                                $result = $db->query("SELECT COUNT(*) AS count FROM votes");
+                                $row = $result->fetch_assoc();
+                                echo $row['count'];
+                                $result->free();
+                            } catch (Exception $e) {
                                 error_log("Votes count query failed: " . $e->getMessage());
                                 echo 'N/A';
                             }
@@ -638,9 +794,11 @@ $profile_picture = 'images/default.png';
                         <span class="number">
                             <?php
                             try {
-                                $stmt = $pdo->query("SELECT COUNT(*) FROM elections WHERE end_date > NOW()");
-                                echo $stmt->fetchColumn();
-                            } catch (PDOException $e) {
+                                $result = $db->query("SELECT COUNT(*) AS count FROM elections WHERE end_time > NOW()");
+                                $row = $result->fetch_assoc();
+                                echo $row['count'];
+                                $result->free();
+                            } catch (Exception $e) {
                                 error_log("Elections count query failed: " . $e->getMessage());
                                 echo 'N/A';
                             }
@@ -648,34 +806,66 @@ $profile_picture = 'images/default.png';
                         </span>
                     </div>
                 </div>
+                <div id="vote-analytics" class="vote-analytics">
+                    <p>Select an election to view detailed analytics.</p>
+                </div>
             </div>
 
             <div class="content-section" id="audit">
                 <h3>Audit Log</h3>
                 <div class="audit-section">
                     <?php
+                    include 'db.php';
+                    $logs = [];
+                    $error_message = '';
+
                     try {
-                        $stmt = $pdo->prepare("SELECT action, timestamp FROM auditlogs WHERE user_id = ? ORDER BY timestamp DESC LIMIT 10");
-                        $stmt->execute([$user_id]);
-                        while ($log = $stmt->fetch(PDO::FETCH_ASSOC)) {
-                            echo "<div class='log'>" . htmlspecialchars($log['timestamp']) . " - " . htmlspecialchars($log['action']) . "</div>";
+                        $result = $db->query(
+                            "SELECT action, timestamp 
+                FROM auditlogs 
+                ORDER BY timestamp DESC 
+                LIMIT 10"
+                        );
+                        if ($result) {
+                            while ($row = $result->fetch_assoc()) {
+                                $logs[] = $row;
+                            }
+                            $result->free();
+                        } else {
+                            error_log("Audit log query failed: " . $db->error);
+                            $error_message = "Failed to load audit logs due to a database error.";
                         }
-                    } catch (PDOException $e) {
+                    } catch (Exception $e) {
                         error_log("Audit log query failed: " . $e->getMessage());
-                        echo "<div class='log'>Failed to load audit logs.</div>";
+                        $error_message = "Failed to load audit logs due to a server error.";
                     }
                     ?>
+
+                    <?php if (!empty($error_message)): ?>
+                        <div class="error"><?php echo htmlspecialchars($error_message); ?></div>
+                    <?php elseif (empty($logs)): ?>
+                        <div class="no-logs">No recent activity.</div>
+                    <?php else: ?>
+                        <table class="audit-table">
+                            <thead>
+                                <tr>
+                                    <th>Timestamp</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($logs as $log): ?>
+                                    <tr>
+                                        <td><?php echo htmlspecialchars(date('d M Y, h:i A', strtotime($log['timestamp']))); ?></td>
+                                        <td><?php echo htmlspecialchars($log['action']); ?></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    <?php endif; ?>
                 </div>
             </div>
 
-            <div class="quick-links">
-                <h3>Quick Links</h3>
-                <ul>
-                    <li><a href="admin-profile.php">My Profile</a></li>
-                    <li><a href="system-settings.php">System Settings</a></li>
-                    <li><a href="contact.php">Support</a></li>
-                </ul>
-            </div>
         </div>
     </section>
 
@@ -687,75 +877,180 @@ $profile_picture = 'images/default.png';
     </div>
 
     <script>
-        const links = document.querySelectorAll('.header .nav a');
-        const sections = document.querySelectorAll('.content-section');
-        links.forEach(link => {
-            link.addEventListener('click', (e) => {
-                e.preventDefault();
-                const sectionId = link.getAttribute('data-section');
-                sections.forEach(section => section.classList.remove('active'));
-                document.getElementById(sectionId).classList.add('active');
-                links.forEach(l => l.classList.remove('active'));
-                link.classList.add('active');
+        document.addEventListener('DOMContentLoaded', () => {
+            const electionSelect = document.getElementById('election-select');
+            const voteAnalytics = document.getElementById('vote-analytics');
+            const downloadButton = document.getElementById('download-report');
+
+            const navLinks = document.querySelectorAll('.nav a[data-section]');
+            const sections = document.querySelectorAll('.content-section');
+
+            navLinks.forEach(link => {
+                link.addEventListener('click', (e) => {
+                    if (link.getAttribute('href') !== '#') {
+                        return;
+                    }
+                    e.preventDefault();
+                    const sectionId = link.getAttribute('data-section');
+                    sections.forEach(section => section.classList.remove('active'));
+                    const targetSection = document.getElementById(sectionId);
+                    if (targetSection) {
+                        targetSection.classList.add('active');
+                    }
+                    navLinks.forEach(l => l.classList.remove('active'));
+                    link.classList.add('active');
+                });
+            });
+
+            const defaultLink = document.querySelector('.nav a.active');
+            if (defaultLink && defaultLink.getAttribute('href') === '#') {
+                const defaultSectionId = defaultLink.getAttribute('data-section');
+                document.getElementById(defaultSectionId).classList.add('active');
+            }
+
+            const profilePic = document.getElementById('profile-pic');
+            const dropdown = document.getElementById('user-dropdown');
+            profilePic.addEventListener('click', (e) => {
+                e.stopPropagation();
+                dropdown.classList.toggle('active');
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!dropdown.contains(e.target) && e.target !== profilePic) {
+                    dropdown.classList.remove('active');
+                }
+            });
+
+            const inactivityTimeout = <?php echo $inactivity_timeout; ?> * 1000;
+            const maxSessionDuration = <?php echo $max_session_duration; ?> * 1000;
+            const warningTime = <?php echo $warning_time; ?> * 1000;
+            let lastActivity = Date.now();
+            let sessionStart = <?php echo $_SESSION['start_time'] * 1000; ?>;
+
+            const modal = document.getElementById('timeout-modal');
+            const timeoutMessage = document.getElementById('timeout-message');
+            const extendButton = document.getElementById('extend-session');
+
+            function checkTimeouts() {
+                const currentTime = Date.now();
+                const inactiveTime = currentTime - lastActivity;
+                const sessionTime = currentTime - sessionStart;
+
+                if (sessionTime >= maxSessionDuration - warningTime && sessionTime < maxSessionDuration) {
+                    timeoutMessage.textContent = "Your session will expire in 1 minute due to maximum duration.";
+                    modal.style.display = 'flex';
+                } else if (sessionTime >= maxSessionDuration) {
+                    window.location.href = 'logout.php';
+                }
+
+                if (inactiveTime >= inactivityTimeout - warningTime && inactiveTime < inactivityTimeout) {
+                    timeoutMessage.textContent = "You will be logged out in 1 minute due to inactivity.";
+                    modal.style.display = 'flex';
+                } else if (inactiveTime >= inactivityTimeout) {
+                    window.location.href = 'logout.php';
+                }
+            }
+
+            document.addEventListener('mousemove', () => {
+                lastActivity = Date.now();
+            });
+            document.addEventListener('keydown', () => {
+                lastActivity = Date.now();
+            });
+
+            extendButton.addEventListener('click', () => {
+                lastActivity = Date.now();
+                modal.style.display = 'none';
+            });
+
+            setInterval(checkTimeouts, 1000);
+
+            electionSelect.addEventListener('change', () => {
+                const electionId = electionSelect.value;
+                voteAnalytics.innerHTML = '<p>Loading analytics...</p>';
+
+                fetch(`./api/vote-analytics.php?election_id=${electionId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.error) {
+                            voteAnalytics.innerHTML = `<p class="error">${data.error}</p>`;
+                            return;
+                        }
+
+                        const {
+                            positions,
+                            totalVotes
+                        } = data;
+                        let html = '<h4>Vote Analytics</h4>';
+
+                        positions.forEach(pos => {
+                            html += `
+                        <div>
+                            <h5>${pos.name}</h5>
+                            <canvas id="chart-${pos.id}"></canvas>
+                            <p>Total Votes: ${pos.totalVotes}</p>
+                            <p>Winner: ${pos.winner ? pos.winner : 'None'}</p>
+                        </div>
+                    `;
+                        });
+
+                        voteAnalytics.innerHTML = html;
+
+                        positions.forEach(pos => {
+                            const ctx = document.getElementById(`chart-${pos.id}`).getContext('2d');
+                            new Chart(ctx, {
+                                type: 'bar',
+                                data: {
+                                    labels: pos.candidates.map(c => c.name),
+                                    datasets: [{
+                                        label: 'Votes',
+                                        data: pos.candidates.map(c => c.votes),
+                                        backgroundColor: '#f4a261',
+                                        borderColor: '#e76f51',
+                                        borderWidth: 1
+                                    }]
+                                },
+                                options: {
+                                    scales: {
+                                        y: {
+                                            beginAtZero: true
+                                        }
+                                    },
+                                    plugins: {
+                                        title: {
+                                            display: true,
+                                            text: `${pos.name} Vote Distribution`
+                                        },
+                                        tooltip: {
+                                            callbacks: {
+                                                label: (context) => {
+                                                    const votes = context.parsed.y;
+                                                    const percentage = totalVotes ? ((votes / totalVotes) * 100).toFixed(2) : 0;
+                                                    return `${votes} votes (${percentage}%)`;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            });
+                        });
+                    })
+                    .catch(error => {
+                        voteAnalytics.innerHTML = '<p class="error">Failed to load analytics.</p>';
+                        console.error('Fetch error:', error);
+                    });
+            });
+
+            downloadButton.addEventListener('click', () => {
+                const electionId = electionSelect.value;
+                if (!electionId) {
+                    alert('Please select an election to download the report.');
+                    return;
+                }
+                window.location.href = `./api/generate-report.php?election_id=${electionId}`;
             });
         });
-
-        const profilePic = document.getElementById('profile-pic');
-        const dropdown = document.getElementById('user-dropdown');
-        profilePic.addEventListener('click', (e) => {
-            e.stopPropagation();
-            dropdown.classList.toggle('active');
-        });
-
-        document.addEventListener('click', (e) => {
-            if (!dropdown.contains(e.target) && e.target !== profilePic) {
-                dropdown.classList.remove('active');
-            }
-        });
-
-        const inactivityTimeout = <?php echo $inactivity_timeout; ?> * 1000;
-        const maxSessionDuration = <?php echo $max_session_duration; ?> * 1000;
-        const warningTime = <?php echo $warning_time; ?> * 1000;
-        let lastActivity = Date.now();
-        let sessionStart = <?php echo $_SESSION['start_time'] * 1000; ?>;
-
-        const modal = document.getElementById('timeout-modal');
-        const timeoutMessage = document.getElementById('timeout-message');
-        const extendButton = document.getElementById('extend-session');
-
-        function checkTimeouts() {
-            const currentTime = Date.now();
-            const inactiveTime = currentTime - lastActivity;
-            const sessionTime = currentTime - sessionStart;
-
-            if (sessionTime >= maxSessionDuration - warningTime && sessionTime < maxSessionDuration) {
-                timeoutMessage.textContent = "Your session will expire in 1 minute due to maximum duration.";
-                modal.style.display = 'flex';
-            } else if (sessionTime >= maxSessionDuration) {
-                window.location.href = 'logout.php';
-            }
-
-            if (inactiveTime >= inactivityTimeout - warningTime && inactiveTime < inactivityTimeout) {
-                timeoutMessage.textContent = "You will be logged out in 1 minute due to inactivity.";
-                modal.style.display = 'flex';
-            } else if (inactiveTime >= inactivityTimeout) {
-                window.location.href = 'logout.php';
-            }
-        }
-
-        document.addEventListener('mousemove', () => {
-            lastActivity = Date.now();
-        });
-        document.addEventListener('keydown', () => {
-            lastActivity = Date.now();
-        });
-
-        extendButton.addEventListener('click', () => {
-            lastActivity = Date.now();
-            modal.style.display = 'none';
-        });
-
-        setInterval(checkTimeouts, 1000);
     </script>
 </body>
+
 </html>
