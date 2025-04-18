@@ -40,7 +40,7 @@ try {
         $stmt = $db->prepare(
             "SELECT c.id, u.fname AS name 
              FROM candidates c 
-             JOIN users u ON c.user_id = u.id 
+             JOIN users u ON c.user_id = u.user_id 
              WHERE c.election_id = ? AND c.position_id = ?"
         );
         $stmt->bind_param('ii', $election_id, $position['id']);

@@ -3,7 +3,21 @@ header('Content-Type: application/json');
 require_once '../vendor/autoload.php';
 use Phpml\SupportVectorMachine\Kernel;
 
-include '../db.php';
+// Use PDO instead of db.php for consistency
+$host = 'localhost';
+$dbname = 'smartuchaguzi_db';
+$username = 'root';
+$password = 'Leonida1972@@@@';
+
+try {
+    $pdo = new PDO("mysql:host=$host;dbname=$dbname", $username, $password);
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+} catch (PDOException $e) {
+    error_log("Connection failed: " . $e->getMessage());
+    http_response_code(500);
+    echo json_encode(['error' => 'Database connection failed']);
+    exit;
+}
 
 function preprocessData($data, $pdo, $user_id) {
     $time_diff = isset($data['time_diff']) ? floatval($data['time_diff']) : 0;
@@ -65,18 +79,28 @@ try {
     $confidence = $prediction['confidence'];
 
     $action = $is_fraud ? 'block' : 'allow';
+    $details = $is_fraud ? "Fraud detected with confidence $confidence. Features: " . json_encode($features) : "No fraud detected.";
     if ($is_fraud && $confidence < 0.7) {
         $action = 'flag';
+        $details = "Potential fraud flagged with confidence $confidence. Features: " . json_encode($features);
     }
 
     $stmt = $pdo->prepare(
-        "INSERT INTO frauddetectionlogs (user_id, vote_id, model_id, prediction, confidence, action, created_at) 
-         VALUES (?, ?, ?, ?, ?, ?, NOW())"
+        "INSERT INTO frauddetectionlogs (user_id, vote_id, election_id, is_fraudulent, confidence, action, details, created_at) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, NOW())"
     );
-    $stmt->execute([$user_id, $input['vote_id'] ?? null, 1, $is_fraud ? 1 : 0, $confidence, $action]);
+    $stmt->execute([
+        $user_id,
+        $input['vote_id'] ?? null,
+        $input['election_id'] ?? null,
+        $is_fraud ? 1 : 0,
+        $confidence,
+        $action,
+        $details
+    ]);
 
     if ($action == 'block') {
-        $stmt = $pdo->prepare("UPDATE users SET status = 'blocked' WHERE id = ?");
+        $stmt = $pdo->prepare("UPDATE users SET status = 'blocked' WHERE user_id = ?");
         $stmt->execute([$user_id]);
 
         $stmt = $pdo->prepare("UPDATE sessions SET active = 0 WHERE user_id = ?");
@@ -86,7 +110,7 @@ try {
             "INSERT INTO notifications (user_id, title, content, type, sent_at, created_at) 
              VALUES (?, 'Potential Fraud Detected', 'Your voting activity has been flagged for review.', 'fraud_alert', NOW(), NOW())"
         );
-        $stmt->execute([1]);
+        $stmt->execute([$user_id]); // Notify the flagged user
     }
 
     echo json_encode([
