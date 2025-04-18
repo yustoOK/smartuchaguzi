@@ -635,7 +635,7 @@ date_default_timezone_set('Africa/Dar_es_Salaam');
 
     <div class="elections">
         <div class="election-card">
-            <img src="images/udoso.jpeg" alt="UDOSO Elections" onerror="this.onerror=null; this.src=''; this.parentElement.innerHTML='Image Not Available';">
+            <img src="images/students.jpeg" alt="UDOSO Elections" onerror="this.onerror=null; this.src=''; this.parentElement.innerHTML='Image Not Available';">
             <div class="content">
                 <h3>UDOSO Elections</h3>
                 <p>Elect student leaders such as President, Vice President, and Secretary General for the University of
