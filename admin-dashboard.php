@@ -1,5 +1,4 @@
 <?php
-/*
 session_start();
 date_default_timezone_set('Africa/Dar_es_Salaam');
 
@@ -17,60 +16,53 @@ try {
 }
 
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
-    error_log("Session validation failed: user_id or role not set. Session: " . print_r($_SESSION, true));
-    header('Location: login.php?error=' . urlencode('Please log in to access the admin dashboard.'));
-    exit;
-}
-
-if (!isset($_SESSION['user_agent']) || $_SESSION['user_agent'] !== $_SERVER['HTTP_USER_AGENT']) {
-    error_log("Session hijacking detected: user agent mismatch. Session: " . print_r($_SESSION, true));
+    error_log("Session validation failed: user_id or role not set.");
     session_unset();
     session_destroy();
-    header('Location: login.php?error=' . urlencode('Session validation failed. Please log in again.'));
+    header('Location: login.php?error=' . urlencode('Please log in as an admin.'));
     exit;
 }
 
-$inactivity_timeout = 5 * 60;
-$max_session_duration = 30 * 60;
+$inactivity_timeout = 30 * 60;
+$max_session_duration = 24 * 60 * 60; // 24 hours
 $warning_time = 60;
 
 if (!isset($_SESSION['start_time'])) {
-    error_log("Session start_time not set. Initializing now.");
     $_SESSION['start_time'] = time();
 }
-
 if (!isset($_SESSION['last_activity'])) {
-    error_log("Session last_activity not set. Initializing now.");
     $_SESSION['last_activity'] = time();
+}
+if (!isset($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
 
 $time_elapsed = time() - $_SESSION['start_time'];
 if ($time_elapsed >= $max_session_duration) {
-    error_log("Session expired due to maximum duration: $time_elapsed seconds elapsed.");
+    error_log("Session expired due to maximum duration: $time_elapsed seconds.");
     session_unset();
     session_destroy();
-    header('Location: login.php?error=' . urlencode('Session expired due to maximum duration. Please log in again.'));
+    header('Location: login.php?error=' . urlencode('Session expired. Please log in again.'));
     exit;
 }
 
 $inactive_time = time() - $_SESSION['last_activity'];
 if ($inactive_time >= $inactivity_timeout) {
-    error_log("Session expired due to inactivity: $inactive_time seconds elapsed.");
+    error_log("Session expired due to inactivity: $inactive_time seconds.");
     session_unset();
     session_destroy();
     header('Location: login.php?error=' . urlencode('Session expired due to inactivity. Please log in again.'));
     exit;
 }
-
 $_SESSION['last_activity'] = time();
 
 $user_id = $_SESSION['user_id'];
 try {
-    $stmt = $pdo->prepare("SELECT fname, college FROM users WHERE id = ?");
+    $stmt = $pdo->prepare("SELECT fname, lname, college_id FROM users WHERE user_id = ?");
     $stmt->execute([$user_id]);
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
     if (!$user) {
-        error_log("User not found for ID: $user_id");
+        error_log("User not found for user_id: $user_id");
         session_unset();
         session_destroy();
         header('Location: login.php?error=' . urlencode('User not found. Please log in again.'));
@@ -83,20 +75,24 @@ try {
 }
 
 $college_name = '';
-if ($user['college']) {
+if ($user['college_id']) {
     try {
-        $college_stmt = $pdo->prepare("SELECT name FROM colleges WHERE id = ?");
-        $college_stmt->execute([$user['college']]);
-        $college_result = $college_stmt->fetchColumn();
-        $college_name = $college_result ?: '';
+        $stmt = $pdo->prepare("SELECT name FROM colleges WHERE id = ?");
+        $stmt->execute([$user['college_id']]);
+        $college_name = $stmt->fetchColumn() ?: 'Unknown';
     } catch (PDOException $e) {
         error_log("College query failed: " . $e->getMessage());
         $college_name = 'Unknown';
     }
 }
 
-$profile_picture = 'images/default.png';
-*/
+$stmt = $pdo->prepare("INSERT INTO auditlogs (user_id, action, details, ip_address, timestamp) VALUES (?, ?, ?, ?, NOW())");
+$stmt->execute([$user_id, 'Admin Dashboard Access', 'User accessed admin dashboard', $_SERVER['REMOTE_ADDR']]);
+
+$total_candidates = $pdo->query("SELECT COUNT(*) FROM candidates")->fetchColumn();
+$total_votes = $pdo->query("SELECT COUNT(*) FROM votes")->fetchColumn();
+$total_anomalies = $pdo->query("SELECT COUNT(*) FROM frauddetectionlogs WHERE is_fraudulent = 1")->fetchColumn();
+$total_active_elections = $pdo->query("SELECT COUNT(*) FROM elections WHERE end_time > NOW()")->fetchColumn();
 ?>
 
 <!DOCTYPE html>
@@ -105,7 +101,9 @@ $profile_picture = 'images/default.png';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin | Dashboard</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Admin Dashboard | SmartUchaguzi</title>
     <link rel="icon" href="./Uploads/Vote.jpeg" type="image/x-icon">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -119,7 +117,7 @@ $profile_picture = 'images/default.png';
         }
 
         body {
-            background: linear-gradient(rgba(26, 60, 52, 0.7), rgba(26, 60, 52, 0.7)), url('images/cive.jpeg');
+            background: linear-gradient(rgba(26, 60, 52, 0.7), rgba(26, 60, 52, 0.7)), url('images/university.jpeg');
             background-size: cover;
             background-position: center;
             background-attachment: fixed;
@@ -160,16 +158,20 @@ $profile_picture = 'images/default.png';
         }
 
         .header .logo img {
-            width: 50px;
-            height: 50px;
+            width: 40px;
+            height: 40px;
             margin-right: 15px;
             border-radius: 50%;
             border: 2px solid #f4a261;
+            transition: transform 0.3s ease;
+        }
+
+        .header .logo img:hover {
+            transform: rotate(360deg);
         }
 
         .header .logo h1 {
-            font-size: 24px;
-            color: #e6e6e6;
+            font-size: 20px;
             font-weight: 600;
             background: linear-gradient(to right, #f4a261, #e76f51);
             -webkit-background-clip: text;
@@ -179,7 +181,7 @@ $profile_picture = 'images/default.png';
 
         .header .nav {
             display: flex;
-            gap: 20px;
+            gap: 15px;
         }
 
         .header .nav a {
@@ -187,40 +189,32 @@ $profile_picture = 'images/default.png';
             text-decoration: none;
             font-size: 16px;
             font-weight: 500;
-            padding: 10px 20px;
-            position: relative;
-            transition: color 0.3s ease;
-        }
-
-        .header .nav a::after {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 0;
-            height: 2px;
-            background: #f4a261;
-            transition: width 0.3s ease;
-        }
-
-        .header .nav a:hover::after,
-        .header .nav a.active::after {
-            width: 100%;
+            padding: 8px 16px;
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
         }
 
         .header .nav a.active {
-            color: #f4a261;
+            background: #f4a261;
+            color: #fff;
         }
 
         .header .nav a:hover {
-            color: #f4a261;
+            background: #f4a261;
+            color: #fff;
+            transform: scale(1.05);
         }
 
         .header .user {
-            position: relative;
             display: flex;
             align-items: center;
             gap: 15px;
+        }
+
+        .header .user span {
+            font-size: 16px;
+            color: #e6e6e6;
         }
 
         .header .user img {
@@ -228,42 +222,10 @@ $profile_picture = 'images/default.png';
             height: 40px;
             border-radius: 50%;
             border: 2px solid #f4a261;
-            cursor: pointer;
         }
 
-        .header .user .dropdown {
-            position: absolute;
-            top: 60px;
-            right: 0;
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            border-radius: 8px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-            display: none;
-            flex-direction: column;
-            width: 200px;
-            z-index: 1000;
-        }
-
-        .header .user .dropdown.active {
-            display: flex;
-        }
-
-        .header .user .dropdown a {
-            color: #e6e6e6;
-            padding: 10px 20px;
-            text-decoration: none;
-            font-size: 14px;
-            transition: background 0.3s ease;
-            cursor: pointer;
-        }
-
-        .header .user .dropdown a:hover {
-            background: rgba(244, 162, 97, 0.3);
-        }
-
-        .header .user .logout-link {
-            background: #f4a261;
+        .header .user a {
+            background: linear-gradient(135deg, #f4a261, #e76f51);
             color: #fff;
             padding: 8px 16px;
             border-radius: 6px;
@@ -271,33 +233,53 @@ $profile_picture = 'images/default.png';
             transition: all 0.3s ease;
         }
 
-        .header .user .logout-link:hover {
-            background: #e76f51;
-            box-shadow: 0 0 10px rgba(231, 111, 81, 0.5);
+        .header .user a:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 10px rgba(244, 162, 97, 0.5);
         }
 
         .dashboard {
-            padding: 100px 20px 20px;
+            padding: 100px 20px 40px;
         }
 
         .dash-content {
             max-width: 1200px;
             margin: 0 auto;
-            background: rgba(255, 255, 255, 0.9);
+            background: rgba(255, 255, 255, 0.95);
             padding: 30px;
             border-radius: 12px;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            animation: fadeIn 0.5s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         .dash-content h2 {
             font-size: 28px;
-            color: #1a3c34;
-            margin-bottom: 30px;
             text-align: center;
+            margin-bottom: 30px;
             background: linear-gradient(to right, #1a3c34, #f4a261);
             -webkit-background-clip: text;
             background-clip: text;
             color: transparent;
+        }
+
+        .content-section {
+            display: none;
+        }
+
+        .content-section.active {
+            display: block;
         }
 
         .overview {
@@ -314,12 +296,11 @@ $profile_picture = 'images/default.png';
             border-radius: 12px;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
             text-align: center;
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            transition: transform 0.3s ease;
         }
 
         .overview .card:hover {
             transform: translateY(-5px);
-            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
         }
 
         .overview .card i {
@@ -337,20 +318,22 @@ $profile_picture = 'images/default.png';
             font-size: 24px;
             font-weight: 600;
             color: #1a3c34;
-            margin-top: 5px;
         }
 
-        .content-section {
-            display: none;
-        }
-
-        .content-section.active {
-            display: block;
+        h3 {
+            font-size: 22px;
+            color: #1a3c34;
+            margin-bottom: 20px;
+            background: linear-gradient(to right, #1a3c34, #f4a261);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
         }
 
         .management-section,
         .upcoming-section,
         .user-section,
+        .analytics-section,
         .audit-section {
             background: rgba(255, 255, 255, 0.1);
             backdrop-filter: blur(10px);
@@ -359,26 +342,14 @@ $profile_picture = 'images/default.png';
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
         }
 
-        .management-section h3,
-        .upcoming-section h3,
-        .user-section h3,
-        .audit-section h3 {
-            font-size: 22px;
-            color: #1a3c34;
-            margin-bottom: 20px;
-            text-align: center;
-        }
-
-        .management-section .action-buttons {
+        .action-buttons {
             display: flex;
             justify-content: center;
             gap: 15px;
             flex-wrap: wrap;
         }
 
-        .management-section button,
-        .upcoming-section button,
-        .user-section button {
+        .action-buttons button {
             background: linear-gradient(135deg, #f4a261, #e76f51);
             color: #fff;
             border: none;
@@ -386,40 +357,78 @@ $profile_picture = 'images/default.png';
             border-radius: 6px;
             cursor: pointer;
             transition: all 0.3s ease;
-            font-size: 16px;
-            font-weight: 500;
         }
 
-        .management-section button:hover,
-        .upcoming-section button:hover,
-        .user-section button:hover {
+        .action-buttons button:hover {
             transform: scale(1.05);
             box-shadow: 0 0 15px rgba(244, 162, 97, 0.5);
         }
 
-        .upcoming-section form {
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-            max-width: 500px;
-            margin: 20px auto;
+        .upcoming-table,
+        .audit-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
         }
 
-        .upcoming-section input,
-        .upcoming-section textarea {
-            padding: 10px;
-            border: 1px solid #e8ecef;
+        .upcoming-table th,
+        .upcoming-table td,
+        .audit-table th,
+        .audit-table td {
+            padding: 12px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            text-align: left;
+        }
+
+        .upcoming-table th,
+        .audit-table th {
+            background: #1a3c34;
+            color: #e6e6e6;
+        }
+
+        .analytics-filter {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+            justify-content: center;
+        }
+
+        .analytics-filter select {
+            padding: 8px;
             border-radius: 6px;
-            font-size: 16px;
+            border: 1px solid #e6e6e6;
             background: rgba(255, 255, 255, 0.1);
             color: #2d3748;
         }
 
-        .audit-section .log {
-            padding: 10px;
-            border-bottom: 1px solid #e8ecef;
-            font-size: 14px;
-            color: #2d3748;
+        .analytics-filter button {
+            background: linear-gradient(135deg, #f4a261, #e76f51);
+            border: none;
+            color: #fff;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .analytics-filter button:hover {
+            transform: scale(1.05);
+        }
+
+        .vote-analytics {
+            margin-top: 20px;
+        }
+
+        .vote-analytics canvas {
+            max-width: 100%;
+            margin: 20px auto;
+        }
+
+        .error {
+            color: #e74c3c;
+            text-align: center;
+            margin-bottom: 20px;
         }
 
         .quick-links {
@@ -429,7 +438,6 @@ $profile_picture = 'images/default.png';
 
         .quick-links h3 {
             font-size: 22px;
-            color: #1a3c34;
             margin-bottom: 15px;
         }
 
@@ -442,7 +450,6 @@ $profile_picture = 'images/default.png';
         }
 
         .quick-links ul li a {
-            display: block;
             padding: 10px 20px;
             background: rgba(255, 255, 255, 0.1);
             backdrop-filter: blur(10px);
@@ -450,7 +457,6 @@ $profile_picture = 'images/default.png';
             color: #f4a261;
             text-decoration: none;
             transition: all 0.3s ease;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
         }
 
         .quick-links ul li a:hover {
@@ -473,13 +479,12 @@ $profile_picture = 'images/default.png';
         }
 
         .modal-content {
-            background: rgba(255, 255, 255, 0.9);
+            background: rgba(255, 255, 255, 0.95);
             padding: 20px;
-            border-radius: 8px;
+            border-radius: 12px;
             text-align: center;
             max-width: 400px;
             width: 90%;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
         }
 
         .modal-content p {
@@ -489,7 +494,7 @@ $profile_picture = 'images/default.png';
         }
 
         .modal-content button {
-            background: #f4a261;
+            background: linear-gradient(135deg, #f4a261, #e76f51);
             color: #fff;
             border: none;
             padding: 10px 20px;
@@ -499,260 +504,44 @@ $profile_picture = 'images/default.png';
         }
 
         .modal-content button:hover {
-            background: #e76f51;
+            transform: scale(1.05);
         }
 
         @media (max-width: 768px) {
             .header {
                 padding: 15px 20px;
                 flex-direction: column;
-                gap: 10px;
+                gap: 15px;
             }
 
             .header .nav {
                 flex-wrap: wrap;
                 justify-content: center;
-                gap: 15px;
+                gap: 10px;
             }
 
             .overview {
                 grid-template-columns: 1fr;
             }
-
-            .header .user .dropdown {
-                width: 150px;
-                top: 120px;
-            }
         }
 
         @media (max-width: 480px) {
             .header .logo h1 {
-                font-size: 20px;
+                font-size: 18px;
             }
 
             .header .nav a {
-                padding: 8px 14px;
+                padding: 6px 12px;
                 font-size: 14px;
             }
 
-            .header .user img {
-                width: 30px;
-                height: 30px;
+            .dash-content h2 {
+                font-size: 24px;
             }
-        }
 
-        .audit-section {
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-            background: rgba(255, 255, 255, 0.9);
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-        }
-
-        .audit-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-        }
-
-        .audit-table th,
-        .audit-table td {
-            padding: 10px;
-            border: 1px solid #e8ecef;
-            text-align: left;
-        }
-
-        .audit-table th {
-            background: #f4a261;
-            color: #fff;
-        }
-
-        .audit-table tr:nth-child(even) {
-            background: rgba(255, 255, 255, 0.1);
-        }
-
-        .error {
-            color: #e76f51;
-            margin-bottom: 15px;
-            font-size: 16px;
-        }
-
-        .no-logs {
-            color: #2d3748;
-            font-size: 16px;
-            text-align: center;
-            padding: 20px;
-        }
-
-        .analytics-filter {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            margin-bottom: 20px;
-            justify-content: center;
-        }
-
-        .analytics-filter label {
-            font-weight: 500;
-            color: #2d3748;
-        }
-
-        .analytics-filter select {
-            padding: 8px;
-            border: 1px solid #e8ecef;
-            border-radius: 6px;
-            font-size: 16px;
-            min-width: 200px;
-        }
-
-        .analytics-filter button {
-            background: #f4a261;
-            color: #fff;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 6px;
-            cursor: pointer;
-        }
-
-        .analytics-filter button:hover {
-            background: #e76f51;
-        }
-
-        .overview {
-            display: flex;
-            justify-content: space-around;
-            margin-bottom: 30px;
-        }
-
-        .card {
-            background: rgba(255, 255, 255, 0.9);
-            padding: 20px;
-            border-radius: 8px;
-            text-align: center;
-            width: 30%;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-        }
-
-        .card i {
-            font-size: 24px;
-            color: #f4a261;
-            margin-bottom: 10px;
-        }
-
-        .card .text {
-            display: block;
-            font-size: 16px;
-            color: #2d3748;
-        }
-
-        .card .number {
-            font-size: 24px;
-            font-weight: 600;
-            color: #1a3c34;
-        }
-
-        .vote-analytics {
-            background: rgba(255, 255, 255, 0.9);
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-            text-align: center;
-        }
-
-        .vote-analytics canvas {
-            max-width: 100%;
-            margin: 20px auto;
-        }
-
-        .vote-analytics .error {
-            color: #e76f51;
-            font-size: 16px;
-        }
-
-        .analytics-filter {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            margin-bottom: 20px;
-            justify-content: center;
-        }
-
-        .analytics-filter label {
-            font-weight: 500;
-            color: #2d3748;
-        }
-
-        .analytics-filter select {
-            padding: 8px;
-            border: 1px solid #e8ecef;
-            border-radius: 6px;
-            font-size: 16px;
-            min-width: 200px;
-        }
-
-        .analytics-filter button {
-            background: #f4a261;
-            color: #fff;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 6px;
-            cursor: pointer;
-        }
-
-        .analytics-filter button:hover {
-            background: #e76f51;
-        }
-
-        .overview {
-            display: flex;
-            justify-content: space-around;
-            margin-bottom: 30px;
-        }
-
-        .card {
-            background: rgba(255, 255, 255, 0.9);
-            padding: 20px;
-            border-radius: 8px;
-            text-align: center;
-            width: 30%;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-        }
-
-        .card i {
-            font-size: 24px;
-            color: #f4a261;
-            margin-bottom: 10px;
-        }
-
-        .card .text {
-            display: block;
-            font-size: 16px;
-            color: #2d3748;
-        }
-
-        .card .number {
-            font-size: 24px;
-            font-weight: 600;
-            color: #1a3c34;
-        }
-
-        .vote-analytics {
-            background: rgba(255, 255, 255, 0.9);
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-            text-align: center;
-        }
-
-        .vote-analytics canvas {
-            max-width: 100%;
-            margin: 20px auto;
-        }
-
-        .vote-analytics .error {
-            color: #e76f51;
-            font-size: 16px;
+            .overview .card .number {
+                font-size: 20px;
+            }
         }
     </style>
 </head>
@@ -764,20 +553,17 @@ $profile_picture = 'images/default.png';
             <h1>SmartUchaguzi</h1>
         </div>
         <div class="nav">
-            <a href="#" data-section="management" class="active">Management</a>
-            <a href="./api/update-upcoming.php" data-section="upcoming">Upcoming Elections</a>
-            <a href="#" data-section="users">Users</a>
+            <a href="#" data-section="overview" class="active">Overview</a>
+            <a href="#" data-section="management">Election Management</a>
+            <a href="#" data-section="upcoming">Upcoming Elections</a>
+            <a href="#" data-section="users">User Management</a>
             <a href="#" data-section="analytics">Analytics</a>
-            <a href="#" data-section="audit">Audit Log</a>
+            <a href="#" data-section="audit">Audit Logs</a>
         </div>
         <div class="user">
-            <img src="<?php echo htmlspecialchars($profile_picture); ?>" alt="User Profile Picture" id="profile-pic">
-            <div class="dropdown" id="user-dropdown">
-                <span style="color: #e6e6e6; padding: 10px 20px;"><?php echo htmlspecialchars($user['fname'] ?? 'Admin') . ($college_name ? ' (' . htmlspecialchars($college_name) . ')' : ''); ?></span>
-                <a href="admin-profile.php">My Profile</a>
-                <a href="logout.php">Logout</a>
-            </div>
-            <a href="logout.php" class="logout-link">Logout</a>
+            <span><?php echo htmlspecialchars($user['fname'] . ' ' . $user['lname'] . ($college_name ? ' (' . $college_name . ')' : '')); ?></span>
+            <img src="images/default.png" alt="Profile">
+            <a href="logout.php">Logout</a>
         </div>
     </header>
 
@@ -785,13 +571,38 @@ $profile_picture = 'images/default.png';
         <div class="dash-content">
             <h2>Admin Dashboard</h2>
 
-            <div class="content-section active" id="management">
+            <div class="content-section active" id="overview">
+                <div class="overview">
+                    <div class="card">
+                        <i class="fas fa-users"></i>
+                        <span class="text">Total Candidates</span>
+                        <span class="number"><?php echo $total_candidates; ?></span>
+                    </div>
+                    <div class="card">
+                        <i class="fas fa-vote-yea"></i>
+                        <span class="text">Total Votes</span>
+                        <span class="number"><?php echo $total_votes; ?></span>
+                    </div>
+                    <div class="card">
+                        <i class="fas fa-clock"></i>
+                        <span class="text">Active Elections</span>
+                        <span class="number"><?php echo $total_active_elections; ?></span>
+                    </div>
+                    <div class="card">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <span class="text">Fraud Incidents</span>
+                        <span class="number"><?php echo $total_anomalies; ?></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="content-section" id="management">
                 <h3>Election Management</h3>
                 <div class="management-section">
                     <div class="action-buttons">
-                        <button onclick="window.location.href='./admin-operations/add-election.php'">Add New Election</button>
-                        <button onclick="window.location.href='./admin-operations/edit-election.php'">Edit Existing Election</button>
-                        <button onclick="window.location.href='./admin-operations/manage-candidates.php'">Manage Candidates</button>
+                        <button onclick="window.location.href='admin-operations/add-election.php'">Add Election</button>
+                        <button onclick="window.location.href='admin-operations/edit-election.php'">Edit Election</button>
+                        <button onclick="window.location.href='admin-operations/manage-candidates.php'">Manage Candidates</button>
                     </div>
                 </div>
             </div>
@@ -799,9 +610,41 @@ $profile_picture = 'images/default.png';
             <div class="content-section" id="upcoming">
                 <h3>Upcoming Elections</h3>
                 <div class="upcoming-section">
-                    <div class="action-buttons">
-                        <button onclick="window.location.href='./api/update-upcoming.php'">Manage Upcoming Elections</button>
-                    </div>
+                    <table class="upcoming-table">
+                        <thead>
+                            <tr>
+                                <th>Association</th>
+                                <th>College</th>
+                                <th>Start Time</th>
+                                <th>End Time</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php
+                            $stmt = $pdo->prepare("SELECT e.id, e.association, e.start_time, e.end_time, c.name AS college_name 
+                                                   FROM elections e 
+                                                   LEFT JOIN colleges c ON e.college_id = c.id 
+                                                   WHERE e.start_time > NOW() 
+                                                   ORDER BY e.start_time");
+                            $stmt->execute();
+                            $elections = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                            if ($elections) {
+                                foreach ($elections as $election) {
+                                    echo "<tr>";
+                                    echo "<td>" . htmlspecialchars($election['association']) . "</td>";
+                                    echo "<td>" . ($election['college_name'] ? htmlspecialchars($election['college_name']) : 'University-Wide') . "</td>";
+                                    echo "<td>" . htmlspecialchars($election['start_time']) . "</td>";
+                                    echo "<td>" . htmlspecialchars($election['end_time']) . "</td>";
+                                    echo "<td><a href='admin-operations/edit-election.php?id={$election['id']}'>Edit</a></td>";
+                                    echo "</tr>";
+                                }
+                            } else {
+                                echo "<tr><td colspan='5'>No upcoming elections.</td></tr>";
+                            }
+                            ?>
+                        </tbody>
+                    </table>
                 </div>
             </div>
 
@@ -809,252 +652,130 @@ $profile_picture = 'images/default.png';
                 <h3>User Management</h3>
                 <div class="user-section">
                     <div class="action-buttons">
-                        <button onclick="window.location.href='./admin-operations/add-user.php'">Add New User</button>
-                        <button onclick="window.location.href='./admin-operations/edit-user.php'">Edit User</button>
-                        <button onclick="window.location.href='./admin-operations/assign-observer.php'">Assign Observer</button>
+                        <button onclick="window.location.href='admin-operations/add-user.php'">Add User</button>
+                        <button onclick="window.location.href='admin-operations/edit-user.php'">Edit User</button>
+                        <button onclick="window.location.href='admin-operations/assign-observer.php'">Assign Observer</button>
                     </div>
                 </div>
             </div>
 
             <div class="content-section" id="analytics">
                 <h3>Election Analytics</h3>
-                <div class="analytics-filter">
-                    <label for="election-select">Select Election:</label>
-                    <select id="election-select">
-                        <option value="">All Elections</option>
-                        <?php
-                        include 'db.php';
-                        try {
-                            $result = $db->query("SELECT id, CONCAT(association, ' - ', start_time) AS name FROM elections ORDER BY start_time DESC");
-                            while ($row = $result->fetch_assoc()) {
+                <div class="analytics-section">
+                    <div class="analytics-filter">
+                        <label for="election-select">Select Election:</label>
+                        <select id="election-select">
+                            <option value="">All Elections</option>
+                            <?php
+                            $stmt = $pdo->prepare("SELECT id, CONCAT(association, ' - ', start_time) AS name FROM elections ORDER BY start_time DESC");
+                            $stmt->execute();
+                            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
                                 echo "<option value='{$row['id']}'>" . htmlspecialchars($row['name']) . "</option>";
                             }
-                            $result->free();
-                        } catch (Exception $e) {
-                            error_log("Election select query failed: " . $e->getMessage());
-                            echo "<option value=''>Failed to load elections</option>";
-                        }
-                        ?>
-                    </select>
-                    <button id="download-report">Download Report</button>
-                </div>
-                <div class="overview">
-                    <div class="card">
-                        <i class="fas fa-users"></i>
-                        <span class="text">Total Candidates</span>
-                        <span class="number">
-                            <?php
-                            try {
-                                $result = $db->query("SELECT COUNT(*) AS count FROM candidates");
-                                $row = $result->fetch_assoc();
-                                echo $row['count'];
-                                $result->free();
-                            } catch (Exception $e) {
-                                error_log("Candidates count query failed: " . $e->getMessage());
-                                echo 'N/A';
-                            }
                             ?>
-                        </span>
+                        </select>
+                        <form method="POST" action="api/generate-report.php">
+                            <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
+                            <input type="hidden" name="election_id" id="report-election-id">
+                            <button type="submit" id="download-report" disabled>Download Report</button>
+                        </form>
                     </div>
-                    <div class="card">
-                        <i class="fas fa-vote-yea"></i>
-                        <span class="text">Total Votes</span>
-                        <span class="number">
-                            <?php
-                            try {
-                                $result = $db->query("SELECT COUNT(*) AS count FROM votes");
-                                $row = $result->fetch_assoc();
-                                echo $row['count'];
-                                $result->free();
-                            } catch (Exception $e) {
-                                error_log("Votes count query failed: " . $e->getMessage());
-                                echo 'N/A';
-                            }
-                            ?>
-                        </span>
+                    <div id="vote-analytics" class="vote-analytics">
+                        <p>Select an election to view analytics.</p>
                     </div>
-                    <div class="card">
-                        <i class="fas fa-clock"></i>
-                        <span class="text">Active Elections</span>
-                        <span class="number">
-                            <?php
-                            try {
-                                $result = $db->query("SELECT COUNT(*) AS count FROM elections WHERE end_time > NOW()");
-                                $row = $result->fetch_assoc();
-                                echo $row['count'];
-                                $result->free();
-                            } catch (Exception $e) {
-                                error_log("Elections count query failed: " . $e->getMessage());
-                                echo 'N/A';
-                            }
-                            ?>
-                        </span>
-                    </div>
-                </div>
-                <div id="vote-analytics" class="vote-analytics">
-                    <p>Select an election to view detailed analytics.</p>
                 </div>
             </div>
 
             <div class="content-section" id="audit">
-                <h3>Audit Log</h3>
+                <h3>Audit Logs</h3>
                 <div class="audit-section">
-                    <?php
-                    include 'db.php';
-                    $logs = [];
-                    $error_message = '';
-
-                    try {
-                        $result = $db->query(
-                            "SELECT action, timestamp 
-                FROM auditlogs 
-                ORDER BY timestamp DESC 
-                LIMIT 10"
-                        );
-                        if ($result) {
-                            while ($row = $result->fetch_assoc()) {
-                                $logs[] = $row;
+                    <table class="audit-table">
+                        <thead>
+                            <tr>
+                                <th>Timestamp</th>
+                                <th>User</th>
+                                <th>Action</th>
+                                <th>Details</th>
+                                <th>IP Address</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php
+                            $stmt = $pdo->prepare("SELECT a.timestamp, a.action, a.details, a.ip_address, u.fname, u.lname 
+                                                   FROM auditlogs a 
+                                                   JOIN users u ON a.user_id = u.user_id 
+                                                   ORDER BY a.timestamp DESC LIMIT 50");
+                            $stmt->execute();
+                            $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                            if ($logs) {
+                                foreach ($logs as $log) {
+                                    echo "<tr>";
+                                    echo "<td>" . htmlspecialchars($log['timestamp']) . "</td>";
+                                    echo "<td>" . htmlspecialchars($log['fname'] . ' ' . $log['lname']) . "</td>";
+                                    echo "<td>" . htmlspecialchars($log['action']) . "</td>";
+                                    echo "<td>" . htmlspecialchars($log['details'] ?? 'N/A') . "</td>";
+                                    echo "<td>" . htmlspecialchars($log['ip_address']) . "</td>";
+                                    echo "</tr>";
+                                }
+                            } else {
+                                echo "<tr><td colspan='5'>No audit logs available.</td></tr>";
                             }
-                            $result->free();
-                        } else {
-                            error_log("Audit log query failed: " . $db->error);
-                            $error_message = "Failed to load audit logs due to a database error.";
-                        }
-                    } catch (Exception $e) {
-                        error_log("Audit log query failed: " . $e->getMessage());
-                        $error_message = "Failed to load audit logs due to a server error.";
-                    }
-                    ?>
-
-                    <?php if (!empty($error_message)): ?>
-                        <div class="error"><?php echo htmlspecialchars($error_message); ?></div>
-                    <?php elseif (empty($logs)): ?>
-                        <div class="no-logs">No recent activity.</div>
-                    <?php else: ?>
-                        <table class="audit-table">
-                            <thead>
-                                <tr>
-                                    <th>Timestamp</th>
-                                    <th>Action</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php foreach ($logs as $log): ?>
-                                    <tr>
-                                        <td><?php echo htmlspecialchars(date('d M Y, h:i A', strtotime($log['timestamp']))); ?></td>
-                                        <td><?php echo htmlspecialchars($log['action']); ?></td>
-                                    </tr>
-                                <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                    <?php endif; ?>
+                            ?>
+                        </tbody>
+                    </table>
                 </div>
             </div>
 
+            <div class="quick-links">
+                <h3>Quick Links</h3>
+                <ul>
+                    <li><a href="admin-profile.php">My Profile</a></li>
+                    <li><a href="election-rules.php">Election Rules</a></li>
+                    <li><a href="contact.php">Support</a></li>
+                </ul>
+            </div>
         </div>
     </section>
 
     <div class="modal" id="timeout-modal">
         <div class="modal-content">
-            <p id="timeout-message">You will be logged out in 1 minute due to inactivity.</p>
-            <button id="extend-session">OK</button>
+            <p id="timeout-message">You will be logged out in 1 minute.</p>
+            <button id="extend-session">Extend Session</button>
         </div>
     </div>
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
+            const navLinks = document.querySelectorAll('.nav a[data-section]');
+            const sections = document.querySelectorAll('.content-section');
             const electionSelect = document.getElementById('election-select');
             const voteAnalytics = document.getElementById('vote-analytics');
             const downloadButton = document.getElementById('download-report');
-
-            const navLinks = document.querySelectorAll('.nav a[data-section]');
-            const sections = document.querySelectorAll('.content-section');
+            const reportElectionId = document.getElementById('report-election-id');
 
             navLinks.forEach(link => {
                 link.addEventListener('click', (e) => {
-                    if (link.getAttribute('href') !== '#') {
-                        return;
-                    }
                     e.preventDefault();
                     const sectionId = link.getAttribute('data-section');
                     sections.forEach(section => section.classList.remove('active'));
-                    const targetSection = document.getElementById(sectionId);
-                    if (targetSection) {
-                        targetSection.classList.add('active');
-                    }
+                    document.getElementById(sectionId).classList.add('active');
                     navLinks.forEach(l => l.classList.remove('active'));
                     link.classList.add('active');
                 });
             });
 
-            const defaultLink = document.querySelector('.nav a.active');
-            if (defaultLink && defaultLink.getAttribute('href') === '#') {
-                const defaultSectionId = defaultLink.getAttribute('data-section');
-                document.getElementById(defaultSectionId).classList.add('active');
-            }
-
-            const profilePic = document.getElementById('profile-pic');
-            const dropdown = document.getElementById('user-dropdown');
-            profilePic.addEventListener('click', (e) => {
-                e.stopPropagation();
-                dropdown.classList.toggle('active');
-            });
-
-            document.addEventListener('click', (e) => {
-                if (!dropdown.contains(e.target) && e.target !== profilePic) {
-                    dropdown.classList.remove('active');
-                }
-            });
-
-            const inactivityTimeout = <?php echo $inactivity_timeout; ?> * 1000;
-            const maxSessionDuration = <?php echo $max_session_duration; ?> * 1000;
-            const warningTime = <?php echo $warning_time; ?> * 1000;
-            let lastActivity = Date.now();
-            let sessionStart = <?php echo $_SESSION['start_time'] * 1000; ?>;
-
-            const modal = document.getElementById('timeout-modal');
-            const timeoutMessage = document.getElementById('timeout-message');
-            const extendButton = document.getElementById('extend-session');
-
-            function checkTimeouts() {
-                const currentTime = Date.now();
-                const inactiveTime = currentTime - lastActivity;
-                const sessionTime = currentTime - sessionStart;
-
-                if (sessionTime >= maxSessionDuration - warningTime && sessionTime < maxSessionDuration) {
-                    timeoutMessage.textContent = "Your session will expire in 1 minute due to maximum duration.";
-                    modal.style.display = 'flex';
-                } else if (sessionTime >= maxSessionDuration) {
-                    window.location.href = 'logout.php';
-                }
-
-                if (inactiveTime >= inactivityTimeout - warningTime && inactiveTime < inactivityTimeout) {
-                    timeoutMessage.textContent = "You will be logged out in 1 minute due to inactivity.";
-                    modal.style.display = 'flex';
-                } else if (inactiveTime >= inactivityTimeout) {
-                    window.location.href = 'logout.php';
-                }
-            }
-
-            document.addEventListener('mousemove', () => {
-                lastActivity = Date.now();
-            });
-            document.addEventListener('keydown', () => {
-                lastActivity = Date.now();
-            });
-
-            extendButton.addEventListener('click', () => {
-                lastActivity = Date.now();
-                modal.style.display = 'none';
-            });
-
-            setInterval(checkTimeouts, 1000);
-
             electionSelect.addEventListener('change', () => {
                 const electionId = electionSelect.value;
                 voteAnalytics.innerHTML = '<p>Loading analytics...</p>';
+                downloadButton.disabled = !electionId;
+                reportElectionId.value = electionId;
 
-                fetch(`./api/vote-analytics.php?election_id=${electionId}`)
+                if (!electionId) {
+                    voteAnalytics.innerHTML = '<p>Select an election to view analytics.</p>';
+                    return;
+                }
+
+                fetch(`api/vote-analytics.php?election_id=${electionId}`)
                     .then(response => response.json())
                     .then(data => {
                         if (data.error) {
@@ -1067,16 +788,16 @@ $profile_picture = 'images/default.png';
                             totalVotes
                         } = data;
                         let html = '<h4>Vote Analytics</h4>';
-
                         positions.forEach(pos => {
                             html += `
-                        <div>
-                            <h5>${pos.name}</h5>
-                            <canvas id="chart-${pos.id}"></canvas>
-                            <p>Total Votes: ${pos.totalVotes}</p>
-                            <p>Winner: ${pos.winner ? pos.winner : 'None'}</p>
-                        </div>
-                    `;
+                                <div>
+                                    <h5>${pos.name}</h5>
+                                    <canvas id="chart-${pos.id}"></canvas>
+                                    <p>Total Votes: ${pos.totalVotes}</p>
+                                    <p>Winner: ${pos.winner || 'None'}</p>
+                                    <p>Blockchain Hash: ${pos.blockchain_hash || 'N/A'}</p>
+                                </div>
+                            `;
                         });
 
                         voteAnalytics.innerHTML = html;
@@ -1108,7 +829,7 @@ $profile_picture = 'images/default.png';
                                         },
                                         tooltip: {
                                             callbacks: {
-                                                label: (context) => {
+                                                label: context => {
                                                     const votes = context.parsed.y;
                                                     const percentage = totalVotes ? ((votes / totalVotes) * 100).toFixed(2) : 0;
                                                     return `${votes} votes (${percentage}%)`;
@@ -1126,14 +847,49 @@ $profile_picture = 'images/default.png';
                     });
             });
 
-            downloadButton.addEventListener('click', () => {
-                const electionId = electionSelect.value;
-                if (!electionId) {
-                    alert('Please select an election to download the report.');
-                    return;
+            const inactivityTimeout = <?php echo $inactivity_timeout; ?> * 1000;
+            const maxSessionDuration = <?php echo $max_session_duration; ?> * 1000;
+            const warningTime = <?php echo $warning_time; ?> * 1000;
+            let lastActivity = Date.now();
+            let sessionStart = <?php echo $_SESSION['start_time'] * 1000; ?>;
+
+            const modal = document.getElementById('timeout-modal');
+            const timeoutMessage = document.getElementById('timeout-message');
+            const extendButton = document.getElementById('extend-session');
+
+            function checkTimeouts() {
+                const currentTime = Date.now();
+                const inactiveTime = currentTime - lastActivity;
+                const sessionTime = currentTime - sessionStart;
+
+                if (sessionTime >= maxSessionDuration - warningTime && sessionTime < maxSessionDuration) {
+                    timeoutMessage.textContent = "Your session will expire in 1 minute.";
+                    modal.style.display = 'flex';
+                } else if (sessionTime >= maxSessionDuration) {
+                    window.location.href = 'logout.php';
                 }
-                window.location.href = `./api/generate-report.php?election_id=${electionId}`;
+
+                if (inactiveTime >= inactivityTimeout - warningTime && inactiveTime < inactivityTimeout) {
+                    timeoutMessage.textContent = "You will be logged out in 1 minute due to inactivity.";
+                    modal.style.display = 'flex';
+                } else if (inactiveTime >= inactivityTimeout) {
+                    window.location.href = 'logout.php';
+                }
+            }
+
+            document.addEventListener('mousemove', () => {
+                lastActivity = Date.now();
             });
+            document.addEventListener('keydown', () => {
+                lastActivity = Date.now();
+            });
+
+            extendButton.addEventListener('click', () => {
+                lastActivity = Date.now();
+                modal.style.display = 'none';
+            });
+
+            setInterval(checkTimeouts, 1000);
         });
     </script>
 </body>

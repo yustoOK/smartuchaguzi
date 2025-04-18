@@ -20,7 +20,7 @@ $required_association = 'UDOMASA';
 $required_role = 'teacher-voter';
 
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['role']) || $_SESSION['role'] !== $required_role || $_SESSION['college'] !== $required_college || $_SESSION['association'] !== $required_association) {
-    error_log("Session validation failed: user_id, role, college, or association not set or invalid. Redirecting to login.php");
+    error_log("Session validation failed: user_id, role, college, or association not set or invalid.");
     session_unset();
     session_destroy();
     header('Location: login.php?error=' . urlencode('Please log in to access the ' . $required_college . ' ' . $required_association . ' dashboard.'));
@@ -28,7 +28,7 @@ if (!isset($_SESSION['user_id']) || !isset($_SESSION['role']) || $_SESSION['role
 }
 
 if (!isset($_SESSION['user_agent']) || $_SESSION['user_agent'] !== $_SERVER['HTTP_USER_AGENT']) {
-    error_log("Session hijacking detected: user agent mismatch. Session destroyed.");
+    error_log("Session hijacking detected: user agent mismatch.");
     session_unset();
     session_destroy();
     header('Location: login.php?error=' . urlencode('Session validation failed. Please log in again.'));
@@ -40,12 +40,10 @@ $max_session_duration = 30 * 60;
 $warning_time = 60;
 
 if (!isset($_SESSION['start_time'])) {
-    error_log("Session start_time not set. Initializing now.");
     $_SESSION['start_time'] = time();
 }
 
 if (!isset($_SESSION['last_activity'])) {
-    error_log("Session last_activity not set. Initializing now.");
     $_SESSION['last_activity'] = time();
 }
 
@@ -54,7 +52,7 @@ if ($time_elapsed >= $max_session_duration) {
     error_log("Session expired due to maximum duration: $time_elapsed seconds elapsed.");
     session_unset();
     session_destroy();
-    header('Location: login.php?error=' . urlencode('Session expired due to maximum duration. Please log in again.'));
+    header('Location: login.php?error=' . urlencode('Session expired. Please log in again.'));
     exit;
 }
 
@@ -70,10 +68,9 @@ if ($inactive_time >= $inactivity_timeout) {
 $_SESSION['last_activity'] = time();
 
 $user_id = $_SESSION['user_id'];
-$stmt = $pdo->prepare("SELECT fname FROM users WHERE id = ?");
+$stmt = $pdo->prepare("SELECT fname, college_id FROM users WHERE id = ?");
 $stmt->execute([$user_id]);
 $user = $stmt->fetch(PDO::FETCH_ASSOC);
-
 $profile_picture = 'images/general.png';
 ?>
 
@@ -83,7 +80,7 @@ $profile_picture = 'images/general.png';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo $required_college . ' ' . $required_association; ?> | Dashboard</title>
-    <link rel="icon" href="./uploads/Vote.jpeg" type="image/x-icon">
+    <link rel="icon" href="./Uploads/Vote.jpeg" type="image/x-icon">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
@@ -93,7 +90,6 @@ $profile_picture = 'images/general.png';
             box-sizing: border-box;
             font-family: 'Poppins', sans-serif;
         }
-
         body {
             background: linear-gradient(rgba(26, 60, 52, 0.7), rgba(26, 60, 52, 0.7)), url('images/<?php echo strtolower($required_college); ?>.jpeg');
             background-size: cover;
@@ -103,7 +99,6 @@ $profile_picture = 'images/general.png';
             line-height: 1.6;
             min-height: 100vh;
         }
-
         .header {
             position: fixed;
             top: 0;
@@ -119,21 +114,14 @@ $profile_picture = 'images/general.png';
             z-index: 1000;
             animation: gradientShift 5s infinite alternate;
         }
-
         @keyframes gradientShift {
-            0% {
-                background: rgba(26, 60, 52, 0.9);
-            }
-            100% {
-                background: rgba(44, 82, 76, 0.9);
-            }
+            0% { background: rgba(26, 60, 52, 0.9); }
+            100% { background: rgba(44, 82, 76, 0.9); }
         }
-
         .header .logo {
             display: flex;
             align-items: center;
         }
-
         .header .logo img {
             width: 50px;
             height: 50px;
@@ -141,7 +129,6 @@ $profile_picture = 'images/general.png';
             border-radius: 50%;
             border: 2px solid #f4a261;
         }
-
         .header .logo h1 {
             font-size: 24px;
             color: #e6e6e6;
@@ -151,12 +138,10 @@ $profile_picture = 'images/general.png';
             background-clip: text;
             color: transparent;
         }
-
         .header .nav {
             display: flex;
             gap: 20px;
         }
-
         .header .nav a {
             color: #e6e6e6;
             text-decoration: none;
@@ -166,7 +151,6 @@ $profile_picture = 'images/general.png';
             position: relative;
             transition: color 0.3s ease;
         }
-
         .header .nav a::after {
             content: '';
             position: absolute;
@@ -177,27 +161,22 @@ $profile_picture = 'images/general.png';
             background: #f4a261;
             transition: width 0.3s ease;
         }
-
         .header .nav a:hover::after,
         .header .nav a.active::after {
             width: 100%;
         }
-
         .header .nav a.active {
             color: #f4a261;
         }
-
         .header .nav a:hover {
             color: #f4a261;
         }
-
         .header .user {
             position: relative;
             display: flex;
             align-items: center;
             gap: 15px;
         }
-
         .header .user img {
             width: 40px;
             height: 40px;
@@ -205,7 +184,6 @@ $profile_picture = 'images/general.png';
             border: 2px solid #f4a261;
             cursor: pointer;
         }
-
         .header .user .dropdown {
             position: absolute;
             top: 60px;
@@ -219,11 +197,9 @@ $profile_picture = 'images/general.png';
             width: 200px;
             z-index: 1000;
         }
-
         .header .user .dropdown.active {
             display: flex;
         }
-
         .header .user .dropdown a {
             color: #e6e6e6;
             padding: 10px 20px;
@@ -232,11 +208,9 @@ $profile_picture = 'images/general.png';
             transition: background 0.3s ease;
             cursor: pointer;
         }
-
         .header .user .dropdown a:hover {
             background: rgba(244, 162, 97, 0.3);
         }
-
         .header .user .logout-link {
             background: #f4a261;
             color: #fff;
@@ -245,16 +219,13 @@ $profile_picture = 'images/general.png';
             text-decoration: none;
             transition: all 0.3s ease;
         }
-
         .header .user .logout-link:hover {
             background: #e76f51;
             box-shadow: 0 0 10px rgba(231, 111, 81, 0.5);
         }
-
         .dashboard {
             padding: 100px 20px 20px;
         }
-
         .dash-content {
             max-width: 1200px;
             margin: 0 auto;
@@ -263,7 +234,6 @@ $profile_picture = 'images/general.png';
             border-radius: 12px;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
         }
-
         .dash-content h2 {
             font-size: 28px;
             color: #1a3c34;
@@ -274,14 +244,12 @@ $profile_picture = 'images/general.png';
             background-clip: text;
             color: transparent;
         }
-
         .overview {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
             gap: 20px;
             margin-bottom: 40px;
         }
-
         .overview .card {
             background: rgba(255, 255, 255, 0.1);
             backdrop-filter: blur(10px);
@@ -291,52 +259,43 @@ $profile_picture = 'images/general.png';
             text-align: center;
             transition: transform 0.3s ease, box-shadow 0.3s ease;
         }
-
         .overview .card:hover {
             transform: translateY(-5px);
             box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
         }
-
         .overview .card i {
             font-size: 30px;
             color: #f4a261;
             margin-bottom: 10px;
         }
-
         .overview .card .text {
             font-size: 16px;
             color: #4a5568;
         }
-
         .overview .card .number {
             font-size: 24px;
             font-weight: 600;
             color: #1a3c34;
             margin-top: 5px;
         }
-
         .content-section {
             display: none;
         }
-
         .content-section.active {
             display: block;
         }
-
         .content-section h3 {
             font-size: 22px;
             color: #1a3c34;
             margin-bottom: 20px;
             text-align: center;
         }
-
         .election-cards {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
             gap: 20px;
         }
-
-        .election-card {
+        .election-card, .results-card {
             background: rgba(255, 255, 255, 0.1);
             backdrop-filter: blur(10px);
             padding: 20px;
@@ -344,12 +303,10 @@ $profile_picture = 'images/general.png';
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
             transition: transform 0.3s ease;
         }
-
-        .election-card:hover {
+        .election-card:hover, .results-card:hover {
             transform: translateY(-5px);
         }
-
-        .election-card h3 {
+        .election-card h4, .results-card h4 {
             font-size: 20px;
             color: #1a3c34;
             margin-bottom: 15px;
@@ -358,7 +315,11 @@ $profile_picture = 'images/general.png';
             background-clip: text;
             color: transparent;
         }
-
+        .election-card h5 {
+            font-size: 18px;
+            color: #2d3748;
+            margin: 10px 0;
+        }
         .election-card .candidate {
             margin: 10px 0;
             padding: 10px;
@@ -369,27 +330,22 @@ $profile_picture = 'images/general.png';
             align-items: center;
             transition: background 0.3s ease;
         }
-
         .election-card .candidate:hover {
             background: rgba(244, 162, 97, 0.3);
         }
-
         .election-card .candidate span {
             font-size: 16px;
             color: #2d3748;
         }
-
         .election-card .candidate a {
             color: #f4a261;
             text-decoration: none;
             font-weight: 500;
             transition: color 0.3s ease;
         }
-
         .election-card .candidate a:hover {
             color: #e76f51;
         }
-
         .vote-section {
             background: rgba(255, 255, 255, 0.1);
             backdrop-filter: blur(10px);
@@ -397,31 +353,27 @@ $profile_picture = 'images/general.png';
             border-radius: 12px;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
         }
-
         .vote-section table {
             width: 100%;
             border-collapse: collapse;
         }
-
         .vote-section th {
             background: #1a3c34;
             color: #e6e6e6;
             padding: 12px;
         }
-
         .vote-section td {
             padding: 12px;
             border-bottom: 1px solid #e8ecef;
         }
-
         .vote-section select {
             padding: 8px;
             border-radius: 6px;
             border: 1px solid #e8ecef;
             background: rgba(255, 255, 255, 0.1);
             color: #2d3748;
+            width: 100%;
         }
-
         .vote-section button {
             background: linear-gradient(135deg, #f4a261, #e76f51);
             color: #fff;
@@ -431,13 +383,11 @@ $profile_picture = 'images/general.png';
             cursor: pointer;
             transition: all 0.3s ease;
         }
-
         .vote-section button:hover {
             transform: scale(1.05);
             box-shadow: 0 0 10px rgba(244, 162, 97, 0.5);
         }
-
-        .verify-section {
+        .verify-section, .results-section {
             background: rgba(255, 255, 255, 0.1);
             backdrop-filter: blur(10px);
             padding: 20px;
@@ -445,13 +395,11 @@ $profile_picture = 'images/general.png';
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
             text-align: center;
         }
-
-        .verify-section p {
+        .verify-section p, .results-section p {
             font-size: 16px;
             color: #4a5568;
             margin-bottom: 20px;
         }
-
         .verify-section .hash {
             font-family: monospace;
             background: rgba(255, 255, 255, 0.2);
@@ -460,50 +408,19 @@ $profile_picture = 'images/general.png';
             word-break: break-all;
             color: #1a3c34;
         }
-
-        .analytics-section {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px;
+        .results-card p {
+            font-size: 16px;
+            color: #2d3748;
         }
-
-        .analytics-section .chart {
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-            text-align: center;
-            transition: transform 0.3s ease;
-        }
-
-        .analytics-section .chart:hover {
-            transform: translateY(-5px);
-        }
-
-        .analytics-section .chart h4 {
-            font-size: 18px;
-            color: #1a3c34;
-            margin-bottom: 10px;
-        }
-
-        .analytics-section .chart p {
-            font-size: 24px;
-            font-weight: 600;
-            color: #1a3c34;
-        }
-
         .quick-links {
             margin-top: 40px;
             text-align: center;
         }
-
         .quick-links h3 {
             font-size: 22px;
             color: #1a3c34;
             margin-bottom: 15px;
         }
-
         .quick-links ul {
             list-style: none;
             display: flex;
@@ -511,7 +428,6 @@ $profile_picture = 'images/general.png';
             gap: 20px;
             flex-wrap: wrap;
         }
-
         .quick-links ul li a {
             display: block;
             padding: 10px 20px;
@@ -523,13 +439,11 @@ $profile_picture = 'images/general.png';
             transition: all 0.3s ease;
             box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
         }
-
         .quick-links ul li a:hover {
             background: #f4a261;
             color: #fff;
             transform: scale(1.05);
         }
-
         .modal {
             display: none;
             position: fixed;
@@ -542,7 +456,6 @@ $profile_picture = 'images/general.png';
             justify-content: center;
             align-items: center;
         }
-
         .modal-content {
             background: rgba(255, 255, 255, 0.9);
             padding: 20px;
@@ -552,13 +465,11 @@ $profile_picture = 'images/general.png';
             width: 90%;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
         }
-
         .modal-content p {
             font-size: 16px;
             color: #2d3748;
             margin-bottom: 20px;
         }
-
         .modal-content button {
             background: #f4a261;
             color: #fff;
@@ -568,44 +479,40 @@ $profile_picture = 'images/general.png';
             cursor: pointer;
             transition: all 0.3s ease;
         }
-
         .modal-content button:hover {
             background: #e76f51;
         }
-
         @media (max-width: 768px) {
             .header {
                 padding: 15px 20px;
                 flex-direction: column;
                 gap: 10px;
             }
-
             .header .nav {
                 flex-wrap: wrap;
                 justify-content: center;
                 gap: 15px;
             }
-
-            .overview, .election-cards, .analytics-section {
+            .overview,
+            .election-cards {
                 grid-template-columns: 1fr;
             }
-
             .header .user .dropdown {
                 width: 150px;
                 top: 120px;
             }
+            .dash-content {
+                padding: 20px;
+            }
         }
-
         @media (max-width: 480px) {
             .header .logo h1 {
                 font-size: 20px;
             }
-
             .header .nav a {
                 padding: 8px 14px;
                 font-size: 14px;
             }
-
             .header .user img {
                 width: 30px;
                 height: 30px;
@@ -616,14 +523,14 @@ $profile_picture = 'images/general.png';
 <body>
     <header class="header">
         <div class="logo">
-            <img src="./uploads/Vote.jpeg" alt="SmartUchaguzi Logo">
+            <img src="./Uploads/Vote.jpeg" alt="SmartUchaguzi Logo">
             <h1>SmartUchaguzi</h1>
         </div>
         <div class="nav">
             <a href="#" data-section="election" class="active">Election</a>
             <a href="#" data-section="vote">Vote</a>
             <a href="#" data-section="verify">Verify Vote</a>
-            <a href="#" data-section="analytics">Analytics</a>
+            <a href="#" data-section="results">Results</a>
         </div>
         <div class="user">
             <img src="<?php echo htmlspecialchars($profile_picture); ?>" alt="User Profile Picture" id="profile-pic">
@@ -643,11 +550,11 @@ $profile_picture = 'images/general.png';
             <div class="overview">
                 <div class="card">
                     <i class="fas fa-users"></i>
-                    <span class="text">Election Candidates</span>
+                    <span class="text">UDOMASA Candidates</span>
                     <span class="number">
                         <?php
-                        $stmt = $pdo->prepare("SELECT COUNT(*) FROM candidates WHERE association = ?");
-                        $stmt->execute([$required_association]);
+                        $stmt = $pdo->prepare("SELECT COUNT(*) FROM candidates WHERE election_id IN (SELECT id FROM elections WHERE association = ?)");
+                        $stmt->execute(['UDOMASA']);
                         echo $stmt->fetchColumn();
                         ?>
                     </span>
@@ -665,76 +572,139 @@ $profile_picture = 'images/general.png';
             </div>
 
             <div class="content-section active" id="election">
-                <h3>Current Election</h3>
+                <h3>All Elections (UDOSO & UDOMASA)</h3>
                 <div class="election-cards">
                     <?php
-                    $stmt = $pdo->prepare("SELECT DISTINCT position FROM candidates WHERE association = ?");
-                    $stmt->execute([$required_association]);
-                    while ($pos = $stmt->fetch(PDO::FETCH_ASSOC)) {
-                        echo "<div class='election-card'>";
-                        echo "<h3>" . htmlspecialchars($pos['position']) . "</h3>";
-                        $cand_stmt = $pdo->prepare("SELECT id, firstname, middlename, lastname FROM candidates WHERE position = ? AND association = ?");
-                        $cand_stmt->execute([$pos['position'], $required_association]);
-                        while ($cand = $cand_stmt->fetch(PDO::FETCH_ASSOC)) {
-                            $full_name = $cand['firstname'] . ' ' . ($cand['middlename'] ? $cand['middlename'] . ' ' : '') . $cand['lastname'];
-                            echo "<div class='candidate'><span>" . htmlspecialchars($full_name) . "</span><a href='candidate-details.php?id=" . $cand['id'] . "'>Details</a></div>";
+                    $stmt = $pdo->prepare("SELECT e.id, e.association, e.end_time, c.name AS college_name 
+                                           FROM elections e 
+                                           LEFT JOIN colleges c ON e.college_id = c.id 
+                                           WHERE e.end_time > NOW() 
+                                           ORDER BY e.association, e.college_id");
+                    $stmt->execute();
+                    $elections = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                    if ($elections) {
+                        foreach ($elections as $election) {
+                            echo "<div class='election-card'>";
+                            echo "<h4>" . ($election['college_name'] ? htmlspecialchars($election['college_name']) : 'University-Wide') . " (" . htmlspecialchars($election['association']) . ")</h4>";
+                            $stmt = $pdo->prepare("SELECT ep.id, ep.name FROM election_positions ep WHERE ep.election_id = ?");
+                            $stmt->execute([$election['id']]);
+                            while ($pos = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                                echo "<h5>" . htmlspecialchars($pos['name']) . "</h5>";
+                                $cand_stmt = $pdo->prepare("SELECT c.id, u.fname, u.lname 
+                                                           FROM candidates c 
+                                                           JOIN users u ON c.user_id = u.id 
+                                                           WHERE c.election_id = ? AND c.position_id = ?");
+                                $cand_stmt->execute([$election['id'], $pos['id']]);
+                                while ($cand = $cand_stmt->fetch(PDO::FETCH_ASSOC)) {
+                                    $full_name = $cand['fname'] . ' ' . $cand['lname'];
+                                    echo "<div class='candidate'><span>" . htmlspecialchars($full_name) . "</span><a href='candidate-details.php?id=" . $cand['id'] . "'>Details</a></div>";
+                                }
+                            }
+                            echo "</div>";
                         }
-                        echo "</div>";
+                    } else {
+                        echo "<p>No active elections.</p>";
                     }
                     ?>
                 </div>
             </div>
 
             <div class="content-section" id="vote">
-                <h3>Cast Your Vote</h3>
+                <h3>Cast Your UDOMASA Vote</h3>
                 <div class="vote-section">
-                    <table>
-                        <tr>
-                            <th>Position</th>
-                            <th>Candidate</th>
-                            <th>Action</th>
-                        </tr>
-                        <?php
-                        $stmt = $pdo->prepare("SELECT DISTINCT position FROM candidates WHERE association = ?");
-                        $stmt->execute([$required_association]);
-                        while ($pos = $stmt->fetch(PDO::FETCH_ASSOC)) {
-                            echo "<tr>";
-                            echo "<td>" . htmlspecialchars($pos['position']) . "</td>";
-                            echo "<td><select name='candidate_" . htmlspecialchars($pos['position']) . "'>";
-                            $cand_stmt = $pdo->prepare("SELECT id, firstname, middlename, lastname FROM candidates WHERE position = ? AND association = ?");
-                            $cand_stmt->execute([$pos['position'], $required_association]);
-                            while ($cand = $cand_stmt->fetch(PDO::FETCH_ASSOC)) {
-                                $full_name = $cand['firstname'] . ' ' . ($cand['middlename'] ? $cand['middlename'] . ' ' : '') . $cand['lastname'];
-                                echo "<option value='" . $cand['id'] . "'>" . htmlspecialchars($full_name) . "</option>";
+                    <?php
+                    $stmt = $pdo->prepare("SELECT e.id, e.end_time 
+                                           FROM elections e 
+                                           WHERE e.association = 'UDOMASA' AND e.end_time > NOW() 
+                                           AND (e.college_id = ? OR e.college_id IS NULL)");
+                    $stmt->execute([$user['college_id']]);
+                    $elections = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                    if ($elections) {
+                        echo "<table>";
+                        echo "<tr><th>Position</th><th>Candidate</th><th>Action</th></tr>";
+                        foreach ($elections as $election) {
+                            $stmt = $pdo->prepare("SELECT ep.id, ep.name 
+                                                   FROM election_positions ep 
+                                                   WHERE ep.election_id = ?");
+                            $stmt->execute([$election['id']]);
+                            while ($pos = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                                $cand_stmt = $pdo->prepare("SELECT c.id 
+                                                           FROM candidates c 
+                                                           WHERE c.election_id = ? AND c.position_id = ?");
+                                $cand_stmt->execute([$election['id'], $pos['id']]);
+                                if (!$cand_stmt->fetch()) {
+                                    continue;
+                                }
+
+                                $vote_check = $pdo->prepare("SELECT id 
+                                                             FROM votes 
+                                                             WHERE user_id = ? AND election_id = ? 
+                                                             AND candidate_id IN (SELECT id FROM candidates WHERE position_id = ?)");
+                                $vote_check->execute([$user_id, $election['id'], $pos['id']]);
+                                if ($vote_check->fetch(PDO::FETCH_ASSOC)) {
+                                    continue;
+                                }
+
+                                echo "<tr>";
+                                echo "<td>" . htmlspecialchars($pos['name']) . "</td>";
+                                echo "<td><select name='candidate_" . $pos['id'] . "' id='candidate_" . $pos['id'] . "'>";
+                                $cand_stmt = $pdo->prepare("SELECT c.id, u.fname, u.lname 
+                                                           FROM candidates c 
+                                                           JOIN users u ON c.user_id = u.id 
+                                                           WHERE c.election_id = ? AND c.position_id = ?");
+                                $cand_stmt->execute([$election['id'], $pos['id']]);
+                                while ($cand = $cand_stmt->fetch(PDO::FETCH_ASSOC)) {
+                                    $full_name = $cand['fname'] . ' ' . $cand['lname'];
+                                    echo "<option value='" . $cand['id'] . "'>" . htmlspecialchars($full_name) . "</option>";
+                                }
+                                echo "</select></td>";
+                                echo "<td><button onclick='submitVote(" . $pos['id'] . ")'>Vote</button></td>";
+                                echo "</tr>";
                             }
-                            echo "</select></td>";
-                            echo "<td><button onclick='submitVote(\"" . htmlspecialchars($pos['position']) . "\")'>Vote</button></td>";
-                            echo "</tr>";
                         }
-                        ?>
-                    </table>
+                        echo "</table>";
+                    } else {
+                        echo "<p>No active UDOMASA elections to vote in for your college.</p>";
+                    }
+                    ?>
                 </div>
             </div>
 
             <div class="content-section" id="verify">
                 <h3>Verify Your Vote</h3>
                 <div class="verify-section">
-                    <p>Check your vote's blockchain record to ensure its integrity.</p>
+                    <p>Check your vote's blockchain record.</p>
                     <div id="vote-hash" class="hash">Loading...</div>
                 </div>
             </div>
 
-            <div class="content-section" id="analytics">
-                <h3>Election Analytics</h3>
-                <div class="analytics-section">
-                    <div class="chart">
-                        <h4>Voter Turnout</h4>
-                        <p id="voter-turnout">Loading...</p>
-                    </div>
-                    <div class="chart">
-                        <h4>Total Votes</h4>
-                        <p id="total-votes">Loading...</p>
-                    </div>
+            <div class="content-section" id="results">
+                <h3>Election Results (UDOSO & UDOMASA)</h3>
+                <div class="results-section">
+                    <?php
+                    $stmt = $pdo->prepare("SELECT id, association, end_time 
+                                           FROM elections 
+                                           WHERE end_time < NOW() 
+                                           ORDER BY association, end_time DESC");
+                    $stmt->execute();
+                    $past_elections = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                    if ($past_elections) {
+                        foreach ($past_elections as $past_election) {
+                            $analytics_response = file_get_contents("http://localhost/smartuchaguzi/api/vote-analytics.php?election_id=" . $past_election['id']);
+                            $analytics_data = json_decode($analytics_response, true);
+                            if (isset($analytics_data['positions']) && !empty($analytics_data['positions'])) {
+                                echo "<div class='results-card'>";
+                                echo "<h4>" . htmlspecialchars($past_election['association']) . " Election " . $past_election['id'] . "</h4>";
+                                foreach ($analytics_data['positions'] as $position) {
+                                    echo "<p>" . htmlspecialchars($position['name']) . ": " . ($position['winner'] ? htmlspecialchars($position['winner']) : 'None') . "</p>";
+                                }
+                                echo "</div>";
+                            }
+                        }
+                    } else {
+                        echo "<p>No elections have concluded.</p>";
+                    }
+                    ?>
                 </div>
             </div>
 
@@ -758,8 +728,7 @@ $profile_picture = 'images/general.png';
 
     <script>
         const userId = <?php echo $user_id; ?>;
-        const college = '<?php echo $required_college; ?>';
-        const association = '<?php echo $required_association; ?>';
+        const electionIds = <?php echo json_encode(array_column($elections, 'id')); ?>;
 
         const links = document.querySelectorAll('.header .nav a');
         const sections = document.querySelectorAll('.content-section');
@@ -787,10 +756,22 @@ $profile_picture = 'images/general.png';
             }
         });
 
-        const electionEnd = new Date('2025-05-15T23:59:59').getTime();
         function updateTimer() {
             const now = new Date().getTime();
-            const distance = electionEnd - now;
+            let earliestEndTime = Infinity;
+            <?php
+            $stmt = $pdo->prepare("SELECT end_time FROM elections WHERE association = 'UDOMASA' AND end_time > NOW()");
+            $stmt->execute();
+            $end_times = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            foreach ($end_times as $et) {
+                echo "earliestEndTime = Math.min(earliestEndTime, new Date('" . $et['end_time'] . "').getTime());";
+            }
+            ?>
+            if (earliestEndTime === Infinity) {
+                document.getElementById('timer').innerHTML = 'No Active UDOMASA Elections';
+                return;
+            }
+            const distance = earliestEndTime - now;
             if (distance < 0) {
                 document.getElementById('timer').innerHTML = 'Election Ended';
                 return;
@@ -803,55 +784,46 @@ $profile_picture = 'images/general.png';
         setInterval(updateTimer, 1000);
         updateTimer();
 
-        async function submitVote(position) {
-            const candidateId = document.querySelector(`select[name="candidate_${position}"]`).value;
-            const response = await fetch('/api/blockchain/submit-vote.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ user_id: userId, candidate_id: candidateId })
-            });
-            if (response.ok) {
+        async function submitVote(positionId) {
+            const candidateId = document.getElementById(`candidate_${positionId}`).value;
+            try {
+                const response = await fetch('/api/blockchain/submit-vote.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: userId, candidate_id: candidateId })
+                });
                 const result = await response.json();
-                alert('Vote submitted successfully! Transaction Hash: ' + result.blockchain_hash);
-                location.reload();
-            } else {
-                const error = await response.json();
-                alert('Error submitting vote: ' + (error.message || 'Unknown error'));
+                if (result.success) {
+                    alert(`Vote submitted successfully! Transaction Hash: ${result.blockchain_hash}`);
+                    location.reload();
+                } else {
+                    alert(`Error submitting vote: ${result.error}`);
+                }
+            } catch (error) {
+                alert('Error submitting vote: Network issue');
             }
         }
 
         async function fetchUserVote() {
-            const response = await fetch(`/api/blockchain/get-votes.php?user_id=${userId}`);
-            if (response.ok) {
-                const data = await response.json();
-                if (data.votes && data.votes.length > 0) {
-                    document.getElementById('vote-hash').textContent = data.votes[0].blockchain_hash;
-                    document.getElementById('voting-status').textContent = 'Voted';
-                } else {
+            try {
+                let hashFound = false;
+                for (const electionId of electionIds) {
+                    const response = await fetch(`/api/blockchain/get-votes.php?user_id=${userId}&election_id=${electionId}`);
+                    const data = await response.json();
+                    if (data.votes && data.votes.length > 0) {
+                        document.getElementById('vote-hash').textContent = data.votes[0].block_hash;
+                        document.getElementById('voting-status').textContent = 'Voted';
+                        hashFound = true;
+                        break;
+                    }
+                }
+                if (!hashFound) {
                     document.getElementById('vote-hash').textContent = 'No vote recorded yet.';
                     document.getElementById('voting-status').textContent = 'Not Voted';
                 }
-            } else {
+            } catch (error) {
                 document.getElementById('vote-hash').textContent = 'Error fetching vote data.';
                 document.getElementById('voting-status').textContent = 'Error';
-            }
-        }
-
-        async function fetchAnalytics() {
-            const response = await fetch('/api/blockchain/get-votes.php');
-            if (response.ok) {
-                const data = await response.json();
-                const totalVotes = data.votes ? data.votes.length : 0;
-
-                const totalUsersResponse = await fetch(`/api/get-total-users.php?college=${college}&association=${association}`);
-                const totalUsersData = await totalUsersResponse.json();
-                const totalUsers = totalUsersData.total_users || 0;
-
-                document.getElementById('total-votes').textContent = totalVotes;
-                document.getElementById('voter-turnout').textContent = totalUsers > 0 ? (totalVotes / totalUsers * 100).toFixed(1) + '%' : '0%';
-            } else {
-                document.getElementById('total-votes').textContent = 'Error';
-                document.getElementById('voter-turnout').textContent = 'Error';
             }
         }
 
@@ -871,7 +843,7 @@ $profile_picture = 'images/general.png';
             const sessionTime = currentTime - sessionStart;
 
             if (sessionTime >= maxSessionDuration - warningTime && sessionTime < maxSessionDuration) {
-                timeoutMessage.textContent = "Your session will expire in 1 minute due to maximum duration.";
+                timeoutMessage.textContent = "Your session will expire in 1 minute.";
                 modal.style.display = 'flex';
             } else if (sessionTime >= maxSessionDuration) {
                 window.location.href = 'logout.php';
@@ -885,12 +857,8 @@ $profile_picture = 'images/general.png';
             }
         }
 
-        document.addEventListener('mousemove', () => {
-            lastActivity = Date.now();
-        });
-        document.addEventListener('keydown', () => {
-            lastActivity = Date.now();
-        });
+        document.addEventListener('mousemove', () => lastActivity = Date.now());
+        document.addEventListener('keydown', () => lastActivity = Date.now());
 
         extendButton.addEventListener('click', () => {
             lastActivity = Date.now();
@@ -898,9 +866,7 @@ $profile_picture = 'images/general.png';
         });
 
         setInterval(checkTimeouts, 1000);
-
         fetchUserVote();
-        fetchAnalytics();
     </script>
 </body>
 </html>
