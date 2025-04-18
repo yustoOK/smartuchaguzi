@@ -548,7 +548,7 @@ $profile_picture = 'images/default.png';
         </div>
         <div class="nav">
             <a href="#" data-section="management" class="active">Management</a>
-            <a href="#" data-section="upcoming">Upcoming Elections</a>
+            <a href="./api/update-upcoming.php" data-section="upcoming">Upcoming Elections</a>
             <a href="#" data-section="users">Users</a>
             <a href="#" data-section="analytics">Analytics</a>
             <a href="#" data-section="audit">Audit Log</a>
@@ -580,24 +580,21 @@ $profile_picture = 'images/default.png';
             </div>
 
             <div class="content-section" id="upcoming">
-                <h3>Update Upcoming Elections</h3>
-                <div class="upcoming-section">
-                    <form action="/api/update-upcoming.php" method="POST">
-                        <input type="text" name="title" placeholder="Election Title" required>
-                        <input type="date" name="date" required>
-                        <textarea name="description" placeholder="Election Description" rows="4" required></textarea>
-                        <button type="submit">Add to Upcoming Elections</button>
-                    </form>
-                </div>
-            </div>
+    <h3>Upcoming Elections</h3>
+    <div class="upcoming-section">
+        <div class="action-buttons">
+            <button onclick="window.location.href='./api/update-upcoming.php'">Manage Upcoming Elections</button>
+        </div>
+    </div>
+</div>
 
             <div class="content-section" id="users">
                 <h3>User Management</h3>
                 <div class="user-section">
                     <div class="action-buttons">
-                        <button onclick="window.location.href='add-user.php'">Add New User</button>
-                        <button onclick="window.location.href='edit-user.php'">Edit User</button>
-                        <button onclick="window.location.href='assign-observer.php'">Assign Observer</button>
+                        <button onclick="window.location.href='./admin-operations/add-user.php'">Add New User</button>
+                        <button onclick="window.location.href='./admin-operations/edit-user.php'">Edit User</button>
+                        <button onclick="window.location.href='./admin-operations/assign-observer.php'">Assign Observer</button>
                     </div>
                 </div>
             </div>

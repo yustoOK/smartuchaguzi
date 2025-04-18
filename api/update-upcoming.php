@@ -1,9 +1,8 @@
 <?php
-
 session_start();
 date_default_timezone_set('Africa/Dar_es_Salaam');
 
-include '../db.php'; // Includes MySQLi connection
+include '../db.php'; //database connection
 
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
     header('Location: ../login.php?error=' . urlencode('Please log in as admin.'));
@@ -14,30 +13,18 @@ $errors = [];
 $success = '';
 $notifications = [];
 
-if (isset($db) && !$db->connect_error) {
-    try {
-        $result = $db->query(
-            "SELECT id, title, content, sent_at 
-            FROM notifications 
-            WHERE type = 'upcoming_election' 
-            ORDER BY sent_at DESC"
-        );
-        if ($result) {
-            while ($row = $result->fetch_assoc()) {
-                $notifications[] = $row;
-            }
-            $result->free();
-        } else {
-            error_log("Fetch notifications failed: " . $db->error);
-            $errors[] = "Failed to load upcoming elections.";
-        }
-    } catch (Exception $e) {
-        error_log("Fetch notifications failed: " . $e->getMessage());
-        $errors[] = "Failed to load upcoming elections.";
-    }
-} else {
-    error_log("Database connection not available in update-upcoming.php");
-    $errors[] = "Unable to connect to the database.";
+try {
+    // Fetch existing notifications for upcoming elections
+    $stmt = $pdo->query(
+        "SELECT id, title, content, sent_at 
+        FROM notifications 
+        WHERE type = 'upcoming_election' 
+        ORDER BY sent_at DESC"
+    );
+    $notifications = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    error_log("Fetch notifications failed: " . $e->getMessage());
+    $errors[] = "Failed to load upcoming elections.";
 }
 
 // Handle adding new notification
@@ -61,20 +48,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_notification'])) 
 
     if (empty($errors)) {
         try {
-            $stmt = $db->prepare(
+            $stmt = $pdo->prepare(
                 "INSERT INTO notifications (user_id, title, content, type, sent_at, created_at) 
                 VALUES (?, ?, ?, 'upcoming_election', ?, NOW())"
             );
-            $stmt->bind_param('isss', $_SESSION['user_id'], $title, $description, $date);
-            if ($stmt->execute()) {
-                header('Location: update-upcoming.php?success=' . urlencode('Upcoming election added successfully.'));
-                exit;
-            } else {
-                error_log("Add notification failed: " . $stmt->error);
-                $errors[] = "Failed to add upcoming election due to a server error.";
-            }
-            $stmt->close();
-        } catch (Exception $e) {
+            $stmt->execute([$_SESSION['user_id'], $title, $description, $date]);
+            header('Location: update-upcoming.php?success=' . urlencode('Upcoming election added successfully.'));
+            exit;
+        } catch (PDOException $e) {
             error_log("Add notification failed: " . $e->getMessage());
             $errors[] = "Failed to add upcoming election due to a server error.";
         }
@@ -100,21 +81,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_notification']
 
     if (empty($errors)) {
         try {
-            $stmt = $db->prepare(
+            $stmt = $pdo->prepare(
                 "UPDATE notifications 
                 SET title = ?, content = ?, sent_at = ? 
                 WHERE id = ? AND type = 'upcoming_election'"
             );
-            $stmt->bind_param('sssi', $title, $description, $date, $notification_id);
-            if ($stmt->execute()) {
-                header('Location: update-upcoming.php?success=' . urlencode('Upcoming election updated successfully.'));
-                exit;
-            } else {
-                error_log("Update notification failed: " . $stmt->error);
-                $errors[] = "Failed to update upcoming election due to a server error.";
-            }
-            $stmt->close();
-        } catch (Exception $e) {
+            $stmt->execute([$title, $description, $date, $notification_id]);
+            header('Location: update-upcoming.php?success=' . urlencode('Upcoming election updated successfully.'));
+            exit;
+        } catch (PDOException $e) {
             error_log("Update notification failed: " . $e->getMessage());
             $errors[] = "Failed to update upcoming election due to a server error.";
         }
@@ -125,17 +100,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_notification']
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_notification'])) {
     $notification_id = filter_var($_POST['notification_id'], FILTER_VALIDATE_INT);
     try {
-        $stmt = $db->prepare("DELETE FROM notifications WHERE id = ? AND type = 'upcoming_election'");
-        $stmt->bind_param('i', $notification_id);
-        if ($stmt->execute()) {
-            header('Location: update-upcoming.php?success=' . urlencode('Upcoming election removed successfully.'));
-            exit;
-        } else {
-            error_log("Delete notification failed: " . $stmt->error);
-            $errors[] = "Failed to remove upcoming election due to a server error.";
-        }
-        $stmt->close();
-    } catch (Exception $e) {
+        $stmt = $pdo->prepare("DELETE FROM notifications WHERE id = ? AND type = 'upcoming_election'");
+        $stmt->execute([$notification_id]);
+        header('Location: update-upcoming.php?success=' . urlencode('Upcoming election removed successfully.'));
+        exit;
+    } catch (PDOException $e) {
         error_log("Delete notification failed: " . $e->getMessage());
         $errors[] = "Failed to remove upcoming election due to a server error.";
     }
@@ -286,7 +255,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_notification']
                 <p><?php echo htmlspecialchars($_GET['success']); ?></p>
             </div>
         <?php endif; ?>
-        <form method="POST" action="">
+        <form method=" personally" action="">
             <input type="hidden" name="add_notification" value="1">
             <div class="form-group">
                 <label for="title">Election Title</label>

@@ -1,5 +1,5 @@
 <?php
-/*
+
 session_start();
 date_default_timezone_set('Africa/Dar_es_Salaam');
 
@@ -127,7 +127,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_election'])) {
 
 $colleges = $pdo->query("SELECT id, name FROM colleges ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
 $hostels = $pdo->query("SELECT id, name FROM hostels ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
-*/
+
 ?>
 
 <!DOCTYPE html>

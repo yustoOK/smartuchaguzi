@@ -1,5 +1,4 @@
 <?php
-/*
 session_start();
 date_default_timezone_set('Africa/Dar_es_Salaam');
 
@@ -98,7 +97,7 @@ try {
     error_log("Fetch colleges/hostels failed: " . $e->getMessage());
     $errors[] = "Failed to load colleges or hostels.";
 }
-    */
+
 ?>
 
 <!DOCTYPE html>

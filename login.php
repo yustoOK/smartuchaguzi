@@ -311,7 +311,7 @@
                 <h1>SmartUchaguzi</h1>
             </div>
             <div class="breadcrumb">
-                <a href="index.html">Home</a> / <a href="login.php">Login</a>
+                <a href="index.php">Home</a> / <a href="login.php">Login</a>
             </div>
         </div>
     </div>
