@@ -41,7 +41,7 @@ function redirectUser($role, $college_id, $association) {
             header('Location: index.html');
         }
     } else {
-        header('Location: index.html'); 
+        header('Location: index.html'); // Default location
     }
     exit;
 }
@@ -66,11 +66,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     try {
-        $stmt = $pdo->prepare("SELECT id, email, password_hash, role, college, association, is_verified FROM users WHERE email = ?");
+        $stmt = $pdo->prepare("SELECT id, email, password, role, college, association, is_verified FROM users WHERE email = ?");
         $stmt->execute([$email]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        if ($user && password_verify($password, $user['password_hash'])) {
+        if ($user && password_verify($password, $user['password'])) {
             if ($user['is_verified'] == 0) {
                 header("Location: login.php?error=" . urlencode("Please verify your email before logging in."));
                 exit;
@@ -88,8 +88,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['last_activity'] = time();
 
             $action = "User logged in: {$user['email']}";
-            $stmt = $pdo->prepare("INSERT INTO audit_log (user_id, action, created_at) VALUES (?, ?, NOW())");
-            $stmt->execute([$user['id'], $action]);
+            $ip_address = $_SERVER['REMOTE_ADDR'] ?? 'Unknown';
+            $stmt = $pdo->prepare("INSERT INTO auditlogs (user_id, action, ip_address, timestamp) VALUES (?, ?, ?, NOW())");
+            $stmt->execute([$user['id'], $action, $ip_address]);
 
             redirectUser($user['role'], $user['college'], $user['association']);
         } else {
