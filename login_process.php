@@ -47,7 +47,8 @@ function redirectUser($role, $college_id, $association) {
 }
 
 if (isset($_SESSION['user_id'])) {
-    redirectUser($_SESSION['role'], $_SESSION['college_id'], $_SESSION['association']);
+    error_log("Existing session found: " . print_r($_SESSION, true));
+    redirectUser($_SESSION['role'], $_SESSION['college_id'] ?? null, $_SESSION['association'] ?? null);
     exit;
 }
 
@@ -81,18 +82,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['user_id'] = $user['id'];
             $_SESSION['email'] = $user['email'];
             $_SESSION['role'] = $user['role'];
-            $_SESSION['college_id'] = $user['college'];
-            $_SESSION['association'] = $user['association'];
+            $_SESSION['college_id'] = $user['college'] ?? null; // Allowing null for admins
+            $_SESSION['association'] = $user['association'] ?? null;
             $_SESSION['user_agent'] = $_SERVER['HTTP_USER_AGENT'];
             $_SESSION['start_time'] = time();
             $_SESSION['last_activity'] = time();
+
+            error_log("Session set after login: " . print_r($_SESSION, true));
 
             $action = "User logged in: {$user['email']}";
             $ip_address = $_SERVER['REMOTE_ADDR'] ?? 'Unknown';
             $stmt = $pdo->prepare("INSERT INTO auditlogs (user_id, action, ip_address, timestamp) VALUES (?, ?, ?, NOW())");
             $stmt->execute([$user['id'], $action, $ip_address]);
 
-            redirectUser($user['role'], $user['college'], $user['association']);
+            redirectUser($user['role'], $user['college'] ?? null, $user['association'] ?? null);
         } else {
             header("Location: login.php?error=" . urlencode("Invalid email or password."));
             exit;

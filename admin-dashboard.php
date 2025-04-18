@@ -16,13 +16,13 @@ try {
 }
 
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
-    error_log("Session validation failed: user_id or role not set. Redirecting to login.php");
+    error_log("Session validation failed: user_id or role not set. Session: " . print_r($_SESSION, true));
     header('Location: login.php?error=' . urlencode('Please log in to access the admin dashboard.'));
     exit;
 }
 
 if (!isset($_SESSION['user_agent']) || $_SESSION['user_agent'] !== $_SERVER['HTTP_USER_AGENT']) {
-    error_log("Session hijacking detected: user agent mismatch. Session destroyed.");
+    error_log("Session hijacking detected: user agent mismatch. Session: " . print_r($_SESSION, true));
     session_unset();
     session_destroy();
     header('Location: login.php?error=' . urlencode('Session validation failed. Please log in again.'));
@@ -64,17 +64,34 @@ if ($inactive_time >= $inactivity_timeout) {
 $_SESSION['last_activity'] = time();
 
 $user_id = $_SESSION['user_id'];
-$stmt = $pdo->prepare("SELECT fname, college FROM users WHERE id = ?"); // Added college
-$stmt->execute([$user_id]);
-$user = $stmt->fetch(PDO::FETCH_ASSOC);
-
+try {
+    $stmt = $pdo->prepare("SELECT fname, college FROM users WHERE id = ?");
+    $stmt->execute([$user_id]);
+    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$user) {
+        error_log("User not found for ID: $user_id");
+        session_unset();
+        session_destroy();
+        header('Location: login.php?error=' . urlencode('User not found. Please log in again.'));
+        exit;
+    }
+} catch (PDOException $e) {
+    error_log("User query failed: " . $e->getMessage());
+    header('Location: login.php?error=' . urlencode('Failed to fetch user data. Please try again.'));
+    exit;
+}
 
 $college_name = '';
 if ($user['college']) {
-    $college_stmt = $pdo->prepare("SELECT name FROM colleges WHERE id = ?");
-    $college_stmt->execute([$user['college']]);
-    $college_result = $college_stmt->fetchColumn();
-    $college_name = $college_result ?: '';
+    try {
+        $college_stmt = $pdo->prepare("SELECT name FROM colleges WHERE id = ?");
+        $college_stmt->execute([$user['college']]);
+        $college_result = $college_stmt->fetchColumn();
+        $college_name = $college_result ?: '';
+    } catch (PDOException $e) {
+        error_log("College query failed: " . $e->getMessage());
+        $college_name = 'Unknown';
+    }
 }
 
 $profile_picture = 'images/default.png';
@@ -82,12 +99,11 @@ $profile_picture = 'images/default.png';
 
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin | Dashboard</title>
-    <link rel="icon" href="./uploads/Vote.jpeg" type="image/x-icon">
+    <link rel="icon" href="./Uploads/Vote.jpeg" type="image/x-icon">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
@@ -522,11 +538,10 @@ $profile_picture = 'images/default.png';
         }
     </style>
 </head>
-
 <body>
     <header class="header">
         <div class="logo">
-            <img src="./uploads/Vote.jpeg" alt="SmartUchaguzi Logo">
+            <img src="./Uploads/Vote.jpeg" alt="SmartUchaguzi Logo">
             <h1>SmartUchaguzi</h1>
         </div>
         <div class="nav">
@@ -539,7 +554,7 @@ $profile_picture = 'images/default.png';
         <div class="user">
             <img src="<?php echo htmlspecialchars($profile_picture); ?>" alt="User Profile Picture" id="profile-pic">
             <div class="dropdown" id="user-dropdown">
-                <span style="color: #e6e6e6; padding: 10px 20px;"><?php echo htmlspecialchars($user['fname'] ?? 'Admin') . ' (' . htmlspecialchars($college_name) . ')'; ?></span>
+                <span style="color: #e6e6e6; padding: 10px 20px;"><?php echo htmlspecialchars($user['fname'] ?? 'Admin') . ($college_name ? ' (' . htmlspecialchars($college_name) . ')' : ''); ?></span>
                 <a href="admin-profile.php">My Profile</a>
                 <a href="logout.php">Logout</a>
             </div>
@@ -593,8 +608,13 @@ $profile_picture = 'images/default.png';
                         <span class="text">Total Candidates</span>
                         <span class="number">
                             <?php
-                            $stmt = $pdo->query("SELECT COUNT(*) FROM candidates");
-                            echo $stmt->fetchColumn();
+                            try {
+                                $stmt = $pdo->query("SELECT COUNT(*) FROM candidates");
+                                echo $stmt->fetchColumn();
+                            } catch (PDOException $e) {
+                                error_log("Candidates count query failed: " . $e->getMessage());
+                                echo 'N/A';
+                            }
                             ?>
                         </span>
                     </div>
@@ -603,8 +623,13 @@ $profile_picture = 'images/default.png';
                         <span class="text">Total Votes</span>
                         <span class="number">
                             <?php
-                            $stmt = $pdo->query("SELECT COUNT(*) FROM votes");
-                            echo $stmt->fetchColumn();
+                            try {
+                                $stmt = $pdo->query("SELECT COUNT(*) FROM votes");
+                                echo $stmt->fetchColumn();
+                            } catch (PDOException $e) {
+                                error_log("Votes count query failed: " . $e->getMessage());
+                                echo 'N/A';
+                            }
                             ?>
                         </span>
                     </div>
@@ -613,8 +638,13 @@ $profile_picture = 'images/default.png';
                         <span class="text">Active Elections</span>
                         <span class="number">
                             <?php
-                            $stmt = $pdo->query("SELECT COUNT(*) FROM elections WHERE end_date > NOW()");
-                            echo $stmt->fetchColumn();
+                            try {
+                                $stmt = $pdo->query("SELECT COUNT(*) FROM elections WHERE end_date > NOW()");
+                                echo $stmt->fetchColumn();
+                            } catch (PDOException $e) {
+                                error_log("Elections count query failed: " . $e->getMessage());
+                                echo 'N/A';
+                            }
                             ?>
                         </span>
                     </div>
@@ -625,10 +655,15 @@ $profile_picture = 'images/default.png';
                 <h3>Audit Log</h3>
                 <div class="audit-section">
                     <?php
-                    $stmt = $pdo->prepare("SELECT action, created_at FROM audit_log WHERE user_id = ? ORDER BY created_at DESC LIMIT 10");
-                    $stmt->execute([$user_id]);
-                    while ($log = $stmt->fetch(PDO::FETCH_ASSOC)) {
-                        echo "<div class='log'>" . htmlspecialchars($log['created_at']) . " - " . htmlspecialchars($log['action']) . "</div>";
+                    try {
+                        $stmt = $pdo->prepare("SELECT action, timestamp FROM auditlogs WHERE user_id = ? ORDER BY timestamp DESC LIMIT 10");
+                        $stmt->execute([$user_id]);
+                        while ($log = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                            echo "<div class='log'>" . htmlspecialchars($log['timestamp']) . " - " . htmlspecialchars($log['action']) . "</div>";
+                        }
+                    } catch (PDOException $e) {
+                        error_log("Audit log query failed: " . $e->getMessage());
+                        echo "<div class='log'>Failed to load audit logs.</div>";
                     }
                     ?>
                 </div>
@@ -724,5 +759,4 @@ $profile_picture = 'images/default.png';
         setInterval(checkTimeouts, 1000);
     </script>
 </body>
-
 </html>
