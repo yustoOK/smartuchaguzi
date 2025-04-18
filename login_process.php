@@ -81,7 +81,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['user_id'] = $user['id'];
             $_SESSION['email'] = $user['email'];
             $_SESSION['role'] = $user['role'];
-            $_SESSION['college_id'] = $user['college']; // Changed to college_id
+            $_SESSION['college_id'] = $user['college'];
             $_SESSION['association'] = $user['association'];
             $_SESSION['user_agent'] = $_SERVER['HTTP_USER_AGENT'];
             $_SESSION['start_time'] = time();
