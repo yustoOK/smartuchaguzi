@@ -4,8 +4,8 @@ date_default_timezone_set('Africa/Dar_es_Salaam');
 
 include 'db.php';
 
-if (!isset($_SESSION['user_id']) || !isset($_SESSION['role']) || $_SESSION['role'] !== 'voter' || $_SESSION['college'] !== 'CIVE' || $_SESSION['association'] !== 'UDOSO') {
-    error_log("Session validation failed: user_id, role, college, or association not set or invalid.");
+if (!isset($_SESSION['user_id']) || !isset($_SESSION['role']) || $_SESSION['role'] !== 'voter' || $_SESSION['college_id'] !== 1 || $_SESSION['association'] !== 'UDOSO') {
+    error_log("Session validation failed: user_id, role, college_id, or association not set or invalid.");
     session_unset();
     session_destroy();
     header('Location: login.php?error=' . urlencode('Please log in to access the CIVE UDOSO dashboard.'));
@@ -53,7 +53,7 @@ if ($inactive_time >= $inactivity_timeout) {
 $_SESSION['last_activity'] = time();
 
 $user_id = $_SESSION['user_id'];
-$stmt = $pdo->prepare("SELECT fname, college_id, hostel_id FROM users WHERE id = ?");
+$stmt = $pdo->prepare("SELECT fname, college_id, hostel_id FROM users WHERE user_id = ?");
 $stmt->execute([$user_id]);
 $user = $stmt->fetch(PDO::FETCH_ASSOC);
 $profile_picture = 'images/general.png';
@@ -112,6 +112,9 @@ $profile_picture = 'images/general.png';
             font-weight: 600;
             background: linear-gradient(to right, #f4a261, #e76f51);
             -webkit-background-clip: text;
+            background-clip: text;
+            -moz-background-clip: text;
+            background-clip: text;
             color: transparent;
         }
         .header .nav {
@@ -420,7 +423,7 @@ $profile_picture = 'images/general.png';
                             echo "<h5>" . htmlspecialchars($pos['name']) . "</h5>";
                             $cand_stmt = $pdo->prepare("SELECT c.id, u.fname, u.lname 
                                                        FROM candidates c 
-                                                       JOIN users u ON c.user_id = u.id 
+                                                       JOIN users u ON c.user_id = u.user_id 
                                                        WHERE c.election_id = ? AND c.position_id = ?");
                             $cand_stmt->execute([$election['id'], $pos['id']]);
                             while ($cand = $cand_stmt->fetch(PDO::FETCH_ASSOC)) {
@@ -486,7 +489,7 @@ $profile_picture = 'images/general.png';
                                 echo "<td><select name='candidate_" . $pos['id'] . "' id='candidate_" . $pos['id'] . "'>";
                                 $cand_stmt = $pdo->prepare("SELECT c.id, u.fname, u.lname 
                                                            FROM candidates c 
-                                                           JOIN users u ON c.user_id = u.id 
+                                                           JOIN users u ON c.user_id = u.user_id 
                                                            WHERE c.election_id = ? AND c.position_id = ?" . ($is_hostel_position && $user['hostel_id'] ? " AND c.hostel_id = ?" : ""));
                                 $params = [$election['id'], $pos['id']];
                                 if ($is_hostel_position && $user['hostel_id']) {
@@ -670,3 +673,4 @@ $profile_picture = 'images/general.png';
     </script>
 </body>
 </html>
+?>

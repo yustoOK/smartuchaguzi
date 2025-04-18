@@ -67,7 +67,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     try {
-        $stmt = $pdo->prepare("SELECT id, email, password, role, college, association, is_verified FROM users WHERE email = ?");
+        $stmt = $pdo->prepare("SELECT user_id, email, password, role, college_id, association, is_verified FROM users WHERE email = ?");
         $stmt->execute([$email]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -79,10 +79,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             session_regenerate_id(true);
 
-            $_SESSION['user_id'] = $user['id'];
+            $_SESSION['user_id'] = $user['user_id'];
             $_SESSION['email'] = $user['email'];
             $_SESSION['role'] = $user['role'];
-            $_SESSION['college_id'] = $user['college'] ?? null; // Allowing null for admins
+            $_SESSION['college_id'] = $user['college_id'] ?? null;
             $_SESSION['association'] = $user['association'] ?? null;
             $_SESSION['user_agent'] = $_SERVER['HTTP_USER_AGENT'];
             $_SESSION['start_time'] = time();
@@ -93,9 +93,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $action = "User logged in: {$user['email']}";
             $ip_address = $_SERVER['REMOTE_ADDR'] ?? 'Unknown';
             $stmt = $pdo->prepare("INSERT INTO auditlogs (user_id, action, ip_address, timestamp) VALUES (?, ?, ?, NOW())");
-            $stmt->execute([$user['id'], $action, $ip_address]);
+            $stmt->execute([$user['user_id'], $action, $ip_address]);
 
-            redirectUser($user['role'], $user['college'] ?? null, $user['association'] ?? null);
+            redirectUser($user['role'], $user['college_id'] ?? null, $user['association'] ?? null);
         } else {
             header("Location: login.php?error=" . urlencode("Invalid email or password."));
             exit;
