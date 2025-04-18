@@ -2,8 +2,9 @@
 header('Content-Type: application/json');
 require_once '../vendor/autoload.php';
 use Phpml\SupportVectorMachine\Kernel;
+use Phpml\Exception\InvalidArgumentException;
+use Phpml\Exception\RuntimeException;
 
-// Use PDO instead of db.php for consistency
 $host = 'localhost';
 $dbname = 'smartuchaguzi_db';
 $username = 'root';
