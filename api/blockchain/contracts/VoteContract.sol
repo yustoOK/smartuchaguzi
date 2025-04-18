@@ -76,7 +76,7 @@ contract VoteContract {
         for (uint256 i = 0; i < votes.length; i++) {
             if (votes[i].electionId == electionId) {
                 count++;
-            }
+            } 
         }
 
         Vote[] memory result = new Vote[](count);
