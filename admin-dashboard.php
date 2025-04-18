@@ -1,4 +1,5 @@
 <?php
+/*
 session_start();
 date_default_timezone_set('Africa/Dar_es_Salaam');
 
@@ -95,6 +96,7 @@ if ($user['college']) {
 }
 
 $profile_picture = 'images/default.png';
+*/
 ?>
 
 <!DOCTYPE html>
@@ -570,9 +572,9 @@ $profile_picture = 'images/default.png';
                 <h3>Election Management</h3>
                 <div class="management-section">
                     <div class="action-buttons">
-                        <button onclick="window.location.href='add-election.php'">Add New Election</button>
-                        <button onclick="window.location.href='edit-election.php'">Edit Existing Election</button>
-                        <button onclick="window.location.href='manage-candidates.php'">Manage Candidates</button>
+                        <button onclick="window.location.href='./admin-operations/add-election.php'">Add New Election</button>
+                        <button onclick="window.location.href='./admin-operations/edit-election.php'">Edit Existing Election</button>
+                        <button onclick="window.location.href='./admin-operations/manage-candidates.php'">Manage Candidates</button>
                     </div>
                 </div>
             </div>
