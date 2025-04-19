@@ -34,7 +34,7 @@ CREATE TABLE `auditlogs` (
   CONSTRAINT `auditlogs_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`),
   CONSTRAINT `auditlogs_ibfk_2` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`),
   CONSTRAINT `fk_audit_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=16 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -43,7 +43,7 @@ CREATE TABLE `auditlogs` (
 
 LOCK TABLES `auditlogs` WRITE;
 /*!40000 ALTER TABLE `auditlogs` DISABLE KEYS */;
-INSERT INTO `auditlogs` VALUES (1,1,'User logged in: yustobitalio24@gmail.com',NULL,NULL,'2025-04-13 07:03:20'),(2,2,'User logged in: ashamkuto2@gmail.com',NULL,NULL,'2025-04-13 07:10:03'),(3,2,'User logged in: ashamkuto2@gmail.com',NULL,NULL,'2025-04-13 07:42:37'),(4,1,'User logged in: yustobitalio24@gmail.com',NULL,NULL,'2025-04-13 07:54:34'),(5,1,'User logged in: yustobitalio24@gmail.com',NULL,NULL,'2025-04-13 08:06:08'),(6,1,'User logged in: yustobitalio24@gmail.com',NULL,NULL,'2025-04-13 08:28:58'),(7,2,'User logged in: ashamkuto2@gmail.com',NULL,NULL,'2025-04-13 08:29:18');
+INSERT INTO `auditlogs` VALUES (1,1,'User logged in: yustobitalio24@gmail.com',NULL,NULL,'2025-04-13 07:03:20'),(2,2,'User logged in: ashamkuto2@gmail.com',NULL,NULL,'2025-04-13 07:10:03'),(3,2,'User logged in: ashamkuto2@gmail.com',NULL,NULL,'2025-04-13 07:42:37'),(4,1,'User logged in: yustobitalio24@gmail.com',NULL,NULL,'2025-04-13 07:54:34'),(5,1,'User logged in: yustobitalio24@gmail.com',NULL,NULL,'2025-04-13 08:06:08'),(6,1,'User logged in: yustobitalio24@gmail.com',NULL,NULL,'2025-04-13 08:28:58'),(7,2,'User logged in: ashamkuto2@gmail.com',NULL,NULL,'2025-04-13 08:29:18'),(8,1,'User logged in: yustobitalio24@gmail.com','::1',NULL,'2025-04-18 19:26:17'),(9,1,'Admin Dashboard Access','::1','User accessed admin dashboard','2025-04-18 19:26:17'),(10,2,'User logged in: ashamkuto2@gmail.com','::1',NULL,'2025-04-18 19:27:31'),(11,1,'User logged in: yustobitalio24@gmail.com','::1',NULL,'2025-04-19 06:26:30'),(12,1,'Admin Dashboard Access','::1','User accessed admin dashboard','2025-04-19 06:26:30'),(13,2,'User logged in: ashamkuto2@gmail.com','::1',NULL,'2025-04-19 06:27:22'),(14,1,'User logged in: yustobitalio24@gmail.com','::1',NULL,'2025-04-19 06:37:27'),(15,1,'Admin Dashboard Access','::1','User accessed admin dashboard','2025-04-19 06:37:46');
 /*!40000 ALTER TABLE `auditlogs` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -273,9 +273,13 @@ DROP TABLE IF EXISTS `frauddetectionlogs`;
 CREATE TABLE `frauddetectionlogs` (
   `id` int NOT NULL AUTO_INCREMENT,
   `user_id` int NOT NULL,
+  `vote_id` int DEFAULT NULL,
   `election_id` int DEFAULT NULL,
+  `is_fraudulent` tinyint(1) DEFAULT NULL,
+  `confidence` float DEFAULT NULL,
+  `details` text,
   `description` text NOT NULL,
-  `action_taken` varchar(100) DEFAULT NULL,
+  `action` varchar(100) DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `model_id` int DEFAULT NULL,
   PRIMARY KEY (`id`),
@@ -388,6 +392,35 @@ LOCK TABLES `notifications` WRITE;
 UNLOCK TABLES;
 
 --
+-- Table structure for table `observers`
+--
+
+DROP TABLE IF EXISTS `observers`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `observers` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `user_id` int NOT NULL,
+  `election_id` int NOT NULL,
+  `assigned_at` datetime NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `user_id` (`user_id`),
+  KEY `election_id` (`election_id`),
+  CONSTRAINT `observers_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`),
+  CONSTRAINT `observers_ibfk_2` FOREIGN KEY (`election_id`) REFERENCES `elections` (`election_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `observers`
+--
+
+LOCK TABLES `observers` WRITE;
+/*!40000 ALTER TABLE `observers` DISABLE KEYS */;
+/*!40000 ALTER TABLE `observers` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
 -- Table structure for table `password_resets`
 --
 
@@ -489,7 +522,6 @@ CREATE TABLE `users` (
   `user_id` int NOT NULL AUTO_INCREMENT,
   `official_id` varchar(20) NOT NULL,
   `email` varchar(100) NOT NULL,
-  `college` varchar(10) DEFAULT NULL,
   `association` varchar(10) NOT NULL,
   `password` varchar(255) NOT NULL,
   `is_verified` tinyint(1) DEFAULT '0',
@@ -509,6 +541,7 @@ CREATE TABLE `users` (
   UNIQUE KEY `email` (`email`),
   KEY `fk_user_college` (`college_id`),
   KEY `fk_user_hostel` (`hostel_id`),
+  KEY `idx_users_email` (`email`),
   CONSTRAINT `fk_user_college` FOREIGN KEY (`college_id`) REFERENCES `colleges` (`college_id`) ON DELETE SET NULL ON UPDATE CASCADE,
   CONSTRAINT `fk_user_hostel` FOREIGN KEY (`hostel_id`) REFERENCES `hostels` (`hostel_id`) ON DELETE SET NULL ON UPDATE CASCADE,
   CONSTRAINT `users_ibfk_1` FOREIGN KEY (`official_id`) REFERENCES `original_db`.`all_users` (`official_id`)
@@ -521,7 +554,7 @@ CREATE TABLE `users` (
 
 LOCK TABLES `users` WRITE;
 /*!40000 ALTER TABLE `users` DISABLE KEYS */;
-INSERT INTO `users` VALUES (1,'ADMIN001','yustobitalio24@gmail.com',NULL,'ADMIN','$2y$10$93rKrfmKSYHcLGAEUFVbz.qqgOGku2xWbr4Tb7zHVqwkwNPo4g.4q',1,NULL,'2025-04-10 11:47:55','admin','Admin',NULL,'Admin',NULL,0,NULL,NULL,NULL),(2,'T22-03-06448','ashamkuto2@gmail.com','CIVE','UDOSO','$2y$10$Bq3mxjgYrklAEtlRIS6ja.ONrl38Bhykw0M1efQR3VHZTp3ymco4K',1,NULL,'2025-04-13 07:04:41','voter','asha',NULL,'mkuto',NULL,0,NULL,NULL,NULL);
+INSERT INTO `users` VALUES (1,'ADMIN001','yustobitalio24@gmail.com','ADMIN','$2y$10$93rKrfmKSYHcLGAEUFVbz.qqgOGku2xWbr4Tb7zHVqwkwNPo4g.4q',1,NULL,'2025-04-10 11:47:55','admin','Admin',NULL,'Admin',NULL,0,NULL,NULL,NULL),(2,'T22-03-06448','ashamkuto2@gmail.com','UDOSO','$2y$10$Bq3mxjgYrklAEtlRIS6ja.ONrl38Bhykw0M1efQR3VHZTp3ymco4K',1,NULL,'2025-04-13 07:04:41','voter','asha',NULL,'mkuto',NULL,0,NULL,1,1);
 /*!40000 ALTER TABLE `users` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -542,7 +575,8 @@ CREATE TABLE `votes` (
   `is_anonymized` tinyint(1) DEFAULT '1',
   PRIMARY KEY (`vote_id`),
   KEY `idx_votes_user_id` (`user_id`),
-  KEY `idx_votes_election_id` (`election_id`)
+  KEY `idx_votes_election_id` (`election_id`),
+  KEY `idx_votes_candidate_id` (`candidate_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -564,4 +598,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-04-16 15:57:46
+-- Dump completed on 2025-04-19 11:41:38

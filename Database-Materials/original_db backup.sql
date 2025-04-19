@@ -4,8 +4,6 @@
 -- ------------------------------------------------------
 -- Server version	8.0.41
 
---To recover (mysql -u your_username -p original_db < C:\path\to\backup\original_db_backup.sql)
-
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
 /*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
 /*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
@@ -27,7 +25,6 @@ DROP TABLE IF EXISTS `all_users`;
 CREATE TABLE `all_users` (
   `official_id` varchar(20) NOT NULL,
   `email` varchar(100) NOT NULL,
-  `college` varchar(10) DEFAULT NULL,
   `association` varchar(10) NOT NULL,
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `last_updated` timestamp NULL DEFAULT NULL,
@@ -36,6 +33,8 @@ CREATE TABLE `all_users` (
   `fname` varchar(30) DEFAULT NULL,
   `mname` varchar(30) DEFAULT NULL,
   `lname` varchar(30) DEFAULT NULL,
+  `hostel` int DEFAULT NULL,
+  `college` int DEFAULT NULL,
   PRIMARY KEY (`official_id`),
   UNIQUE KEY `email` (`email`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
@@ -47,7 +46,7 @@ CREATE TABLE `all_users` (
 
 LOCK TABLES `all_users` WRITE;
 /*!40000 ALTER TABLE `all_users` DISABLE KEYS */;
-INSERT INTO `all_users` VALUES ('ADMIN001','yustobitalio24@gmail.com',NULL,'ADMIN','2025-04-06 05:31:53',NULL,'admin',1,'Admin',NULL,'admin'),('T22-03-00002','shadamu96@gmail.com','CIVE','UDOMASA','2025-04-06 05:31:53',NULL,'teacher-voter',1,'sheyla',NULL,'adamu'),('T22-03-06448','ashamkuto2@gmail.com','CIVE','UDOSO','2025-04-06 05:31:53',NULL,'voter',1,'asha',NULL,'mkuto'),('T22-03-06449','student2@udom.ac.tz','COED','UDOSO','2025-04-06 05:31:53',NULL,'voter',1,NULL,NULL,NULL),('T22-03-06450','student3@udom.ac.tz','CNMS','UDOSO','2025-04-06 05:31:53',NULL,'voter',1,NULL,NULL,NULL),('ZU-01','observer@udom.ac.tz',NULL,'none','2025-04-10 09:44:03',NULL,'observer',1,NULL,NULL,NULL);
+INSERT INTO `all_users` VALUES ('ADMIN001','yustobitalio24@gmail.com','ADMIN','2025-04-06 05:31:53',NULL,'admin',1,'Admin',NULL,'admin',NULL,NULL),('T22-03-00002','shadamu96@gmail.com','UDOMASA','2025-04-06 05:31:53',NULL,'teacher-voter',1,'sheyla',NULL,'adamu',NULL,1),('T22-03-06448','ashamkuto2@gmail.com','UDOSO','2025-04-06 05:31:53',NULL,'voter',1,'asha',NULL,'mkuto',2,3),('T22-03-06449','student2@udom.ac.tz','UDOSO','2025-04-06 05:31:53',NULL,'voter',1,NULL,NULL,NULL,NULL,NULL),('T22-03-06450','student3@udom.ac.tz','UDOSO','2025-04-06 05:31:53',NULL,'voter',1,NULL,NULL,NULL,NULL,NULL),('ZU-01','observer@udom.ac.tz','none','2025-04-10 09:44:03',NULL,'observer',1,NULL,NULL,NULL,NULL,NULL);
 /*!40000 ALTER TABLE `all_users` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -60,4 +59,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-04-14 13:49:44
+-- Dump completed on 2025-04-19 11:48:15
