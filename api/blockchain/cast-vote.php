@@ -5,7 +5,7 @@ session_start();
 
 if (!isset($_SESSION['user_id']) || !isset($_POST['election_id']) || !isset($_POST['position_id']) || !isset($_POST['candidate_id'])) {
     http_response_code(400);
-    echo json_encode(['error' => 'Missing required fields']);
+    echo json_encode(['error' => 'Missing some required fields']);
     exit;
 }
 
