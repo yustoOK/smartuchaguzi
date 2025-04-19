@@ -55,8 +55,9 @@ $_SESSION['last_activity'] = time();
 $user_id = $_SESSION['user_id'];
 $stmt = $conn->prepare("SELECT fname, college_id, hostel_id FROM users WHERE user_id = ?");
 $stmt->bind_param("i", $user_id);
-$stmt->execute([$user_id]);
-$user = $stmt->fetch(PDO::FETCH_ASSOC);
+$stmt->execute();
+$result = $stmt->get_result();
+$user = $result->fetch_assoc();
 $profile_picture = 'images/general.png';
 ?>
 
@@ -408,26 +409,33 @@ $profile_picture = 'images/general.png';
             <div class="content-section active" id="election">
                 <h3>All UDOSO Elections</h3>
                 <?php
-                $stmt = $pdo->prepare("SELECT e.id, e.association, e.end_time, c.name AS college_name 
+                $stmt = $conn->prepare("SELECT e.id, e.association, e.end_time, c.name AS college_name 
                                        FROM elections e 
-                                       LEFT JOIN colleges c ON e.college_id = c.id 
-                                       WHERE e.association = 'UDOSO' AND e.end_time > NOW()");
+                                       LEFT JOIN colleges c ON e.college_id = c.college_id 
+                                       WHERE e.association = ? AND e.end_time > NOW()");
+                $association = 'UDOSO';
+                $stmt->bind_param("s", $association);
                 $stmt->execute();
-                $elections = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                $result = $stmt->get_result();
+                $elections = $result->fetch_all(MYSQLI_ASSOC);
                 if ($elections) {
                     foreach ($elections as $election) {
                         echo "<div class='election-card'>";
                         echo "<h4>" . ($election['college_name'] ? htmlspecialchars($election['college_name']) : 'University-Wide') . " Election</h4>";
-                        $stmt = $pdo->prepare("SELECT ep.id, ep.name FROM election_positions ep WHERE ep.election_id = ?");
-                        $stmt->execute([$election['id']]);
-                        while ($pos = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                        $stmt = $conn->prepare("SELECT ep.id, ep.name FROM election_positions ep WHERE ep.election_id = ?");
+                        $stmt->bind_param("i", $election['id']);
+                        $stmt->execute();
+                        $pos_result = $stmt->get_result();
+                        while ($pos = $pos_result->fetch_assoc()) {
                             echo "<h5>" . htmlspecialchars($pos['name']) . "</h5>";
-                            $cand_stmt = $pdo->prepare("SELECT c.id, u.fname, u.lname 
+                            $cand_stmt = $conn->prepare("SELECT c.id, u.fname, u.lname 
                                                        FROM candidates c 
                                                        JOIN users u ON c.user_id = u.user_id 
                                                        WHERE c.election_id = ? AND c.position_id = ?");
-                            $cand_stmt->execute([$election['id'], $pos['id']]);
-                            while ($cand = $cand_stmt->fetch(PDO::FETCH_ASSOC)) {
+                            $cand_stmt->bind_param("ii", $election['id'], $pos['id']);
+                            $cand_stmt->execute();
+                            $cand_result = $cand_stmt->get_result();
+                            while ($cand = $cand_result->fetch_assoc()) {
                                 $full_name = $cand['fname'] . ' ' . $cand['lname'];
                                 echo "<div class='candidate'><span>" . htmlspecialchars($full_name) . "</span><a href='candidate-details.php?id=" . $cand['id'] . "'>Details</a></div>";
                             }
@@ -444,60 +452,75 @@ $profile_picture = 'images/general.png';
                 <h3>Cast Your Vote</h3>
                 <div class="vote-section">
                     <?php
-                    $stmt = $pdo->prepare("SELECT e.id, e.end_time 
+                    $stmt = $conn->prepare("SELECT e.id, e.end_time 
                                            FROM elections e 
-                                           WHERE e.association = 'UDOSO' AND e.end_time > NOW() 
+                                           WHERE e.association = ? AND e.end_time > NOW() 
                                            AND (e.college_id = ? OR e.college_id IS NULL)");
-                    $stmt->execute([$user['college_id']]);
-                    $elections = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                    $association = 'UDOSO';
+                    $stmt->bind_param("si", $association, $user['college_id']);
+                    $stmt->execute();
+                    $result = $stmt->get_result();
+                    $elections = $result->fetch_all(MYSQLI_ASSOC);
                     if ($elections) {
                         echo "<table>";
                         echo "<tr><th>Position</th><th>Candidate</th><th>Action</th></tr>";
                         foreach ($elections as $election) {
-                            $stmt = $pdo->prepare("SELECT ep.id, ep.name 
+                            $stmt = $conn->prepare("SELECT ep.id, ep.name 
                                                    FROM election_positions ep 
                                                    WHERE ep.election_id = ?");
-                            $stmt->execute([$election['id']]);
-                            while ($pos = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                            $stmt->bind_param("i", $election['id']);
+                            $stmt->execute();
+                            $pos_result = $stmt->get_result();
+                            while ($pos = $pos_result->fetch_assoc()) {
                                 $is_hostel_position = strpos(strtolower($pos['name']), 'hostel') !== false;
                                 if ($is_hostel_position && $user['hostel_id']) {
-                                    $cand_stmt = $pdo->prepare("SELECT c.id 
+                                    $cand_stmt = $conn->prepare("SELECT c.id 
                                                                FROM candidates c 
                                                                WHERE c.election_id = ? AND c.position_id = ? 
                                                                AND c.hostel_id = ?");
-                                    $cand_stmt->execute([$election['id'], $pos['id'], $user['hostel_id']]);
+                                    $cand_stmt->bind_param("iii", $election['id'], $pos['id'], $user['hostel_id']);
                                 } else {
-                                    $cand_stmt = $pdo->prepare("SELECT c.id 
+                                    $cand_stmt = $conn->prepare("SELECT c.id 
                                                                FROM candidates c 
                                                                WHERE c.election_id = ? AND c.position_id = ?");
-                                    $cand_stmt->execute([$election['id'], $pos['id']]);
+                                    $cand_stmt->bind_param("ii", $election['id'], $pos['id']);
                                 }
-                                if (!$cand_stmt->fetch()) {
+                                $cand_stmt->execute();
+                                $cand_result = $cand_stmt->get_result();
+                                if (!$cand_result->fetch_assoc()) {
                                     continue;
                                 }
 
-                                $vote_check = $pdo->prepare("SELECT id 
+                                $vote_check = $conn->prepare("SELECT id 
                                                              FROM votes 
                                                              WHERE user_id = ? AND election_id = ? 
                                                              AND candidate_id IN (SELECT id FROM candidates WHERE position_id = ?)");
-                                $vote_check->execute([$user_id, $election['id'], $pos['id']]);
-                                if ($vote_check->fetch(PDO::FETCH_ASSOC)) {
+                                $vote_check->bind_param("iii", $user_id, $election['id'], $pos['id']);
+                                $vote_check->execute();
+                                $vote_result = $vote_check->get_result();
+                                if ($vote_result->fetch_assoc()) {
                                     continue;
                                 }
 
                                 echo "<tr>";
                                 echo "<td>" . htmlspecialchars($pos['name']) . "</td>";
                                 echo "<td><select name='candidate_" . $pos['id'] . "' id='candidate_" . $pos['id'] . "'>";
-                                $cand_stmt = $pdo->prepare("SELECT c.id, u.fname, u.lname 
-                                                           FROM candidates c 
-                                                           JOIN users u ON c.user_id = u.user_id 
-                                                           WHERE c.election_id = ? AND c.position_id = ?" . ($is_hostel_position && $user['hostel_id'] ? " AND c.hostel_id = ?" : ""));
-                                $params = [$election['id'], $pos['id']];
                                 if ($is_hostel_position && $user['hostel_id']) {
-                                    $params[] = $user['hostel_id'];
+                                    $cand_stmt = $conn->prepare("SELECT c.id, u.fname, u.lname 
+                                                               FROM candidates c 
+                                                               JOIN users u ON c.user_id = u.user_id 
+                                                               WHERE c.election_id = ? AND c.position_id = ? AND c.hostel_id = ?");
+                                    $cand_stmt->bind_param("iii", $election['id'], $pos['id'], $user['hostel_id']);
+                                } else {
+                                    $cand_stmt = $conn->prepare("SELECT c.id, u.fname, u.lname 
+                                                               FROM candidates c 
+                                                               JOIN users u ON c.user_id = u.user_id 
+                                                               WHERE c.election_id = ? AND c.position_id = ?");
+                                    $cand_stmt->bind_param("ii", $election['id'], $pos['id']);
                                 }
-                                $cand_stmt->execute($params);
-                                while ($cand = $cand_stmt->fetch(PDO::FETCH_ASSOC)) {
+                                $cand_stmt->execute();
+                                $cand_result = $cand_stmt->get_result();
+                                while ($cand = $cand_result->fetch_assoc()) {
                                     $full_name = $cand['fname'] . ' ' . $cand['lname'];
                                     echo "<option value='" . $cand['id'] . "'>" . htmlspecialchars($full_name) . "</option>";
                                 }
@@ -526,12 +549,15 @@ $profile_picture = 'images/general.png';
                 <h3>UDOSO Election Results</h3>
                 <div class="results-section">
                     <?php
-                    $stmt = $pdo->prepare("SELECT id, end_time 
+                    $stmt = $conn->prepare("SELECT id, end_time 
                                            FROM elections 
-                                           WHERE association = 'UDOSO' AND end_time < NOW() 
+                                           WHERE association = ? AND end_time < NOW() 
                                            ORDER BY end_time DESC");
+                    $association = 'UDOSO';
+                    $stmt->bind_param("s", $association);
                     $stmt->execute();
-                    $past_elections = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                    $result = $stmt->get_result();
+                    $past_elections = $result->fetch_all(MYSQLI_ASSOC);
                     if ($past_elections) {
                         foreach ($past_elections as $past_election) {
                             $analytics_response = file_get_contents("http://localhost/smartuchaguzi/api/vote-analytics.php?election_id=" . $past_election['id']);
