@@ -12,52 +12,73 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
 $errors = [];
 $success = '';
 $colleges = [];
-
-// Fetch colleges for dropdown
-try {
-    $result = $db->query("SELECT id, name FROM colleges ORDER BY name");
-    if ($result) {
-        while ($row = $result->fetch_assoc()) {
-            $colleges[] = $row;
-        }
-        $result->free();
-    } else {
-        $errors[] = "Failed to load colleges.";
-    }
-} catch (Exception $e) {
-    error_log("Fetch colleges failed: " . $e->getMessage());
-    $errors[] = "Failed to load colleges.";
-}
-
-// Fetch hostels for dropdown (only for students)
 $hostels = [];
-try {
-    $result = $db->query("SELECT id, name FROM hostels ORDER BY name");
-    if ($result) {
-        while ($row = $result->fetch_assoc()) {
-            $hostels[] = $row;
+
+// Check if database connection is successful
+if (!isset($db) || $db->connect_error) {
+    error_log("Database connection failed: " . ($db ? $db->connect_error : "DB object not set"));
+    $errors[] = "Unable to connect to the database.";
+} else {
+    // Fetch colleges for dropdown
+    try {
+        $result = $db->query("SELECT college_id, name FROM colleges ORDER BY name");
+        if ($result) {
+            while ($row = $result->fetch_assoc()) {
+                $colleges[] = $row;
+            }
+            $result->free();
+        } else {
+            error_log("Fetch colleges failed: " . $db->error);
+            $errors[] = "Failed to load colleges due to a server error.";
         }
-        $result->free();
-    } else {
-        $errors[] = "Failed to load hostels.";
+    } catch (Exception $e) {
+        error_log("Fetch colleges failed: " . $e->getMessage());
+        $errors[] = "Failed to load colleges due to a server error.";
     }
-} catch (Exception $e) {
-    error_log("Fetch hostels failed: " . $e->getMessage());
-    $errors[] = "Failed to load hostels.";
+
+    // Fetch hostels for dropdown (only for students)
+    try {
+        $result = $db->query("SELECT hostel_id, name FROM hostels ORDER BY name");
+        if ($result) {
+            while ($row = $result->fetch_assoc()) {
+                $hostels[] = $row;
+            }
+            $result->free();
+        } else {
+            error_log("Fetch hostels failed: " . $db->error);
+            $errors[] = "Failed to load hostels due to a server error.";
+        }
+    } catch (Exception $e) {
+        error_log("Fetch hostels failed: " . $e->getMessage());
+        $errors[] = "Failed to load hostels due to a server error.";
+    }
 }
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $name = filter_input(INPUT_POST, 'name', FILTER_SANITIZE_FULL_SPECIAL_CHARS);
+    $fname = filter_input(INPUT_POST, 'fname', FILTER_SANITIZE_FULL_SPECIAL_CHARS);
+    $mname = filter_input(INPUT_POST, 'mname', FILTER_SANITIZE_FULL_SPECIAL_CHARS);
+    $lname = filter_input(INPUT_POST, 'lname', FILTER_SANITIZE_FULL_SPECIAL_CHARS);
+    $official_id = filter_input(INPUT_POST, 'official_id', FILTER_SANITIZE_FULL_SPECIAL_CHARS);
+    $association = filter_input(INPUT_POST, 'association', FILTER_SANITIZE_FULL_SPECIAL_CHARS);
     $email = filter_input(INPUT_POST, 'email', FILTER_SANITIZE_EMAIL);
     $password = $_POST['password'] ?? '';
     $role = $_POST['role'] ?? '';
     $college_id = filter_var($_POST['college_id'], FILTER_VALIDATE_INT);
-    $hostel_id = isset($_POST['hostel_id']) ? filter_var($_POST['hostel_id'], FILTER_VALIDATE_INT) : null;
+    $hostel_id = isset($_POST['hostel_id']) && $_POST['hostel_id'] !== '' ? filter_var($_POST['hostel_id'], FILTER_VALIDATE_INT) : null;
 
     // Validation
-    if (empty($name)) {
-        $errors[] = "Name is required.";
+    if (empty($fname)) {
+        $errors[] = "First name is required.";
+    }
+    if (empty($lname)) {
+        $errors[] = "Last name is required.";
+    }
+    if (empty($official_id)) {
+        $errors[] = "Official ID is required.";
+    }
+    if (empty($association)) {
+        $errors[] = "Association is required.";
     }
     if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $errors[] = "Valid email is required.";
@@ -65,14 +86,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (empty($password) || strlen($password) < 8) {
         $errors[] = "Password must be at least 8 characters.";
     }
-    if (!in_array($role, ['student', 'teacher'])) {
+    if (!in_array($role, ['student', 'teacher']) || empty($role)) {
         $errors[] = "Role must be student or teacher.";
     }
     if (!$college_id) {
         $errors[] = "College is required.";
-    }
-    if ($role === 'student' && $hostel_id === false) {
-        $errors[] = "Invalid hostel selection.";
     }
     if ($role === 'teacher' && $hostel_id !== null) {
         $errors[] = "Teachers cannot be assigned to hostels.";
@@ -80,7 +98,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // Check if email already exists
     try {
-        $stmt = $db->prepare("SELECT id FROM users WHERE email = ?");
+        $stmt = $db->prepare("SELECT user_id FROM users WHERE email = ?");
         $stmt->bind_param('s', $email);
         $stmt->execute();
         $stmt->store_result();
@@ -93,14 +111,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = "Failed to verify email.";
     }
 
+    // Check if official_id already exists
+    try {
+        $stmt = $db->prepare("SELECT user_id FROM users WHERE official_id = ?");
+        $stmt->bind_param('s', $official_id);
+        $stmt->execute();
+        $stmt->store_result();
+        if ($stmt->num_rows > 0) {
+            $errors[] = "Official ID is already registered.";
+        }
+        $stmt->close();
+    } catch (Exception $e) {
+        error_log("Check official_id failed: " . $e->getMessage());
+        $errors[] = "Failed to verify official ID.";
+    }
+
     if (empty($errors)) {
         try {
             $hashed_password = password_hash($password, PASSWORD_DEFAULT);
             $stmt = $db->prepare(
-                "INSERT INTO users (name, email, password, role, college_id, hostel_id, created_at) 
-                VALUES (?, ?, ?, ?, ?, ?, NOW())"
+                "INSERT INTO users (official_id, association, email, password, role, fname, mname, lname, college_id, hostel_id, created_at) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())"
             );
-            $stmt->bind_param('sssisi', $name, $email, $hashed_password, $role, $college_id, $hostel_id);
+            $stmt->bind_param('sssssssiii', $official_id, $association, $email, $hashed_password, $role, $fname, $mname, $lname, $college_id, $hostel_id);
             if ($stmt->execute()) {
                 $success = "User added successfully.";
             } else {
@@ -226,8 +259,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <?php endif; ?>
         <form method="POST" action="">
             <div class="form-group">
-                <label for="name">Full Name</label>
-                <input type="text" name="name" id="name" placeholder="Enter full name" value="<?php echo isset($_POST['name']) ? htmlspecialchars($_POST['name']) : ''; ?>" required>
+                <label for="official_id">Official ID</label>
+                <input type="text" name="official_id" id="official_id" placeholder="Enter official ID" value="<?php echo isset($_POST['official_id']) ? htmlspecialchars($_POST['official_id']) : ''; ?>" required>
+            </div>
+            <div class="form-group">
+                <label for="association">Association</label>
+                <input type="text" name="association" id="association" placeholder="Enter association" value="<?php echo isset($_POST['association']) ? htmlspecialchars($_POST['association']) : ''; ?>" required>
+            </div>
+            <div class="form-group">
+                <label for="fname">First Name</label>
+                <input type="text" name="fname" id="fname" placeholder="Enter first name" value="<?php echo isset($_POST['fname']) ? htmlspecialchars($_POST['fname']) : ''; ?>" required>
+            </div>
+            <div class="form-group">
+                <label for="mname">Middle Name (Optional)</label>
+                <input type="text" name="mname" id="mname" placeholder="Enter middle name" value="<?php echo isset($_POST['mname']) ? htmlspecialchars($_POST['mname']) : ''; ?>">
+            </div>
+            <div class="form-group">
+                <label for="lname">Last Name</label>
+                <input type="text" name="lname" id="lname" placeholder="Enter last name" value="<?php echo isset($_POST['lname']) ? htmlspecialchars($_POST['lname']) : ''; ?>" required>
             </div>
             <div class="form-group">
                 <label for="email">Email</label>
@@ -250,7 +299,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <select name="college_id" id="college_id" required>
                     <option value="" disabled selected>Select college</option>
                     <?php foreach ($colleges as $college): ?>
-                        <option value="<?php echo $college['id']; ?>" <?php echo isset($_POST['college_id']) && $_POST['college_id'] == $college['id'] ? 'selected' : ''; ?>>
+                        <option value="<?php echo $college['college_id']; ?>" <?php echo isset($_POST['college_id']) && $_POST['college_id'] == $college['college_id'] ? 'selected' : ''; ?>>
                             <?php echo htmlspecialchars($college['name']); ?>
                         </option>
                     <?php endforeach; ?>
@@ -261,7 +310,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <select name="hostel_id" id="hostel_id">
                     <option value="">No hostel (off-campus)</option>
                     <?php foreach ($hostels as $hostel): ?>
-                        <option value="<?php echo $hostel['id']; ?>" <?php echo isset($_POST['hostel_id']) && $_POST['hostel_id'] == $hostel['id'] ? 'selected' : ''; ?>>
+                        <option value="<?php echo $hostel['hostel_id']; ?>" <?php echo isset($_POST['hostel_id']) && $_POST['hostel_id'] == $hostel['hostel_id'] ? 'selected' : ''; ?>>
                             <?php echo htmlspecialchars($hostel['name']); ?>
                         </option>
                     <?php endforeach; ?>
