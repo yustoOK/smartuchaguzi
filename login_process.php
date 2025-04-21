@@ -46,7 +46,7 @@ function redirectUser($role, $college_id, $association) {
     exit;
 }
 
-if (isset($_SESSION['user_id'])) {
+if (isset($_SESSION['user_id'])) { 
     error_log("Existing session found: " . print_r($_SESSION, true));
     redirectUser($_SESSION['role'], $_SESSION['college_id'] ?? null, $_SESSION['association'] ?? null);
     exit;

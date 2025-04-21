@@ -347,8 +347,8 @@
                 <label><input type="checkbox" name="remember"> Remember me</label>
                 <a href="forgot_password.php">Forgot Password?</a>
             </div>
-            <button type="submit" class="login-btn">LOGIN</button>
-            <button type="button" class="signup-btn" onclick="window.location.href='register.php'">SIGN UP</button>
+            <button type="submit" class="login-btn">Login</button>
+            <button type="button" class="signup-btn" onclick="window.location.href='register.php'">Sign Up</button>
         </form>
     </div>
 
@@ -358,7 +358,7 @@
 
             const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
             if (!emailPattern.test(email)) {
-                alert('Please enter a valid email address.');
+                alert('Enter a valid email address.');
                 return false;
             }
 

@@ -8,7 +8,7 @@ if (!isset($_SESSION['user_id']) || !isset($_SESSION['role']) || $_SESSION['role
     error_log("Session validation failed: user_id, role, college_id, or association not set or invalid.");
     session_unset();
     session_destroy();
-    header('Location: login.php?error=' . urlencode('Please log in to access the CIVE UDOSO dashboard.'));
+    header('Location: login.php?error=' . urlencode('Access Denied.'));
     exit;
 }
 
