@@ -3,10 +3,10 @@
 session_start();
 date_default_timezone_set('Africa/Dar_es_Salaam');
 
-include '../db.php'; // Includes MySQLi connection
+include '../db.php'; 
 
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
-    header('Location: ../login.php?error=' . urlencode('Please log in as admin.'));
+    header('Location: ../login.php?error=' . urlencode('Acess Denied! You must be an admin to access this page.'));
     exit;
 }
 
@@ -19,7 +19,7 @@ if (isset($db) && !$db->connect_error) {
         $result = $db->query(
             "SELECT id, title, content, sent_at 
             FROM notifications 
-            WHERE type = 'upcoming_election' 
+            WHERE type = 'in_app' 
             ORDER BY sent_at DESC"
         );
         if ($result) {
@@ -40,7 +40,7 @@ if (isset($db) && !$db->connect_error) {
     $errors[] = "Unable to connect to the database.";
 }
 
-// Handle adding new notification
+// Handling adding new notification
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_notification'])) {
     $title = filter_input(INPUT_POST, 'title', FILTER_SANITIZE_FULL_SPECIAL_CHARS);
     $date = $_POST['date'] ?? '';
@@ -52,6 +52,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_notification'])) 
     }
     if (empty($date)) {
         $errors[] = "Election date is required.";
+    } elseif (strtotime($date) === false) {
+        $errors[] = "Invalid date format.";
     } elseif (strtotime($date) < strtotime('today')) {
         $errors[] = "Election date must be in the future.";
     }
@@ -63,7 +65,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_notification'])) 
         try {
             $stmt = $db->prepare(
                 "INSERT INTO notifications (user_id, title, content, type, sent_at, created_at) 
-                VALUES (?, ?, ?, 'upcoming_election', ?, NOW())"
+                VALUES (?, ?, ?, 'in_app', ?, NOW())"
             );
             $stmt->bind_param('isss', $_SESSION['user_id'], $title, $description, $date);
             if ($stmt->execute()) {
@@ -93,6 +95,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_notification']
     }
     if (empty($date)) {
         $errors[] = "Election date is required.";
+    } elseif (strtotime($date) === false) {
+        $errors[] = "Invalid date format.";
     }
     if (empty($description)) {
         $errors[] = "Election description is required.";
@@ -103,12 +107,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_notification']
             $stmt = $db->prepare(
                 "UPDATE notifications 
                 SET title = ?, content = ?, sent_at = ? 
-                WHERE id = ? AND type = 'upcoming_election'"
+                WHERE id = ? AND type = 'in_app'"
             );
             $stmt->bind_param('sssi', $title, $description, $date, $notification_id);
             if ($stmt->execute()) {
-                header('Location: update-upcoming.php?success=' . urlencode('Upcoming election updated successfully.'));
-                exit;
+                if ($stmt->affected_rows > 0) {
+                    header('Location: update-upcoming.php?success=' . urlencode('Upcoming election updated successfully.'));
+                    exit;
+                } else {
+                    $errors[] = "No matching upcoming election found to update.";
+                }
             } else {
                 error_log("Update notification failed: " . $stmt->error);
                 $errors[] = "Failed to update upcoming election due to a server error.";
@@ -125,11 +133,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_notification']
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_notification'])) {
     $notification_id = filter_var($_POST['notification_id'], FILTER_VALIDATE_INT);
     try {
-        $stmt = $db->prepare("DELETE FROM notifications WHERE id = ? AND type = 'upcoming_election'");
+        $stmt = $db->prepare("DELETE FROM notifications WHERE id = ? AND type = 'in_app'");
         $stmt->bind_param('i', $notification_id);
         if ($stmt->execute()) {
-            header('Location: update-upcoming.php?success=' . urlencode('Upcoming election removed successfully.'));
-            exit;
+            if ($stmt->affected_rows > 0) {
+                header('Location: update-upcoming.php?success=' . urlencode('Upcoming election removed successfully.'));
+                exit;
+            } else {
+                $errors[] = "No matching upcoming election found to delete.";
+            }
         } else {
             error_log("Delete notification failed: " . $stmt->error);
             $errors[] = "Failed to remove upcoming election due to a server error.";

@@ -23,8 +23,8 @@ if (!isset($_SESSION['user_id']) || !isset($_SESSION['role']) || $_SESSION['role
     exit;
 }
 
-$inactivity_timeout = 30 * 60;
-$max_session_duration = 24 * 60 * 60; // 24 hours
+$inactivity_timeout = 15 * 60; //15 minutes
+$max_session_duration = 12 * 60 * 60; // 24 hours
 $warning_time = 60;
 
 if (!isset($_SESSION['start_time'])) {
@@ -42,7 +42,7 @@ if ($time_elapsed >= $max_session_duration) {
     error_log("Session expired due to maximum duration: $time_elapsed seconds.");
     session_unset();
     session_destroy();
-    header('Location: login.php?error=' . urlencode('Session expired. Please log in again.'));
+    header('Location: login.php?error=' . urlencode('Session expired. Please log in.'));
     exit;
 }
 
@@ -51,7 +51,7 @@ if ($inactive_time >= $inactivity_timeout) {
     error_log("Session expired due to inactivity: $inactive_time seconds.");
     session_unset();
     session_destroy();
-    header('Location: login.php?error=' . urlencode('Session expired due to inactivity. Please log in again.'));
+    header('Location: login.php?error=' . urlencode('Session expired. Please log in.'));
     exit;
 }
 $_SESSION['last_activity'] = time();
@@ -555,8 +555,8 @@ $total_active_elections = $pdo->query("SELECT COUNT(*) FROM elections WHERE end_
         <div class="nav">
             <a href="#" data-section="overview" class="active">Overview</a>
             <a href="#" data-section="management">Election Management</a>
-            <a href="#" data-section="upcoming">Upcoming Elections</a>
-            <a href="#" data-section="users">User Management</a>
+            <a href="./admin-operations/update-upcoming.php" data-section="upcoming">Upcoming Elections</a>
+            <a href="./admin-operations/add-user.php" data-section="users">User Management</a>
             <a href="#" data-section="analytics">Analytics</a>
             <a href="#" data-section="audit">Audit Logs</a>
         </div>
