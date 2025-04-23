@@ -5,6 +5,7 @@ ini_set('session.cookie_secure', 1);
 session_start();
 date_default_timezone_set('Africa/Dar_es_Salaam');
 
+// Database connection
 $host = 'localhost';
 $dbname = 'smartuchaguzi_db';
 $username = 'root';
@@ -15,69 +16,147 @@ try {
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 } catch (PDOException $e) {
     error_log("Connection failed: " . $e->getMessage());
-    die("Connection failed. Please try again later.");
+    die("Unable to connect to the database. Please try again later.");
 }
 
-if (!isset($_SESSION['user_id']) || !isset($_SESSION['role']) || $_SESSION['role'] !== 'observer') {
-    error_log("Session validation failed: user_id or role not set or invalid.");
+$required_role = 'observer';
+
+// Simplified session validation with logging
+if (!isset($_SESSION['user_id']) || !isset($_SESSION['role']) || $_SESSION['role'] !== $required_role) {
+    error_log("Session validation failed: user_id or role not set or invalid. Session: " . print_r($_SESSION, true));
     session_unset();
     session_destroy();
     header('Location: login.php?error=' . urlencode('Please log in as an observer.'));
     exit;
 }
 
+// Log session details for debugging
+error_log("Session after validation: user_id=" . ($_SESSION['user_id'] ?? 'unset') . 
+          ", role=" . ($_SESSION['role'] ?? 'unset'));
+
+// User agent validation
+if (!isset($_SESSION['user_agent']) || $_SESSION['user_agent'] !== $_SERVER['HTTP_USER_AGENT']) {
+    error_log("Session hijacking detected: user agent mismatch.");
+    session_unset();
+    session_destroy();
+    header('Location: login.php?error=' . urlencode('Session validation failed. Please log in again.'));
+    exit;
+}
+
 $inactivity_timeout = 30 * 60;
+$max_session_duration = 60 * 60; // 1 hour
+$warning_time = 60;
+
+if (!isset($_SESSION['start_time'])) {
+    $_SESSION['start_time'] = time();
+}
+
 if (!isset($_SESSION['last_activity'])) {
     $_SESSION['last_activity'] = time();
 }
-if (time() - $_SESSION['last_activity'] > $inactivity_timeout) {
-    error_log("Session expired due to inactivity.");
+
+$time_elapsed = time() - $_SESSION['start_time'];
+if ($time_elapsed >= $max_session_duration) {
+    error_log("Session expired due to maximum duration: $time_elapsed seconds elapsed.");
     session_unset();
     session_destroy();
-    header('Location: login.php?error=' . urlencode('Session expired due to inactivity.'));
+    header('Location: login.php?error=' . urlencode('Session expired. Please log in again.'));
     exit;
 }
+
+$inactive_time = time() - $_SESSION['last_activity'];
+if ($inactive_time >= $inactivity_timeout) {
+    error_log("Session expired due to inactivity: $inactive_time seconds elapsed.");
+    session_unset();
+    session_destroy();
+    header('Location: login.php?error=' . urlencode('Session expired due to inactivity. Please log in again.'));
+    exit;
+}
+
 $_SESSION['last_activity'] = time();
 
+// CSRF token handling
 if (!isset($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
 
 $user_id = $_SESSION['user_id'];
-$stmt = $pdo->prepare("SELECT fname, lname FROM users WHERE id = ?");
-$stmt->execute([$user_id]);
-$user = $stmt->fetch(PDO::FETCH_ASSOC);
-$observer_name = htmlspecialchars(($user['fname'] ?? 'Observer') . ' ' . ($user['lname'] ?? ''));
+try {
+    $stmt = $pdo->prepare("SELECT fname, mname, lname FROM users WHERE user_id = ?");
+    $stmt->execute([$user_id]);
+    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$user) {
+        throw new Exception("No user found for user_id: " . $user_id);
+    }
+    $observer_name = htmlspecialchars($user['fname'] . ' ' . ($user['mname'] ? $user['mname'] . ' ' : '') . $user['lname']);
+} catch (Exception $e) {
+    error_log("User query error: " . $e->getMessage());
+    session_unset();
+    session_destroy();
+    header('Location: login.php?error=' . urlencode('User not found or server error. Please log in again.'));
+    exit;
+}
 
-$stmt = $pdo->prepare("SELECT COUNT(*) FROM elections");
-$stmt->execute();
-$total_elections = $stmt->fetchColumn();
+// Overview statistics with error handling
+try {
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM elections");
+    $stmt->execute();
+    $total_elections = $stmt->fetchColumn();
+} catch (PDOException $e) {
+    error_log("Elections count query error: " . $e->getMessage());
+    $total_elections = "N/A";
+}
 
-$stmt = $pdo->prepare("SELECT COUNT(*) FROM candidates");
-$stmt->execute();
-$total_candidates = $stmt->fetchColumn();
+try {
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM candidates");
+    $stmt->execute();
+    $total_candidates = $stmt->fetchColumn();
+} catch (PDOException $e) {
+    error_log("Candidates count query error: " . $e->getMessage());
+    $total_candidates = "N/A";
+}
 
-$stmt = $pdo->prepare("SELECT COUNT(*) FROM votes");
-$stmt->execute();
-$total_votes = $stmt->fetchColumn();
+try {
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM votes");
+    $stmt->execute();
+    $total_votes = $stmt->fetchColumn();
+} catch (PDOException $e) {
+    error_log("Votes count query error: " . $e->getMessage());
+    $total_votes = "N/A";
+}
 
-$stmt = $pdo->prepare("SELECT COUNT(*) FROM frauddetectionlogs WHERE is_fraudulent = 1");
-$stmt->execute();
-$total_anomalies = $stmt->fetchColumn();
+try {
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM frauddetectionlogs WHERE is_fraudulent = 1");
+    $stmt->execute();
+    $total_anomalies = $stmt->fetchColumn();
+} catch (PDOException $e) {
+    error_log("Fraud incidents count query error: " . $e->getMessage());
+    $total_anomalies = "N/A";
+}
 
+// Handle report generation
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'generate_report') {
     if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_token']) {
+        error_log("CSRF token validation failed for user_id: $user_id");
         die("CSRF token validation failed.");
     }
     $election_id = filter_input(INPUT_POST, 'election_id', FILTER_VALIDATE_INT);
     if ($election_id) {
-        $stmt = $pdo->prepare("INSERT INTO auditlogs (user_id, action, details, ip_address, timestamp) VALUES (?, ?, ?, ?, NOW())");
-        $action = "Report Generated";
-        $details = "Election ID: $election_id";
-        $ip_address = $_SERVER['REMOTE_ADDR'];
-        $stmt->execute([$user_id, $action, $details, $ip_address]);
-        header("Location: generate-report.php?election_id=$election_id");
-        exit;
+        try {
+            $stmt = $pdo->prepare("INSERT INTO auditlogs (user_id, action, details, ip_address, timestamp) VALUES (?, ?, ?, ?, NOW())");
+            $action = "Report Generated";
+            $details = "Election ID: $election_id";
+            $ip_address = $_SERVER['REMOTE_ADDR'];
+            $stmt->execute([$user_id, $action, $details, $ip_address]);
+            header("Location: generate-report.php?election_id=$election_id");
+            exit;
+        } catch (PDOException $e) {
+            error_log("Audit log insertion error: " . $e->getMessage());
+            die("Failed to generate report. Please try again.");
+        }
+    } else {
+        error_log("Invalid election_id for report generation: " . $election_id);
+        die("Invalid election selection.");
     }
 }
 ?>
@@ -430,6 +509,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             transform: scale(1.1);
             box-shadow: 0 6px 20px rgba(244, 162, 97, 0.5);
         }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+        .modal-content p {
+            font-size: 16px;
+            color: #2d3748;
+            margin-bottom: 20px;
+        }
+        .modal-content button {
+            background: #f4a261;
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .modal-content button:hover {
+            background: #e76f51;
+        }
         @media (max-width: 768px) {
             .header {
                 padding: 15px 20px;
@@ -534,38 +651,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 <h3>All Elections</h3>
                 <div class="election-cards">
                     <?php
-                    $stmt = $pdo->prepare("SELECT e.id, e.association, e.start_time, e.end_time, e.blockchain_hash, c.name AS college_name 
-                                           FROM elections e 
-                                           LEFT JOIN colleges c ON e.college_id = c.id 
-                                           ORDER BY e.start_time DESC");
-                    $stmt->execute();
-                    $elections = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                    foreach ($elections as $election) {
-                        $current_time = new DateTime();
-                        $start_time = new DateTime($election['start_time']);
-                        $end_time = new DateTime($election['end_time']);
-                        $status = ($current_time < $start_time) ? 'Upcoming' : 
-                                  (($current_time > $end_time) ? 'Completed' : 'Ongoing');
-                        echo "<div class='election-card'>";
-                        echo "<p><strong>" . ($election['college_name'] ? htmlspecialchars($election['college_name']) : 'University-Wide') . " (" . htmlspecialchars($election['association']) . ")</strong></p>";
-                        echo "<p><strong>Start:</strong> " . htmlspecialchars($election['start_time']) . "</p>";
-                        echo "<p><strong>End:</strong> " . htmlspecialchars($election['end_time']) . "</p>";
-                        echo "<p><strong>Status:</strong> <span class='status'>$status</span></p>";
-                        echo "<p><strong>Blockchain Hash:</strong> <span class='hash'>" . htmlspecialchars($election['blockchain_hash'] ?? 'N/A') . "</span></p>";
-                        $stmt_pos = $pdo->prepare("SELECT ep.name FROM election_positions ep WHERE ep.election_id = ?");
-                        $stmt_pos->execute([$election['id']]);
-                        while ($pos = $stmt_pos->fetch(PDO::FETCH_ASSOC)) {
-                            echo "<p><strong>Position:</strong> " . htmlspecialchars($pos['name']) . "</p>";
-                            $stmt_cand = $pdo->prepare("SELECT u.fname, u.lname FROM candidates c JOIN users u ON c.user_id = u.id WHERE c.election_id = ? AND c.position_id = (SELECT id FROM election_positions WHERE name = ? AND election_id = ?)");
-                            $stmt_cand->execute([$election['id'], $pos['name'], $election['id']]);
-                            while ($cand = $stmt_cand->fetch(PDO::FETCH_ASSOC)) {
-                                echo "<p>Candidate: " . htmlspecialchars($cand['fname'] . ' ' . $cand['lname']) . "</p>";
+                    try {
+                        $stmt = $pdo->prepare("SELECT e.id, e.association, e.start_time, e.end_time, e.blockchain_hash, c.name AS college_name 
+                                               FROM elections e 
+                                               LEFT JOIN colleges c ON e.college_id = c.college_id 
+                                               ORDER BY e.start_time DESC");
+                        $stmt->execute();
+                        $elections = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                        foreach ($elections as $election) {
+                            $current_time = new DateTime();
+                            $start_time = new DateTime($election['start_time']);
+                            $end_time = new DateTime($election['end_time']);
+                            $status = ($current_time < $start_time) ? 'Upcoming' : 
+                                      (($current_time > $end_time) ? 'Completed' : 'Ongoing');
+                            echo "<div class='election-card'>";
+                            echo "<p><strong>" . ($election['college_name'] ? htmlspecialchars($election['college_name']) : 'University-Wide') . " (" . htmlspecialchars($election['association']) . ")</strong></p>";
+                            echo "<p><strong>Start:</strong> " . htmlspecialchars($election['start_time']) . "</p>";
+                            echo "<p><strong>End:</strong> " . htmlspecialchars($election['end_time']) . "</p>";
+                            echo "<p><strong>Status:</strong> <span class='status'>$status</span></p>";
+                            echo "<p><strong>Blockchain Hash:</strong> <span class='hash'>" . htmlspecialchars($election['blockchain_hash'] ?? 'N/A') . "</span></p>";
+                            $stmt_pos = $pdo->prepare("SELECT ep.name FROM election_positions ep WHERE ep.election_id = ?");
+                            $stmt_pos->execute([$election['id']]);
+                            while ($pos = $stmt_pos->fetch(PDO::FETCH_ASSOC)) {
+                                echo "<p><strong>Position:</strong> " . htmlspecialchars($pos['name']) . "</p>";
+                                $stmt_cand = $pdo->prepare("SELECT u.fname, u.mname, u.lname 
+                                                            FROM candidates c 
+                                                            JOIN users u ON c.user_id = u.user_id 
+                                                            WHERE c.election_id = ? AND c.position_id = (SELECT id FROM election_positions WHERE name = ? AND election_id = ?)");
+                                $stmt_cand->execute([$election['id'], $pos['name'], $election['id']]);
+                                while ($cand = $stmt_cand->fetch(PDO::FETCH_ASSOC)) {
+                                    $full_name = $cand['fname'] . ' ' . ($cand['mname'] ? $cand['mname'] . ' ' : '') . $cand['lname'];
+                                    echo "<p>Candidate: " . htmlspecialchars($full_name) . "</p>";
+                                }
                             }
+                            echo "</div>";
                         }
-                        echo "</div>";
-                    }
-                    if (empty($elections)) {
-                        echo "<p>No elections found.</p>";
+                        if (empty($elections)) {
+                            echo "<p>No elections found.</p>";
+                        }
+                    } catch (PDOException $e) {
+                        error_log("Elections query error: " . $e->getMessage());
+                        echo "<p>Error loading elections. Please try again later.</p>";
                     }
                     ?>
                 </div>
@@ -587,30 +713,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                         </thead>
                         <tbody>
                             <?php
-                            $stmt = $pdo->prepare("SELECT v.vote_timestamp, v.blockchain_hash, e.association, c.id AS candidate_id, ep.name AS position_name, u.fname, u.lname, c.name AS college_name 
-                                                   FROM votes v 
-                                                   JOIN elections e ON v.election_id = e.id 
-                                                   JOIN candidates c ON v.candidate_id = c.id 
-                                                   JOIN election_positions ep ON c.position_id = ep.id 
-                                                   JOIN users u ON c.user_id = u.id 
-                                                   LEFT JOIN colleges c ON e.college_id = c.id 
-                                                   ORDER BY v.vote_timestamp DESC LIMIT 50");
-                            $stmt->execute();
-                            $votes = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                            if ($votes) {
-                                foreach ($votes as $vote) {
-                                    $election_name = ($vote['college_name'] ? htmlspecialchars($vote['college_name']) : 'University-Wide') . ' (' . htmlspecialchars($vote['association']) . ')';
-                                    echo "<tr>";
-                                    echo "<td>" . htmlspecialchars($vote['vote_timestamp']) . "</td>";
-                                    echo "<td>$election_name</td>";
-                                    echo "<td>" . htmlspecialchars($vote['position_name']) . "</td>";
-                                    echo "<td>" . htmlspecialchars($vote['fname'] . ' ' . $vote['lname']) . "</td>";
-                                    echo "<td>" . htmlspecialchars($vote['association']) . "</td>";
-                                    echo "<td class='hash'>" . htmlspecialchars($vote['blockchain_hash']) . "</td>";
-                                    echo "</tr>";
+                            try {
+                                $stmt = $pdo->prepare("SELECT v.vote_timestamp, v.blockchain_hash, e.association, c.id AS candidate_id, ep.name AS position_name, u.fname, u.mname, u.lname, c.name AS college_name 
+                                                       FROM votes v 
+                                                       JOIN elections e ON v.election_id = e.id 
+                                                       JOIN candidates c ON v.candidate_id = c.id 
+                                                       JOIN election_positions ep ON c.position_id = ep.id 
+                                                       JOIN users u ON c.user_id = u.user_id 
+                                                       LEFT JOIN colleges c ON e.college_id = c.college_id 
+                                                       ORDER BY v.vote_timestamp DESC LIMIT 50");
+                                $stmt->execute();
+                                $votes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                                if ($votes) {
+                                    foreach ($votes as $vote) {
+                                        $election_name = ($vote['college_name'] ? htmlspecialchars($vote['college_name']) : 'University-Wide') . ' (' . htmlspecialchars($vote['association']) . ')';
+                                        $full_name = $vote['fname'] . ' ' . ($vote['mname'] ? $vote['mname'] . ' ' : '') . $vote['lname'];
+                                        echo "<tr>";
+                                        echo "<td>" . htmlspecialchars($vote['vote_timestamp']) . "</td>";
+                                        echo "<td>$election_name</td>";
+                                        echo "<td>" . htmlspecialchars($vote['position_name']) . "</td>";
+                                        echo "<td>" . htmlspecialchars($full_name) . "</td>";
+                                        echo "<td>" . htmlspecialchars($vote['association']) . "</td>";
+                                        echo "<td class='hash'>" . htmlspecialchars($vote['blockchain_hash']) . "</td>";
+                                        echo "</tr>";
+                                    }
+                                } else {
+                                    echo "<tr><td colspan='6'>No votes recorded yet.</td></tr>";
                                 }
-                            } else {
-                                echo "<tr><td colspan='6'>No votes recorded yet.</td></tr>";
+                            } catch (PDOException $e) {
+                                error_log("Vote feed query error: " . $e->getMessage());
+                                echo "<tr><td colspan='6'>Error loading vote feed. Please try again later.</td></tr>";
                             }
                             ?>
                         </tbody>
@@ -635,31 +767,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                         </thead>
                         <tbody>
                             <?php
-                            $stmt = $pdo->prepare("SELECT f.timestamp, f.anomaly_score, f.details, f.ip_address, v.blockchain_hash, e.association, c.name AS college_name, u.fname, u.lname 
-                                                   FROM frauddetectionlogs f 
-                                                   JOIN votes v ON f.vote_id = v.id 
-                                                   JOIN elections e ON v.election_id = e.id 
-                                                   JOIN users u ON f.user_id = u.id 
-                                                   LEFT JOIN colleges c ON e.college_id = c.id 
-                                                   WHERE f.is_fraudulent = 1 
-                                                   ORDER BY f.timestamp DESC");
-                            $stmt->execute();
-                            $anomalies = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                            if ($anomalies) {
-                                foreach ($anomalies as $anomaly) {
-                                    $election_name = ($anomaly['college_name'] ? htmlspecialchars($anomaly['college_name']) : 'University-Wide') . ' (' . htmlspecialchars($anomaly['association']) . ')';
-                                    echo "<tr>";
-                                    echo "<td>" . htmlspecialchars($anomaly['timestamp']) . "</td>";
-                                    echo "<td>$election_name</td>";
-                                    echo "<td>" . htmlspecialchars($anomaly['fname'] . ' ' . $anomaly['lname']) . "</td>";
-                                    echo "<td>" . htmlspecialchars($anomaly['ip_address']) . "</td>";
-                                    echo "<td class='score'>" . htmlspecialchars($anomaly['anomaly_score']) . "</td>";
-                                    echo "<td>" . htmlspecialchars($anomaly['details'] ?? 'N/A') . "</td>";
-                                    echo "<td class='hash'>" . htmlspecialchars($anomaly['blockchain_hash']) . "</td>";
-                                    echo "</tr>";
+                            try {
+                                $stmt = $pdo->prepare("SELECT f.timestamp, f.anomaly_score, f.details, f.ip_address, v.blockchain_hash, e.association, c.name AS college_name, u.fname, u.mname, u.lname 
+                                                       FROM frauddetectionlogs f 
+                                                       JOIN votes v ON f.vote_id = v.id 
+                                                       JOIN elections e ON v.election_id = e.id 
+                                                       JOIN users u ON f.user_id = u.user_id 
+                                                       LEFT JOIN colleges c ON e.college_id = c.college_id 
+                                                       WHERE f.is_fraudulent = 1 
+                                                       ORDER BY f.timestamp DESC");
+                                $stmt->execute();
+                                $anomalies = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                                if ($anomalies) {
+                                    foreach ($anomalies as $anomaly) {
+                                        $election_name = ($anomaly['college_name'] ? htmlspecialchars($anomaly['college_name']) : 'University-Wide') . ' (' . htmlspecialchars($anomaly['association']) . ')';
+                                        $full_name = $anomaly['fname'] . ' ' . ($anomaly['mname'] ? $anomaly['mname'] . ' ' : '') . $anomaly['lname'];
+                                        echo "<tr>";
+                                        echo "<td>" . htmlspecialchars($anomaly['timestamp']) . "</td>";
+                                        echo "<td>$election_name</td>";
+                                        echo "<td>" . htmlspecialchars($full_name) . "</td>";
+                                        echo "<td>" . htmlspecialchars($anomaly['ip_address']) . "</td>";
+                                        echo "<td class='score'>" . htmlspecialchars($anomaly['anomaly_score']) . "</td>";
+                                        echo "<td>" . htmlspecialchars($anomaly['details'] ?? 'N/A') . "</td>";
+                                        echo "<td class='hash'>" . htmlspecialchars($anomaly['blockchain_hash']) . "</td>";
+                                        echo "</tr>";
+                                    }
+                                } else {
+                                    echo "<tr><td colspan='7'>No fraud incidents detected.</td></tr>";
                                 }
-                            } else {
-                                echo "<tr><td colspan='7'>No fraud incidents detected.</td></tr>";
+                            } catch (PDOException $e) {
+                                error_log("Fraud detection logs query error: " . $e->getMessage());
+                                echo "<tr><td colspan='7'>Error loading fraud detection logs. Please try again later.</td></tr>";
                             }
                             ?>
                         </tbody>
@@ -671,48 +809,54 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 <h3>Election Analytics</h3>
                 <div class="election-cards">
                     <?php
-                    $stmt = $pdo->prepare("SELECT e.id, e.association, e.end_time, c.name AS college_name 
-                                           FROM elections e 
-                                           LEFT JOIN colleges c ON e.college_id = c.id 
-                                           ORDER BY e.end_time DESC");
-                    $stmt->execute();
-                    $elections = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                    foreach ($elections as $election) {
-                        echo "<div class='analytics-card'>";
-                        echo "<p><strong>" . ($election['college_name'] ? htmlspecialchars($election['college_name']) : 'University-Wide') . " (" . htmlspecialchars($election['association']) . ")</strong></p>";
-                        $stmt_pos = $pdo->prepare("SELECT ep.id, ep.name FROM election_positions ep WHERE ep.election_id = ?");
-                        $stmt_pos->execute([$election['id']]);
-                        while ($pos = $stmt_pos->fetch(PDO::FETCH_ASSOC)) {
-                            echo "<p><strong>Position:</strong> " . htmlspecialchars($pos['name']) . "</p>";
-                            $stmt_cand = $pdo->prepare("SELECT u.fname, u.lname, COUNT(v.id) as vote_count 
-                                                        FROM candidates c 
-                                                        JOIN users u ON c.user_id = u.id 
-                                                        LEFT JOIN votes v ON v.candidate_id = c.id 
-                                                        WHERE c.election_id = ? AND c.position_id = ? 
-                                                        GROUP BY c.id, u.fname, u.lname 
-                                                        ORDER BY vote_count DESC");
-                            $stmt_cand->execute([$election['id'], $pos['id']]);
-                            $candidates = $stmt_cand->fetchAll(PDO::FETCH_ASSOC);
-                            foreach ($candidates as $cand) {
-                                echo "<p>Candidate: " . htmlspecialchars($cand['fname'] . ' ' . $cand['lname']) . " - Votes: " . $cand['vote_count'] . "</p>";
+                    try {
+                        $stmt = $pdo->prepare("SELECT e.id, e.association, e.end_time, c.name AS college_name 
+                                               FROM elections e 
+                                               LEFT JOIN colleges c ON e.college_id = c.college_id 
+                                               ORDER BY e.end_time DESC");
+                        $stmt->execute();
+                        $elections = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                        foreach ($elections as $election) {
+                            echo "<div class='analytics-card'>";
+                            echo "<p><strong>" . ($election['college_name'] ? htmlspecialchars($election['college_name']) : 'University-Wide') . " (" . htmlspecialchars($election['association']) . ")</strong></p>";
+                            $stmt_pos = $pdo->prepare("SELECT ep.id, ep.name FROM election_positions ep WHERE ep.election_id = ?");
+                            $stmt_pos->execute([$election['id']]);
+                            while ($pos = $stmt_pos->fetch(PDO::FETCH_ASSOC)) {
+                                echo "<p><strong>Position:</strong> " . htmlspecialchars($pos['name']) . "</p>";
+                                $stmt_cand = $pdo->prepare("SELECT u.fname, u.mname, u.lname, COUNT(v.id) as vote_count 
+                                                            FROM candidates c 
+                                                            JOIN users u ON c.user_id = u.user_id 
+                                                            LEFT JOIN votes v ON v.candidate_id = c.id 
+                                                            WHERE c.election_id = ? AND c.position_id = ? 
+                                                            GROUP BY c.id, u.fname, u.mname, u.lname 
+                                                            ORDER BY vote_count DESC");
+                                $stmt_cand->execute([$election['id'], $pos['id']]);
+                                $candidates = $stmt_cand->fetchAll(PDO::FETCH_ASSOC);
+                                foreach ($candidates as $cand) {
+                                    $full_name = $cand['fname'] . ' ' . ($cand['mname'] ? $cand['mname'] . ' ' : '') . $cand['lname'];
+                                    echo "<p>Candidate: " . htmlspecialchars($full_name) . " - Votes: " . $cand['vote_count'] . "</p>";
+                                }
+                                if (new DateTime() > new DateTime($election['end_time'])) {
+                                    $winner = $candidates ? htmlspecialchars($candidates[0]['fname'] . ' ' . ($candidates[0]['mname'] ? $candidates[0]['mname'] . ' ' : '') . $candidates[0]['lname']) : 'None';
+                                    echo "<p><strong>Winner:</strong> <span class='winner'>$winner</span></p>";
+                                }
                             }
-                            if (new DateTime() > new DateTime($election['end_time'])) {
-                                $winner = $candidates ? htmlspecialchars($candidates[0]['fname'] . ' ' . $candidates[0]['lname']) : 'None';
-                                echo "<p><strong>Winner:</strong> <span class='winner'>$winner</span></p>";
-                            }
+                            echo "<div class='report-section'>";
+                            echo "<form method='POST'>";
+                            echo "<input type='hidden' name='action' value='generate_report'>";
+                            echo "<input type='hidden' name='election_id' value='" . $election['id'] . "'>";
+                            echo "<input type='hidden' name='csrf_token' value='" . $_SESSION['csrf_token'] . "'>";
+                            echo "<button type='submit'>Generate Report</button>";
+                            echo "</form>";
+                            echo "</div>";
+                            echo "</div>";
                         }
-                        echo "<div class='report-section'>";
-                        echo "<form method='POST'>";
-                        echo "<input type='hidden' name='action' value='generate_report'>";
-                        echo "<input type='hidden' name='election_id' value='" . $election['id'] . "'>";
-                        echo "<input type='hidden' name='csrf_token' value='" . $_SESSION['csrf_token'] . "'>";
-                        echo "<button type='submit'>Generate Report</button>";
-                        echo "</form>";
-                        echo "</div>";
-                        echo "</div>";
-                    }
-                    if (empty($elections)) {
-                        echo "<p>No election analytics available.</p>";
+                        if (empty($elections)) {
+                            echo "<p>No election analytics available.</p>";
+                        }
+                    } catch (PDOException $e) {
+                        error_log("Analytics query error: " . $e->getMessage());
+                        echo "<p>Error loading election analytics. Please try again later.</p>";
                     }
                     ?>
                 </div>
@@ -733,24 +877,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                         </thead>
                         <tbody>
                             <?php
-                            $stmt = $pdo->prepare("SELECT a.timestamp, a.action, a.details, a.ip_address, u.fname, u.lname 
-                                                   FROM auditlogs a 
-                                                   JOIN users u ON a.user_id = u.id 
-                                                   ORDER BY a.timestamp DESC LIMIT 50");
-                            $stmt->execute();
-                            $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                            if ($logs) {
-                                foreach ($logs as $log) {
-                                    echo "<tr>";
-                                    echo "<td>" . htmlspecialchars($log['timestamp']) . "</td>";
-                                    echo "<td>" . htmlspecialchars($log['fname'] . ' ' . $log['lname']) . "</td>";
-                                    echo "<td>" . htmlspecialchars($log['action']) . "</td>";
-                                    echo "<td>" . htmlspecialchars($log['details'] ?? 'N/A') . "</td>";
-                                    echo "<td>" . htmlspecialchars($log['ip_address']) . "</td>";
-                                    echo "</tr>";
+                            try {
+                                $stmt = $pdo->prepare("SELECT a.timestamp, a.action, a.details, a.ip_address, u.fname, u.mname, u.lname 
+                                                       FROM auditlogs a 
+                                                       JOIN users u ON a.user_id = u.user_id 
+                                                       ORDER BY a.timestamp DESC LIMIT 50");
+                                $stmt->execute();
+                                $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                                if ($logs) {
+                                    foreach ($logs as $log) {
+                                        $full_name = $log['fname'] . ' ' . ($log['mname'] ? $log['mname'] . ' ' : '') . $log['lname'];
+                                        echo "<tr>";
+                                        echo "<td>" . htmlspecialchars($log['timestamp']) . "</td>";
+                                        echo "<td>" . htmlspecialchars($full_name) . "</td>";
+                                        echo "<td>" . htmlspecialchars($log['action']) . "</td>";
+                                        echo "<td>" . htmlspecialchars($log['details'] ?? 'N/A') . "</td>";
+                                        echo "<td>" . htmlspecialchars($log['ip_address']) . "</td>";
+                                        echo "</tr>";
+                                    }
+                                } else {
+                                    echo "<tr><td colspan='5'>No audit logs available.</td></tr>";
                                 }
-                            } else {
-                                echo "<tr><td colspan='5'>No audit logs available.</td></tr>";
+                            } catch (PDOException $e) {
+                                error_log("Audit logs query error: " . $e->getMessage());
+                                echo "<tr><td colspan='5'>Error loading audit logs. Please try again later.</td></tr>";
                             }
                             ?>
                         </tbody>
@@ -774,6 +924,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             <p>© 2025 SmartUchaguzi | University of Dodoma</p>
         </div>
     </footer>
+
+    <div class="modal" id="timeout-modal">
+        <div class="modal-content">
+            <p id="timeout-message">You will be logged out in 1 minute due to inactivity.</p>
+            <button id="extend-session">OK</button>
+        </div>
+    </div>
 
     <a href="#" class="back-to-top" id="back-to-top"><i class="fas fa-chevron-up"></i></a>
 
@@ -799,6 +956,50 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 backToTop.classList.remove('show');
             }
         });
+
+        const inactivityTimeout = <?php echo $inactivity_timeout; ?> * 1000;
+        const maxSessionDuration = <?php echo $max_session_duration; ?> * 1000;
+        const warningTime = <?php echo $warning_time; ?> * 1000;
+        let lastActivity = Date.now();
+        let sessionStart = <?php echo $_SESSION['start_time'] * 1000; ?>;
+
+        const modal = document.getElementById('timeout-modal');
+        const timeoutMessage = document.getElementById('timeout-message');
+        const extendButton = document.getElementById('extend-session');
+
+        function checkTimeouts() {
+            const currentTime = Date.now();
+            const inactiveTime = currentTime - lastActivity;
+            const sessionTime = currentTime - sessionStart;
+
+            if (sessionTime >= maxSessionDuration - warningTime && sessionTime < maxSessionDuration) {
+                timeoutMessage.textContent = "Your session will expire in 1 minute.";
+                modal.style.display = 'flex';
+            } else if (sessionTime >= maxSessionDuration) {
+                window.location.href = 'logout.php';
+            }
+
+            if (inactiveTime >= inactivityTimeout - warningTime && inactiveTime < inactivityTimeout) {
+                timeoutMessage.textContent = "You will be logged out in 1 minute due to inactivity.";
+                modal.style.display = 'flex';
+            } else if (inactiveTime >= inactivityTimeout) {
+                window.location.href = 'logout.php';
+            }
+        }
+
+        document.addEventListener('mousemove', () => lastActivity = Date.now());
+        document.addEventListener('keydown', () => lastActivity = Date.now());
+
+        extendButton.addEventListener('click', () => {
+            lastActivity = Date.now();
+            modal.style.display = 'none';
+        });
+
+        setInterval(checkTimeouts, 1000);
     </script>
 </body>
 </html>
+<?php
+// Close the database connection
+$pdo = null;
+?>

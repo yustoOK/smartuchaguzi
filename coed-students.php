@@ -2,6 +2,7 @@
 session_start();
 date_default_timezone_set('Africa/Dar_es_Salaam');
 
+// Internal database connection
 $host = 'localhost';
 $dbname = 'smartuchaguzi_db';
 $username = 'root';
@@ -12,18 +13,42 @@ try {
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 } catch (PDOException $e) {
     error_log("Connection failed: " . $e->getMessage());
-    die("Connection failed. Please try again later.");
+    die("Unable to connect to the database. Please try again later.");
 }
 
 $required_college = 'COED';
 $required_association = 'UDOMASA';
 $required_role = 'teacher-voter';
 
-if (!isset($_SESSION['user_id']) || !isset($_SESSION['role']) || $_SESSION['role'] !== $required_role || $_SESSION['college'] !== $required_college || $_SESSION['association'] !== $required_association) {
-    error_log("Session validation failed: user_id, role, college, or association not set or invalid.");
+// Simplified session validation with logging
+if (!isset($_SESSION['user_id']) || !isset($_SESSION['role']) || $_SESSION['role'] !== $required_role) {
+    error_log("Session validation failed: user_id or role not set or invalid. Session: " . print_r($_SESSION, true));
     session_unset();
     session_destroy();
     header('Location: login.php?error=' . urlencode('Please log in to access the ' . $required_college . ' ' . $required_association . ' dashboard.'));
+    exit;
+}
+
+// Log session details for debugging
+error_log("Session after validation: user_id=" . ($_SESSION['user_id'] ?? 'unset') . 
+          ", role=" . ($_SESSION['role'] ?? 'unset') . 
+          ", college_id=" . ($_SESSION['college_id'] ?? 'unset') . 
+          ", association=" . ($_SESSION['association'] ?? 'unset'));
+
+// Optional checks for college_id and association
+if (isset($_SESSION['college_id'])) {
+    $stmt = $pdo->prepare("SELECT name FROM colleges WHERE college_id = ?");
+    $stmt->execute([$_SESSION['college_id']]);
+    $college = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$college || $college['name'] !== $required_college) {
+        error_log("College mismatch: expected $required_college, got " . ($college['name'] ?? 'none'));
+        header('Location: login.php?error=' . urlencode('Invalid college for this dashboard.'));
+        exit;
+    }
+}
+if (isset($_SESSION['association']) && $_SESSION['association'] !== $required_association) {
+    error_log("Association mismatch: expected $required_association, got " . $_SESSION['association']);
+    header('Location: login.php?error=' . urlencode('Invalid association for this dashboard.'));
     exit;
 }
 
@@ -68,9 +93,21 @@ if ($inactive_time >= $inactivity_timeout) {
 $_SESSION['last_activity'] = time();
 
 $user_id = $_SESSION['user_id'];
-$stmt = $pdo->prepare("SELECT fname, college_id FROM users WHERE id = ?");
-$stmt->execute([$user_id]);
-$user = $stmt->fetch(PDO::FETCH_ASSOC);
+try {
+    $stmt = $pdo->prepare("SELECT fname, college_id FROM users WHERE user_id = ?");
+    $stmt->execute([$user_id]);
+    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$user) {
+        throw new Exception("No user found for user_id: " . $user_id);
+    }
+} catch (Exception $e) {
+    error_log("User query error: " . $e->getMessage());
+    session_unset();
+    session_destroy();
+    header('Location: login.php?error=' . urlencode('User not found or server error. Please log in again.'));
+    exit;
+}
+
 $profile_picture = 'images/general.png';
 ?>
 
@@ -553,9 +590,14 @@ $profile_picture = 'images/general.png';
                     <span class="text">UDOMASA Candidates</span>
                     <span class="number">
                         <?php
-                        $stmt = $pdo->prepare("SELECT COUNT(*) FROM candidates WHERE election_id IN (SELECT id FROM elections WHERE association = ?)");
-                        $stmt->execute(['UDOMASA']);
-                        echo $stmt->fetchColumn();
+                        try {
+                            $stmt = $pdo->prepare("SELECT COUNT(*) FROM candidates WHERE election_id IN (SELECT id FROM elections WHERE association = ?)");
+                            $stmt->execute(['UDOMASA']);
+                            echo $stmt->fetchColumn();
+                        } catch (PDOException $e) {
+                            error_log("Candidates count query error: " . $e->getMessage());
+                            echo "N/A";
+                        }
                         ?>
                     </span>
                 </div>
@@ -575,35 +617,40 @@ $profile_picture = 'images/general.png';
                 <h3>All Elections (UDOSO & UDOMASA)</h3>
                 <div class="election-cards">
                     <?php
-                    $stmt = $pdo->prepare("SELECT e.id, e.association, e.end_time, c.name AS college_name 
-                                           FROM elections e 
-                                           LEFT JOIN colleges c ON e.college_id = c.id 
-                                           WHERE e.end_time > NOW() 
-                                           ORDER BY e.association, e.college_id");
-                    $stmt->execute();
-                    $elections = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                    if ($elections) {
-                        foreach ($elections as $election) {
-                            echo "<div class='election-card'>";
-                            echo "<h4>" . ($election['college_name'] ? htmlspecialchars($election['college_name']) : 'University-Wide') . " (" . htmlspecialchars($election['association']) . ")</h4>";
-                            $stmt = $pdo->prepare("SELECT ep.id, ep.name FROM election_positions ep WHERE ep.election_id = ?");
-                            $stmt->execute([$election['id']]);
-                            while ($pos = $stmt->fetch(PDO::FETCH_ASSOC)) {
-                                echo "<h5>" . htmlspecialchars($pos['name']) . "</h5>";
-                                $cand_stmt = $pdo->prepare("SELECT c.id, u.fname, u.lname 
-                                                           FROM candidates c 
-                                                           JOIN users u ON c.user_id = u.id 
-                                                           WHERE c.election_id = ? AND c.position_id = ?");
-                                $cand_stmt->execute([$election['id'], $pos['id']]);
-                                while ($cand = $cand_stmt->fetch(PDO::FETCH_ASSOC)) {
-                                    $full_name = $cand['fname'] . ' ' . $cand['lname'];
-                                    echo "<div class='candidate'><span>" . htmlspecialchars($full_name) . "</span><a href='candidate-details.php?id=" . $cand['id'] . "'>Details</a></div>";
+                    try {
+                        $stmt = $pdo->prepare("SELECT e.id, e.association, e.end_time, c.name AS college_name 
+                                               FROM elections e 
+                                               LEFT JOIN colleges c ON e.college_id = c.college_id 
+                                               WHERE e.end_time > NOW() 
+                                               ORDER BY e.association, e.college_id");
+                        $stmt->execute();
+                        $elections = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                        if ($elections) {
+                            foreach ($elections as $election) {
+                                echo "<div class='election-card'>";
+                                echo "<h4>" . ($election['college_name'] ? htmlspecialchars($election['college_name']) : 'University-Wide') . " (" . htmlspecialchars($election['association']) . ")</h4>";
+                                $stmt = $pdo->prepare("SELECT ep.id, ep.name FROM election_positions ep WHERE ep.election_id = ?");
+                                $stmt->execute([$election['id']]);
+                                while ($pos = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                                    echo "<h5>" . htmlspecialchars($pos['name']) . "</h5>";
+                                    $cand_stmt = $pdo->prepare("SELECT c.id, u.fname, u.lname 
+                                                               FROM candidates c 
+                                                               JOIN users u ON c.user_id = u.user_id 
+                                                               WHERE c.election_id = ? AND c.position_id = ?");
+                                    $cand_stmt->execute([$election['id'], $pos['id']]);
+                                    while ($cand = $cand_stmt->fetch(PDO::FETCH_ASSOC)) {
+                                        $full_name = $cand['fname'] . ' ' . $cand['lname'];
+                                        echo "<div class='candidate'><span>" . htmlspecialchars($full_name) . "</span><a href='candidate-details.php?id=" . $cand['id'] . "'>Details</a></div>";
+                                    }
                                 }
+                                echo "</div>";
                             }
-                            echo "</div>";
+                        } else {
+                            echo "<p>No active elections.</p>";
                         }
-                    } else {
-                        echo "<p>No active elections.</p>";
+                    } catch (PDOException $e) {
+                        error_log("Election query error: " . $e->getMessage());
+                        echo "<p>Error loading elections. Please try again later.</p>";
                     }
                     ?>
                 </div>
@@ -613,58 +660,63 @@ $profile_picture = 'images/general.png';
                 <h3>Cast Your UDOMASA Vote</h3>
                 <div class="vote-section">
                     <?php
-                    $stmt = $pdo->prepare("SELECT e.id, e.end_time 
-                                           FROM elections e 
-                                           WHERE e.association = 'UDOMASA' AND e.end_time > NOW() 
-                                           AND (e.college_id = ? OR e.college_id IS NULL)");
-                    $stmt->execute([$user['college_id']]);
-                    $elections = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                    if ($elections) {
-                        echo "<table>";
-                        echo "<tr><th>Position</th><th>Candidate</th><th>Action</th></tr>";
-                        foreach ($elections as $election) {
-                            $stmt = $pdo->prepare("SELECT ep.id, ep.name 
-                                                   FROM election_positions ep 
-                                                   WHERE ep.election_id = ?");
-                            $stmt->execute([$election['id']]);
-                            while ($pos = $stmt->fetch(PDO::FETCH_ASSOC)) {
-                                $cand_stmt = $pdo->prepare("SELECT c.id 
-                                                           FROM candidates c 
-                                                           WHERE c.election_id = ? AND c.position_id = ?");
-                                $cand_stmt->execute([$election['id'], $pos['id']]);
-                                if (!$cand_stmt->fetch()) {
-                                    continue;
-                                }
+                    try {
+                        $stmt = $pdo->prepare("SELECT e.id, e.end_time 
+                                               FROM elections e 
+                                               WHERE e.association = 'UDOMASA' AND e.end_time > NOW() 
+                                               AND (e.college_id = ? OR e.college_id IS NULL)");
+                        $stmt->execute([$user['college_id']]);
+                        $elections = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                        if ($elections) {
+                            echo "<table>";
+                            echo "<tr><th>Position</th><th>Candidate</th><th>Action</th></tr>";
+                            foreach ($elections as $election) {
+                                $stmt = $pdo->prepare("SELECT ep.id, ep.name 
+                                                       FROM election_positions ep 
+                                                       WHERE ep.election_id = ?");
+                                $stmt->execute([$election['id']]);
+                                while ($pos = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                                    $cand_stmt = $pdo->prepare("SELECT c.id 
+                                                               FROM candidates c 
+                                                               WHERE c.election_id = ? AND c.position_id = ?");
+                                    $cand_stmt->execute([$election['id'], $pos['id']]);
+                                    if (!$cand_stmt->fetch()) {
+                                        continue;
+                                    }
 
-                                $vote_check = $pdo->prepare("SELECT id 
-                                                             FROM votes 
-                                                             WHERE user_id = ? AND election_id = ? 
-                                                             AND candidate_id IN (SELECT id FROM candidates WHERE position_id = ?)");
-                                $vote_check->execute([$user_id, $election['id'], $pos['id']]);
-                                if ($vote_check->fetch(PDO::FETCH_ASSOC)) {
-                                    continue;
-                                }
+                                    $vote_check = $pdo->prepare("SELECT id 
+                                                                 FROM votes 
+                                                                 WHERE user_id = ? AND election_id = ? 
+                                                                 AND candidate_id IN (SELECT id FROM candidates WHERE position_id = ?)");
+                                    $vote_check->execute([$user_id, $election['id'], $pos['id']]);
+                                    if ($vote_check->fetch(PDO::FETCH_ASSOC)) {
+                                        continue;
+                                    }
 
-                                echo "<tr>";
-                                echo "<td>" . htmlspecialchars($pos['name']) . "</td>";
-                                echo "<td><select name='candidate_" . $pos['id'] . "' id='candidate_" . $pos['id'] . "'>";
-                                $cand_stmt = $pdo->prepare("SELECT c.id, u.fname, u.lname 
-                                                           FROM candidates c 
-                                                           JOIN users u ON c.user_id = u.id 
-                                                           WHERE c.election_id = ? AND c.position_id = ?");
-                                $cand_stmt->execute([$election['id'], $pos['id']]);
-                                while ($cand = $cand_stmt->fetch(PDO::FETCH_ASSOC)) {
-                                    $full_name = $cand['fname'] . ' ' . $cand['lname'];
-                                    echo "<option value='" . $cand['id'] . "'>" . htmlspecialchars($full_name) . "</option>";
+                                    echo "<tr>";
+                                    echo "<td>" . htmlspecialchars($pos['name']) . "</td>";
+                                    echo "<td><select name='candidate_" . $pos['id'] . "' id='candidate_" . $pos['id'] . "'>";
+                                    $cand_stmt = $pdo->prepare("SELECT c.id, u.fname, u.lname 
+                                                               FROM candidates c 
+                                                               JOIN users u ON c.user_id = u.user_id 
+                                                               WHERE c.election_id = ? AND c.position_id = ?");
+                                    $cand_stmt->execute([$election['id'], $pos['id']]);
+                                    while ($cand = $cand_stmt->fetch(PDO::FETCH_ASSOC)) {
+                                        $full_name = $cand['fname'] . ' ' . $cand['lname'];
+                                        echo "<option value='" . $cand['id'] . "'>" . htmlspecialchars($full_name) . "</option>";
+                                    }
+                                    echo "</select></td>";
+                                    echo "<td><button onclick='submitVote(" . $pos['id'] . ")'>Vote</button></td>";
+                                    echo "</tr>";
                                 }
-                                echo "</select></td>";
-                                echo "<td><button onclick='submitVote(" . $pos['id'] . ")'>Vote</button></td>";
-                                echo "</tr>";
                             }
+                            echo "</table>";
+                        } else {
+                            echo "<p>No active UDOMASA elections to vote in for your college.</p>";
                         }
-                        echo "</table>";
-                    } else {
-                        echo "<p>No active UDOMASA elections to vote in for your college.</p>";
+                    } catch (PDOException $e) {
+                        error_log("Vote section query error: " . $e->getMessage());
+                        echo "<p>Error loading voting options. Please try again later.</p>";
                     }
                     ?>
                 </div>
@@ -682,27 +734,32 @@ $profile_picture = 'images/general.png';
                 <h3>Election Results (UDOSO & UDOMASA)</h3>
                 <div class="results-section">
                     <?php
-                    $stmt = $pdo->prepare("SELECT id, association, end_time 
-                                           FROM elections 
-                                           WHERE end_time < NOW() 
-                                           ORDER BY association, end_time DESC");
-                    $stmt->execute();
-                    $past_elections = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                    if ($past_elections) {
-                        foreach ($past_elections as $past_election) {
-                            $analytics_response = file_get_contents("http://localhost/smartuchaguzi/api/vote-analytics.php?election_id=" . $past_election['id']);
-                            $analytics_data = json_decode($analytics_response, true);
-                            if (isset($analytics_data['positions']) && !empty($analytics_data['positions'])) {
-                                echo "<div class='results-card'>";
-                                echo "<h4>" . htmlspecialchars($past_election['association']) . " Election " . $past_election['id'] . "</h4>";
-                                foreach ($analytics_data['positions'] as $position) {
-                                    echo "<p>" . htmlspecialchars($position['name']) . ": " . ($position['winner'] ? htmlspecialchars($position['winner']) : 'None') . "</p>";
+                    try {
+                        $stmt = $pdo->prepare("SELECT id, association, end_time 
+                                               FROM elections 
+                                               WHERE end_time < NOW() 
+                                               ORDER BY association, end_time DESC");
+                        $stmt->execute();
+                        $past_elections = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                        if ($past_elections) {
+                            foreach ($past_elections as $past_election) {
+                                $analytics_response = file_get_contents("http://localhost/smartuchaguzi/api/vote-analytics.php?election_id=" . $past_election['id']);
+                                $analytics_data = json_decode($analytics_response, true);
+                                if (isset($analytics_data['positions']) && !empty($analytics_data['positions'])) {
+                                    echo "<div class='results-card'>";
+                                    echo "<h4>" . htmlspecialchars($past_election['association']) . " Election " . $past_election['id'] . "</h4>";
+                                    foreach ($analytics_data['positions'] as $position) {
+                                        echo "<p>" . htmlspecialchars($position['name']) . ": " . ($position['winner'] ? htmlspecialchars($position['winner']) : 'None') . "</p>";
+                                    }
+                                    echo "</div>";
                                 }
-                                echo "</div>";
                             }
+                        } else {
+                            echo "<p>No elections have concluded.</p>";
                         }
-                    } else {
-                        echo "<p>No elections have concluded.</p>";
+                    } catch (Exception $e) {
+                        error_log("Results section query error: " . $e->getMessage());
+                        echo "<p>Error loading election results. Please try again later.</p>";
                     }
                     ?>
                 </div>
@@ -760,11 +817,15 @@ $profile_picture = 'images/general.png';
             const now = new Date().getTime();
             let earliestEndTime = Infinity;
             <?php
-            $stmt = $pdo->prepare("SELECT end_time FROM elections WHERE association = 'UDOMASA' AND end_time > NOW()");
-            $stmt->execute();
-            $end_times = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            foreach ($end_times as $et) {
-                echo "earliestEndTime = Math.min(earliestEndTime, new Date('" . $et['end_time'] . "').getTime());";
+            try {
+                $stmt = $pdo->prepare("SELECT end_time FROM elections WHERE association = 'UDOMASA' AND end_time > NOW()");
+                $stmt->execute();
+                $end_times = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                foreach ($end_times as $et) {
+                    echo "earliestEndTime = Math.min(earliestEndTime, new Date('" . $et['end_time'] . "').getTime());";
+                }
+            } catch (PDOException $e) {
+                error_log("Timer query error: " . $e->getMessage());
             }
             ?>
             if (earliestEndTime === Infinity) {
@@ -870,3 +931,7 @@ $profile_picture = 'images/general.png';
     </script>
 </body>
 </html>
+<?php
+// Close the database connection
+$pdo = null;
+?>

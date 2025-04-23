@@ -12,7 +12,7 @@ try {
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 } catch (PDOException $e) {
     error_log("Database connection failed: " . $e->getMessage());
-    die("Database connection failed. Please try again later.");
+    die("Database connection failed.");
 }
 
 function redirectUser($role, $college_id, $association) {
@@ -30,18 +30,18 @@ function redirectUser($role, $college_id, $association) {
         } else {
             header('Location: index.php');
         }
-    } elseif ($role === 'teacher-voter' && $association === 'UDOMASA') {
+    } elseif ($role === 'voter' && $association === 'UDOMASA') {
         if ($college_id === 1) { // CIVE
             header('Location: cive-teachers.php');
         } elseif ($college_id === 3) { // CNMS
             header('Location: cnms-teachers.php');
-        } elseif ($college_id === 2) { // COED
+        } elseif ($college_id === 2) { // CoED
             header('Location: coed-teachers.php'); 
         } else {
             header('Location: index.php');
         }
     } else {
-        header('Location: index.php'); // Default location
+        header('Location: index.php'); // Default location if everything fails
     }
     exit;
 }
@@ -73,7 +73,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($user && password_verify($password, $user['password'])) {
             if ($user['is_verified'] == 0) {
-                header("Location: login.php?error=" . urlencode("Please verify your email before logging in."));
+                header("Location: login.php?error=" . urlencode("Please verify your email."));
                 exit;
             }
 
@@ -88,7 +88,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['start_time'] = time();
             $_SESSION['last_activity'] = time();
 
-            error_log("Session set after login: " . print_r($_SESSION, true));
+            error_log("Session set success after login: " . print_r($_SESSION, true));
 
             $action = "User logged in: {$user['email']}";
             $ip_address = $_SERVER['REMOTE_ADDR'] ?? 'Unknown';
@@ -102,7 +102,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     } catch (PDOException $e) {
         error_log("Login query failed: " . $e->getMessage());
-        header("Location: login.php?error=" . urlencode("Login failed due to a server error. Please try again."));
+        header("Location: login.php?error=" . urlencode("Login failed due to a server error."));
         exit;
     }
 }

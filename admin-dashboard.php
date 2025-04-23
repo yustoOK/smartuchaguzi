@@ -2,6 +2,7 @@
 session_start();
 date_default_timezone_set('Africa/Dar_es_Salaam');
 
+// Database connection
 $host = 'localhost';
 $dbname = 'smartuchaguzi_db';
 $username = 'root';
@@ -12,19 +13,37 @@ try {
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 } catch (PDOException $e) {
     error_log("Connection failed: " . $e->getMessage());
-    die("Connection failed. Please try again later.");
+    die("Unable to connect to the database. Please try again later.");
 }
 
-if (!isset($_SESSION['user_id']) || !isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
-    error_log("Session validation failed: user_id or role not set.");
+$required_role = 'admin';
+
+// Session validation with logging and user agent check
+if (!isset($_SESSION['user_id']) || !isset($_SESSION['role']) || $_SESSION['role'] !== $required_role) {
+    error_log("Session validation failed: user_id or role not set or invalid. Session: " . print_r($_SESSION, true));
     session_unset();
     session_destroy();
     header('Location: login.php?error=' . urlencode('Please log in as an admin.'));
     exit;
 }
 
-$inactivity_timeout = 15 * 60; //15 minutes
-$max_session_duration = 12 * 60 * 60; // 24 hours
+// Log session details for debugging
+error_log("Session after validation: user_id=" . ($_SESSION['user_id'] ?? 'unset') . 
+          ", role=" . ($_SESSION['role'] ?? 'unset'));
+
+// User agent validation
+if (!isset($_SESSION['user_agent'])) {
+    $_SESSION['user_agent'] = $_SERVER['HTTP_USER_AGENT'];
+} elseif ($_SESSION['user_agent'] !== $_SERVER['HTTP_USER_AGENT']) {
+    error_log("Session hijacking detected: user agent mismatch.");
+    session_unset();
+    session_destroy();
+    header('Location: login.php?error=' . urlencode('Session validation failed. Please log in again.'));
+    exit;
+}
+
+$inactivity_timeout = 15 * 60; // 15 minutes
+$max_session_duration = 12 * 60 * 60; // 12 hours
 $warning_time = 60;
 
 if (!isset($_SESSION['start_time'])) {
@@ -42,7 +61,7 @@ if ($time_elapsed >= $max_session_duration) {
     error_log("Session expired due to maximum duration: $time_elapsed seconds.");
     session_unset();
     session_destroy();
-    header('Location: login.php?error=' . urlencode('Session expired. Please log in.'));
+    header('Location: login.php?error=' . urlencode('Session expired. Please log in again.'));
     exit;
 }
 
@@ -51,33 +70,32 @@ if ($inactive_time >= $inactivity_timeout) {
     error_log("Session expired due to inactivity: $inactive_time seconds.");
     session_unset();
     session_destroy();
-    header('Location: login.php?error=' . urlencode('Session expired. Please log in.'));
+    header('Location: login.php?error=' . urlencode('Session expired due to inactivity. Please log in again.'));
     exit;
 }
 $_SESSION['last_activity'] = time();
 
 $user_id = $_SESSION['user_id'];
 try {
-    $stmt = $pdo->prepare("SELECT fname, lname, college_id FROM users WHERE user_id = ?");
+    $stmt = $pdo->prepare("SELECT fname, mname, lname, college_id FROM users WHERE user_id = ?");
     $stmt->execute([$user_id]);
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
     if (!$user) {
-        error_log("User not found for user_id: $user_id");
-        session_unset();
-        session_destroy();
-        header('Location: login.php?error=' . urlencode('User not found. Please log in again.'));
-        exit;
+        throw new Exception("No user found for user_id: " . $user_id);
     }
-} catch (PDOException $e) {
-    error_log("User query failed: " . $e->getMessage());
-    header('Location: login.php?error=' . urlencode('Failed to fetch user data. Please try again.'));
+    $admin_name = htmlspecialchars($user['fname'] . ' ' . ($user['mname'] ? $user['mname'] . ' ' : '') . $user['lname']);
+} catch (Exception $e) {
+    error_log("User query error: " . $e->getMessage());
+    session_unset();
+    session_destroy();
+    header('Location: login.php?error=' . urlencode('User not found or server error. Please log in again.'));
     exit;
 }
 
 $college_name = '';
 if ($user['college_id']) {
     try {
-        $stmt = $pdo->prepare("SELECT name FROM colleges WHERE id = ?");
+        $stmt = $pdo->prepare("SELECT name FROM colleges WHERE college_id = ?");
         $stmt->execute([$user['college_id']]);
         $college_name = $stmt->fetchColumn() ?: 'Unknown';
     } catch (PDOException $e) {
@@ -86,18 +104,54 @@ if ($user['college_id']) {
     }
 }
 
-$stmt = $pdo->prepare("INSERT INTO auditlogs (user_id, action, details, ip_address, timestamp) VALUES (?, ?, ?, ?, NOW())");
-$stmt->execute([$user_id, 'Admin Dashboard Access', 'User accessed admin dashboard', $_SERVER['REMOTE_ADDR']]);
+// Log dashboard access
+try {
+    $stmt = $pdo->prepare("INSERT INTO auditlogs (user_id, action, details, ip_address, timestamp) VALUES (?, ?, ?, ?, NOW())");
+    $stmt->execute([$user_id, 'Admin Dashboard Access', 'User accessed admin dashboard', $_SERVER['REMOTE_ADDR']]);
+} catch (PDOException $e) {
+    error_log("Audit log insertion failed: " . $e->getMessage());
+}
 
-$total_candidates = $pdo->query("SELECT COUNT(*) FROM candidates")->fetchColumn();
-$total_votes = $pdo->query("SELECT COUNT(*) FROM votes")->fetchColumn();
-$total_anomalies = $pdo->query("SELECT COUNT(*) FROM frauddetectionlogs WHERE is_fraudulent = 1")->fetchColumn();
-$total_active_elections = $pdo->query("SELECT COUNT(*) FROM elections WHERE end_time > NOW()")->fetchColumn();
+// Overview statistics with error handling
+try {
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM candidates");
+    $stmt->execute();
+    $total_candidates = $stmt->fetchColumn();
+} catch (PDOException $e) {
+    error_log("Candidates count query error: " . $e->getMessage());
+    $total_candidates = "N/A";
+}
+
+try {
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM votes");
+    $stmt->execute();
+    $total_votes = $stmt->fetchColumn();
+} catch (PDOException $e) {
+    error_log("Votes count query error: " . $e->getMessage());
+    $total_votes = "N/A";
+}
+
+try {
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM frauddetectionlogs WHERE is_fraudulent = 1");
+    $stmt->execute();
+    $total_anomalies = $stmt->fetchColumn();
+} catch (PDOException $e) {
+    error_log("Fraud incidents count query error: " . $e->getMessage());
+    $total_anomalies = "N/A";
+}
+
+try {
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM elections WHERE end_time > NOW()");
+    $stmt->execute();
+    $total_active_elections = $stmt->fetchColumn();
+} catch (PDOException $e) {
+    error_log("Active elections count query error: " . $e->getMessage());
+    $total_active_elections = "N/A";
+}
 ?>
 
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -143,13 +197,8 @@ $total_active_elections = $pdo->query("SELECT COUNT(*) FROM elections WHERE end_
         }
 
         @keyframes gradientShift {
-            0% {
-                background: rgba(26, 60, 52, 0.9);
-            }
-
-            100% {
-                background: rgba(44, 82, 76, 0.9);
-            }
+            0% { background: rgba(26, 60, 52, 0.9); }
+            100% { background: rgba(44, 82, 76, 0.9); }
         }
 
         .header .logo {
@@ -253,15 +302,8 @@ $total_active_elections = $pdo->query("SELECT COUNT(*) FROM elections WHERE end_
         }
 
         @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
         .dash-content h2 {
@@ -545,7 +587,6 @@ $total_active_elections = $pdo->query("SELECT COUNT(*) FROM elections WHERE end_
         }
     </style>
 </head>
-
 <body>
     <header class="header">
         <div class="logo">
@@ -555,14 +596,14 @@ $total_active_elections = $pdo->query("SELECT COUNT(*) FROM elections WHERE end_
         <div class="nav">
             <a href="#" data-section="overview" class="active">Overview</a>
             <a href="#" data-section="management">Election Management</a>
-            <a href="./admin-operations/update-upcoming.php" data-section="upcoming">Upcoming Elections</a>
-            <a href="./admin-operations/add-user.php" data-section="users">User Management</a>
+            <a href="#" data-section="upcoming">Upcoming Elections</a>
+            <a href="#" data-section="users">User Management</a>
             <a href="#" data-section="analytics">Analytics</a>
             <a href="#" data-section="audit">Audit Logs</a>
         </div>
         <div class="user">
-            <span><?php echo htmlspecialchars($user['fname'] . ' ' . $user['lname'] . ($college_name ? ' (' . $college_name . ')' : '')); ?></span>
-            <img src="images/default.png" alt="Profile">
+            <span><?php echo $admin_name . ($college_name ? ' (' . $college_name . ')' : ''); ?></span>
+            <img src="images/default.png" alt="Profile" onerror="this.src='images/general.png';">
             <a href="logout.php">Logout</a>
         </div>
     </header>
@@ -622,25 +663,30 @@ $total_active_elections = $pdo->query("SELECT COUNT(*) FROM elections WHERE end_
                         </thead>
                         <tbody>
                             <?php
-                            $stmt = $pdo->prepare("SELECT e.id, e.association, e.start_time, e.end_time, c.name AS college_name 
-                                                   FROM elections e 
-                                                   LEFT JOIN colleges c ON e.college_id = c.id 
-                                                   WHERE e.start_time > NOW() 
-                                                   ORDER BY e.start_time");
-                            $stmt->execute();
-                            $elections = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                            if ($elections) {
-                                foreach ($elections as $election) {
-                                    echo "<tr>";
-                                    echo "<td>" . htmlspecialchars($election['association']) . "</td>";
-                                    echo "<td>" . ($election['college_name'] ? htmlspecialchars($election['college_name']) : 'University-Wide') . "</td>";
-                                    echo "<td>" . htmlspecialchars($election['start_time']) . "</td>";
-                                    echo "<td>" . htmlspecialchars($election['end_time']) . "</td>";
-                                    echo "<td><a href='admin-operations/edit-election.php?id={$election['id']}'>Edit</a></td>";
-                                    echo "</tr>";
+                            try {
+                                $stmt = $pdo->prepare("SELECT e.id, e.association, e.start_time, e.end_time, c.name AS college_name 
+                                                       FROM elections e 
+                                                       LEFT JOIN colleges c ON e.college_id = c.college_id 
+                                                       WHERE e.start_time > NOW() 
+                                                       ORDER BY e.start_time");
+                                $stmt->execute();
+                                $elections = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                                if ($elections) {
+                                    foreach ($elections as $election) {
+                                        echo "<tr>";
+                                        echo "<td>" . htmlspecialchars($election['association']) . "</td>";
+                                        echo "<td>" . ($election['college_name'] ? htmlspecialchars($election['college_name']) : 'University-Wide') . "</td>";
+                                        echo "<td>" . htmlspecialchars($election['start_time']) . "</td>";
+                                        echo "<td>" . htmlspecialchars($election['end_time']) . "</td>";
+                                        echo "<td><a href='admin-operations/edit-election.php?id={$election['id']}'>Edit</a></td>";
+                                        echo "</tr>";
+                                    }
+                                } else {
+                                    echo "<tr><td colspan='5'>No upcoming elections.</td></tr>";
                                 }
-                            } else {
-                                echo "<tr><td colspan='5'>No upcoming elections.</td></tr>";
+                            } catch (PDOException $e) {
+                                error_log("Upcoming elections query error: " . $e->getMessage());
+                                echo "<tr><td colspan='5'>Error loading upcoming elections. Please try again later.</td></tr>";
                             }
                             ?>
                         </tbody>
@@ -667,10 +713,15 @@ $total_active_elections = $pdo->query("SELECT COUNT(*) FROM elections WHERE end_
                         <select id="election-select">
                             <option value="">All Elections</option>
                             <?php
-                            $stmt = $pdo->prepare("SELECT id, CONCAT(association, ' - ', start_time) AS name FROM elections ORDER BY start_time DESC");
-                            $stmt->execute();
-                            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-                                echo "<option value='{$row['id']}'>" . htmlspecialchars($row['name']) . "</option>";
+                            try {
+                                $stmt = $pdo->prepare("SELECT id, CONCAT(association, ' - ', start_time) AS name FROM elections ORDER BY start_time DESC");
+                                $stmt->execute();
+                                while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                                    echo "<option value='{$row['id']}'>" . htmlspecialchars($row['name']) . "</option>";
+                                }
+                            } catch (PDOException $e) {
+                                error_log("Election select query error: " . $e->getMessage());
+                                echo "<option value=''>Error loading elections</option>";
                             }
                             ?>
                         </select>
@@ -701,24 +752,30 @@ $total_active_elections = $pdo->query("SELECT COUNT(*) FROM elections WHERE end_
                         </thead>
                         <tbody>
                             <?php
-                            $stmt = $pdo->prepare("SELECT a.timestamp, a.action, a.details, a.ip_address, u.fname, u.lname 
-                                                   FROM auditlogs a 
-                                                   JOIN users u ON a.user_id = u.user_id 
-                                                   ORDER BY a.timestamp DESC LIMIT 50");
-                            $stmt->execute();
-                            $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                            if ($logs) {
-                                foreach ($logs as $log) {
-                                    echo "<tr>";
-                                    echo "<td>" . htmlspecialchars($log['timestamp']) . "</td>";
-                                    echo "<td>" . htmlspecialchars($log['fname'] . ' ' . $log['lname']) . "</td>";
-                                    echo "<td>" . htmlspecialchars($log['action']) . "</td>";
-                                    echo "<td>" . htmlspecialchars($log['details'] ?? 'N/A') . "</td>";
-                                    echo "<td>" . htmlspecialchars($log['ip_address']) . "</td>";
-                                    echo "</tr>";
+                            try {
+                                $stmt = $pdo->prepare("SELECT a.timestamp, a.action, a.details, a.ip_address, u.fname, u.mname, u.lname 
+                                                       FROM auditlogs a 
+                                                       JOIN users u ON a.user_id = u.user_id 
+                                                       ORDER BY a.timestamp DESC LIMIT 50");
+                                $stmt->execute();
+                                $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                                if ($logs) {
+                                    foreach ($logs as $log) {
+                                        $full_name = $log['fname'] . ' ' . ($log['mname'] ? $log['mname'] . ' ' : '') . $log['lname'];
+                                        echo "<tr>";
+                                        echo "<td>" . htmlspecialchars($log['timestamp']) . "</td>";
+                                        echo "<td>" . htmlspecialchars($full_name) . "</td>";
+                                        echo "<td>" . htmlspecialchars($log['action']) . "</td>";
+                                        echo "<td>" . htmlspecialchars($log['details'] ?? 'N/A') . "</td>";
+                                        echo "<td>" . htmlspecialchars($log['ip_address']) . "</td>";
+                                        echo "</tr>";
+                                    }
+                                } else {
+                                    echo "<tr><td colspan='5'>No audit logs available.</td></tr>";
                                 }
-                            } else {
-                                echo "<tr><td colspan='5'>No audit logs available.</td></tr>";
+                            } catch (PDOException $e) {
+                                error_log("Audit logs query error: " . $e->getMessage());
+                                echo "<tr><td colspan='5'>Error loading audit logs. Please try again later.</td></tr>";
                             }
                             ?>
                         </tbody>
@@ -753,14 +810,32 @@ $total_active_elections = $pdo->query("SELECT COUNT(*) FROM elections WHERE end_
             const downloadButton = document.getElementById('download-report');
             const reportElectionId = document.getElementById('report-election-id');
 
+            // Debug navigation link clicks
             navLinks.forEach(link => {
                 link.addEventListener('click', (e) => {
                     e.preventDefault();
                     const sectionId = link.getAttribute('data-section');
-                    sections.forEach(section => section.classList.remove('active'));
-                    document.getElementById(sectionId).classList.add('active');
-                    navLinks.forEach(l => l.classList.remove('active'));
-                    link.classList.add('active');
+                    console.log(`Navigating to section: ${sectionId}`); // Debug log
+
+                    // Hide all sections and remove active class from links
+                    sections.forEach(section => {
+                        section.classList.remove('active');
+                        console.log(`Hiding section: ${section.id}`); // Debug log
+                    });
+                    navLinks.forEach(l => {
+                        l.classList.remove('active');
+                        console.log(`Removing active class from: ${l.textContent}`); // Debug log
+                    });
+
+                    // Show the selected section and mark the link as active
+                    const targetSection = document.getElementById(sectionId);
+                    if (targetSection) {
+                        targetSection.classList.add('active');
+                        link.classList.add('active');
+                        console.log(`Showing section: ${sectionId}, marked link as active`); // Debug log
+                    } else {
+                        console.error(`Section not found: ${sectionId}`); // Debug error
+                    }
                 });
             });
 
@@ -776,17 +851,19 @@ $total_active_elections = $pdo->query("SELECT COUNT(*) FROM elections WHERE end_
                 }
 
                 fetch(`api/vote-analytics.php?election_id=${electionId}`)
-                    .then(response => response.json())
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Network response was not ok');
+                        }
+                        return response.json();
+                    })
                     .then(data => {
                         if (data.error) {
                             voteAnalytics.innerHTML = `<p class="error">${data.error}</p>`;
                             return;
                         }
 
-                        const {
-                            positions,
-                            totalVotes
-                        } = data;
+                        const { positions, totalVotes } = data;
                         let html = '<h4>Vote Analytics</h4>';
                         positions.forEach(pos => {
                             html += `
@@ -818,9 +895,7 @@ $total_active_elections = $pdo->query("SELECT COUNT(*) FROM elections WHERE end_
                                 },
                                 options: {
                                     scales: {
-                                        y: {
-                                            beginAtZero: true
-                                        }
+                                        y: { beginAtZero: true }
                                     },
                                     plugins: {
                                         title: {
@@ -842,7 +917,7 @@ $total_active_elections = $pdo->query("SELECT COUNT(*) FROM elections WHERE end_
                         });
                     })
                     .catch(error => {
-                        voteAnalytics.innerHTML = '<p class="error">Failed to load analytics.</p>';
+                        voteAnalytics.innerHTML = '<p class="error">Failed to load analytics. Please try again later.</p>';
                         console.error('Fetch error:', error);
                     });
             });
@@ -893,5 +968,8 @@ $total_active_elections = $pdo->query("SELECT COUNT(*) FROM elections WHERE end_
         });
     </script>
 </body>
-
 </html>
+<?php
+// Close the database connection
+$pdo = null;
+?>
