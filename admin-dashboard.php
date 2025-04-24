@@ -13,7 +13,7 @@ try {
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 } catch (PDOException $e) {
     error_log("Connection failed: " . $e->getMessage());
-    die("Unable to connect to the database. Please try again later.");
+    die("Unable to connect to the database");
 }
 
 $required_role = 'admin';
@@ -88,7 +88,7 @@ try {
     error_log("User query error: " . $e->getMessage());
     session_unset();
     session_destroy();
-    header('Location: login.php?error=' . urlencode('User not found or server error. Please log in again.'));
+    header('Location: login.php?error=' . urlencode('error logging in'));
     exit;
 }
 

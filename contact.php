@@ -399,7 +399,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 <h1>SmartUchaguzi</h1>
             </div>
             <div class="breadcrumb">
-                <a href="index.html">Home</a> / <a href="contact-us.html">Contact Us</a>
+                <a href="index.php">Home</a> / <a href="contact-us.html">Contact Us</a>
             </div>
         </div>
     </div>
