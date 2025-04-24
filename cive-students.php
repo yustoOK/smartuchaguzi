@@ -165,8 +165,6 @@ $profile_picture = 'images/general.png';
             background: linear-gradient(to right, #f4a261, #e76f51);
             -webkit-background-clip: text;
             background-clip: text;
-            -moz-background-clip: text;
-            background-clip: text;
             color: transparent;
         }
         .header .nav {
@@ -191,12 +189,8 @@ $profile_picture = 'images/general.png';
             background: #f4a261;
             transition: width 0.3s ease;
         }
-        .header .nav a:hover::after,
-        .header .nav a.active::after {
+        .header .nav a:hover::after {
             width: 100%;
-        }
-        .header .nav a.active {
-            color: #f4a261;
         }
         .header .nav a:hover {
             color: #f4a261;
@@ -268,113 +262,71 @@ $profile_picture = 'images/general.png';
             -webkit-background-clip: text;
             color: transparent;
         }
-        .content-section {
-            display: none;
+        .overview {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
         }
-        .content-section.active {
-            display: block;
-        }
-        .content-section h3 {
-            font-size: 22px;
-            color: #1a3c34;
-            margin-bottom: 20px;
-        }
-        .election-card, .results-card {
+        .overview .card {
             background: rgba(255, 255, 255, 0.1);
             backdrop-filter: blur(10px);
             padding: 20px;
             border-radius: 12px;
-            margin-bottom: 20px;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
         }
-        .election-card h4, .results-card h4 {
-            font-size: 18px;
-            color: #1a3c34;
+        .overview .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+        }
+        .overview .card i {
+            font-size: 30px;
+            color: #f4a261;
             margin-bottom: 10px;
         }
-        .election-card .candidate {
-            margin: 10px 0;
-            padding: 10px;
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 8px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .election-card .candidate span {
-            font-size: 16px;
-            color: #2d3748;
-        }
-        .election-card .candidate a {
-            color: #f4a261;
-            text-decoration: none;
-            font-weight: 500;
-        }
-        .election-card .candidate a:hover {
-            color: #e76f51;
-        }
-        .vote-section {
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-        }
-        .vote-section table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        .vote-section th {
-            background: #1a3c34;
-            color: #e6e6e6;
-            padding: 12px;
-        }
-        .vote-section td {
-            padding: 12px;
-            border-bottom: 1px solid #e8ecef;
-        }
-        .vote-section select {
-            padding: 8px;
-            border-radius: 6px;
-            border: 1px solid #e8ecef;
-            background: rgba(255, 255, 255, 0.1);
-            color: #2d3748;
-            width: 100%;
-        }
-        .vote-section button {
-            background: linear-gradient(135deg, #f4a261, #e76f51);
-            color: #fff;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 6px;
-            cursor: pointer;
-        }
-        .vote-section button:hover {
-            transform: scale(1.05);
-        }
-        .verify-section, .results-section {
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-        }
-        .verify-section p, .results-section p {
+        .overview .card .text {
             font-size: 16px;
             color: #4a5568;
-            margin-bottom: 20px;
         }
-        .verify-section .hash {
-            font-family: monospace;
-            background: rgba(255, 255, 255, 0.2);
-            padding: 10px;
-            border-radius: 8px;
-            word-break: break-all;
+        .overview .card .number {
+            font-size: 24px;
+            font-weight: 600;
             color: #1a3c34;
+            margin-top: 5px;
         }
-        .results-card p {
-            font-size: 16px;
-            color: #2d3748;
+        .quick-links {
+            margin-top: 40px;
+            text-align: center;
+        }
+        .quick-links h3 {
+            font-size: 22px;
+            color: #1a3c34;
+            margin-bottom: 15px;
+        }
+        .quick-links ul {
+            list-style: none;
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        .quick-links ul li a {
+            display: block;
+            padding: 10px 20px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 8px;
+            color: #f4a261;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        .quick-links ul li a:hover {
+            background: #f4a261;
+            color: #fff;
+            transform: scale(1.05);
         }
         .modal {
             display: none;
@@ -426,6 +378,9 @@ $profile_picture = 'images/general.png';
             .dash-content {
                 padding: 20px;
             }
+            .overview {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
@@ -436,10 +391,10 @@ $profile_picture = 'images/general.png';
             <h1>SmartUchaguzi</h1>
         </div>
         <div class="nav">
-            <a href="#" data-section="election" class="active">Election</a>
-            <a href="#" data-section="vote">Vote</a>
-            <a href="#" data-section="verify">Verify Vote</a>
-            <a href="#" data-section="results">Results</a>
+            <a href="api/update-upcoming.php">Election</a>
+            <a href="api/blockchain/submit-vote.php">Vote</a>
+            <a href="api/blockchain/get-votes.php">Verify Vote</a>
+            <a href="api/vote-analytics.php">Results</a>
         </div>
         <div class="user">
             <img src="<?php echo htmlspecialchars($profile_picture); ?>" alt="User Profile Picture" id="profile-pic">
@@ -456,242 +411,50 @@ $profile_picture = 'images/general.png';
         <div class="dash-content">
             <h2>CIVE UDOSO Election Dashboard</h2>
 
-            <div class="content-section active" id="election">
-                <h3>All UDOSO Elections</h3>
-                <?php
-                try {
-                    $stmt = $conn->prepare("SELECT e.id, e.association, e.end_time, c.name AS college_name 
-                                           FROM elections e 
-                                           LEFT JOIN colleges c ON e.college_id = c.college_id 
-                                           WHERE e.association = ? AND e.end_time > NOW()");
-                    if (!$stmt) {
-                        throw new Exception("Prepare failed: " . $conn->error);
-                    }
-                    $association = 'UDOSO';
-                    $stmt->bind_param("s", $association);
-                    if (!$stmt->execute()) {
-                        throw new Exception("Execute failed: " . $stmt->error);
-                    }
-                    $result = $stmt->get_result();
-                    $elections = $result->fetch_all(MYSQLI_ASSOC);
-                    if ($elections) {
-                        foreach ($elections as $election) {
-                            echo "<div class='election-card'>";
-                            echo "<h4>" . ($election['college_name'] ? htmlspecialchars($election['college_name']) : 'University-Wide') . " Election</h4>";
-                            $stmt = $conn->prepare("SELECT ep.id, ep.name FROM election_positions ep WHERE ep.election_id = ?");
+            <div class="overview">
+                <div class="card">
+                    <i class="fas fa-users"></i>
+                    <span class="text">Election Candidates</span>
+                    <span class="number">
+                        <?php
+                        try {
+                            $stmt = $conn->prepare("SELECT COUNT(*) FROM candidates WHERE election_id IN (SELECT id FROM elections WHERE association = ?)");
                             if (!$stmt) {
                                 throw new Exception("Prepare failed: " . $conn->error);
                             }
-                            $stmt->bind_param("i", $election['id']);
+                            $association = 'UDOSO';
+                            $stmt->bind_param("s", $association);
                             if (!$stmt->execute()) {
                                 throw new Exception("Execute failed: " . $stmt->error);
                             }
-                            $pos_result = $stmt->get_result();
-                            while ($pos = $pos_result->fetch_assoc()) {
-                                echo "<h5>" . htmlspecialchars($pos['name']) . "</h5>";
-                                $cand_stmt = $conn->prepare("SELECT c.id, u.fname, u.lname 
-                                                           FROM candidates c 
-                                                           JOIN users u ON c.user_id = u.user_id 
-                                                           WHERE c.election_id = ? AND c.position_id = ?");
-                                if (!$cand_stmt) {
-                                    throw new Exception("Prepare failed: " . $conn->error);
-                                }
-                                $cand_stmt->bind_param("ii", $election['id'], $pos['id']);
-                                if (!$cand_stmt->execute()) {
-                                    throw new Exception("Execute failed: " . $cand_stmt->error);
-                                }
-                                $cand_result = $cand_stmt->get_result();
-                                while ($cand = $cand_result->fetch_assoc()) {
-                                    $full_name = $cand['fname'] . ' ' . $cand['lname'];
-                                    echo "<div class='candidate'><span>" . htmlspecialchars($full_name) . "</span><a href='candidate-details.php?id=" . $cand['id'] . "'>Details</a></div>";
-                                }
-                            }
-                            echo "</div>";
+                            $result = $stmt->get_result();
+                            echo $result->fetch_row()[0];
+                        } catch (Exception $e) {
+                            error_log("Candidates count query error: " . $e->getMessage());
+                            echo "N/A";
                         }
-                    } else {
-                        echo "<p>No active UDOSO elections.</p>";
-                    }
-                } catch (Exception $e) {
-                    error_log("Election query error: " . $e->getMessage());
-                    echo "<p>Error loading elections. Please try again later.</p>";
-                }
-                ?>
-            </div>
-
-            <div class="content-section" id="vote">
-                <h3>Cast Your Vote</h3>
-                <div class="vote-section">
-                    <?php
-                    try {
-                        $stmt = $conn->prepare("SELECT e.id, e.end_time 
-                                               FROM elections e 
-                                               WHERE e.association = ? AND e.end_time > NOW() 
-                                               AND (e.college_id = ? OR e.college_id IS NULL)");
-                        if (!$stmt) {
-                            throw new Exception("Prepare failed: " . $conn->error);
-                        }
-                        $association = 'UDOSO';
-                        $stmt->bind_param("si", $association, $user['college_id']);
-                        if (!$stmt->execute()) {
-                            throw new Exception("Execute failed: " . $stmt->error);
-                        }
-                        $result = $stmt->get_result();
-                        $elections = $result->fetch_all(MYSQLI_ASSOC);
-                        if ($elections) {
-                            echo "<table>";
-                            echo "<tr><th>Position</th><th>Candidate</th><th>Action</th></tr>";
-                            foreach ($elections as $election) {
-                                $stmt = $conn->prepare("SELECT ep.id, ep.name 
-                                                       FROM election_positions ep 
-                                                       WHERE ep.election_id = ?");
-                                if (!$stmt) {
-                                    throw new Exception("Prepare failed: " . $conn->error);
-                                }
-                                $stmt->bind_param("i", $election['id']);
-                                if (!$stmt->execute()) {
-                                    throw new Exception("Execute failed: " . $stmt->error);
-                                }
-                                $pos_result = $stmt->get_result();
-                                while ($pos = $pos_result->fetch_assoc()) {
-                                    $is_hostel_position = strpos(strtolower($pos['name']), 'hostel') !== false;
-                                    if ($is_hostel_position && $user['hostel_id']) {
-                                        $cand_stmt = $conn->prepare("SELECT c.id 
-                                                                   FROM candidates c 
-                                                                   WHERE c.election_id = ? AND c.position_id = ? 
-                                                                   AND c.hostel_id = ?");
-                                        if (!$cand_stmt) {
-                                            throw new Exception("Prepare failed: " . $conn->error);
-                                        }
-                                        $cand_stmt->bind_param("iii", $election['id'], $pos['id'], $user['hostel_id']);
-                                    } else {
-                                        $cand_stmt = $conn->prepare("SELECT c.id 
-                                                                   FROM candidates c 
-                                                                   WHERE c.election_id = ? AND c.position_id = ?");
-                                        if (!$cand_stmt) {
-                                            throw new Exception("Prepare failed: " . $conn->error);
-                                        }
-                                        $cand_stmt->bind_param("ii", $election['id'], $pos['id']);
-                                    }
-                                    if (!$cand_stmt->execute()) {
-                                        throw new Exception("Execute failed: " . $cand_stmt->error);
-                                    }
-                                    $cand_result = $cand_stmt->get_result();
-                                    if (!$cand_result->fetch_assoc()) {
-                                        continue;
-                                    }
-
-                                    $vote_check = $conn->prepare("SELECT id 
-                                                                 FROM votes 
-                                                                 WHERE user_id = ? AND election_id = ? 
-                                                                 AND candidate_id IN (SELECT id FROM candidates WHERE position_id = ?)");
-                                    if (!$vote_check) {
-                                        throw new Exception("Prepare failed: " . $conn->error);
-                                    }
-                                    $vote_check->bind_param("iii", $user_id, $election['id'], $pos['id']);
-                                    if (!$vote_check->execute()) {
-                                        throw new Exception("Execute failed: " . $vote_check->error);
-                                    }
-                                    $vote_result = $vote_check->get_result();
-                                    if ($vote_result->fetch_assoc()) {
-                                        continue;
-                                    }
-
-                                    echo "<tr>";
-                                    echo "<td>" . htmlspecialchars($pos['name']) . "</td>";
-                                    echo "<td><select name='candidate_" . $pos['id'] . "' id='candidate_" . $pos['id'] . "'>";
-                                    if ($is_hostel_position && $user['hostel_id']) {
-                                        $cand_stmt = $conn->prepare("SELECT c.id, u.fname, u.lname 
-                                                                   FROM candidates c 
-                                                                   JOIN users u ON c.user_id = u.user_id 
-                                                                   WHERE c.election_id = ? AND c.position_id = ? AND c.hostel_id = ?");
-                                        if (!$cand_stmt) {
-                                            throw new Exception("Prepare failed: " . $conn->error);
-                                        }
-                                        $cand_stmt->bind_param("iii", $election['id'], $pos['id'], $user['hostel_id']);
-                                    } else {
-                                        $cand_stmt = $conn->prepare("SELECT c.id, u.fname, u.lname 
-                                                                   FROM candidates c 
-                                                                   JOIN users u ON c.user_id = u.user_id 
-                                                                   WHERE c.election_id = ? AND c.position_id = ?");
-                                        if (!$cand_stmt) {
-                                            throw new Exception("Prepare failed: " . $conn->error);
-                                        }
-                                        $cand_stmt->bind_param("ii", $election['id'], $pos['id']);
-                                    }
-                                    if (!$cand_stmt->execute()) {
-                                        throw new Exception("Execute failed: " . $cand_stmt->error);
-                                    }
-                                    $cand_result = $cand_stmt->get_result();
-                                    while ($cand = $cand_result->fetch_assoc()) {
-                                        $full_name = $cand['fname'] . ' ' . $cand['lname'];
-                                        echo "<option value='" . $cand['id'] . "'>" . htmlspecialchars($full_name) . "</option>";
-                                    }
-                                    echo "</select></td>";
-                                    echo "<td><button onclick='submitVote(" . $pos['id'] . ")'>Vote</button></td>";
-                                    echo "</tr>";
-                                }
-                            }
-                            echo "</table>";
-                        } else {
-                            echo "<p>No active UDOSO elections to vote in for your college or hostel.</p>";
-                        }
-                    } catch (Exception $e) {
-                        error_log("Vote section query error: " . $e->getMessage());
-                        echo "<p>Error loading voting options. Please try again later.</p>";
-                    }
-                    ?>
+                        ?>
+                    </span>
+                </div>
+                <div class="card">
+                    <i class="fas fa-clock"></i>
+                    <span class="text">Remaining Time</span>
+                    <span class="number" id="timer">Loading...</span>
+                </div>
+                <div class="card">
+                    <i class="fas fa-check-circle"></i>
+                    <span class="text">Voting Status</span>
+                    <span class="number" id="voting-status">Loading...</span>
                 </div>
             </div>
 
-            <div class="content-section" id="verify">
-                <h3>Verify Your Vote</h3>
-                <div class="verify-section">
-                    <p>Check your vote's blockchain record.</p>
-                    <div id="vote-hash" class="hash">Loading...</div>
-                </div>
-            </div>
-
-            <div class="content-section" id="results">
-                <h3>UDOSO Election Results</h3>
-                <div class="results-section">
-                    <?php
-                    try {
-                        $stmt = $conn->prepare("SELECT id, end_time 
-                                               FROM elections 
-                                               WHERE association = ? AND end_time < NOW() 
-                                               ORDER BY end_time DESC");
-                        if (!$stmt) {
-                            throw new Exception("Prepare failed: " . $conn->error);
-                        }
-                        $association = 'UDOSO';
-                        $stmt->bind_param("s", $association);
-                        if (!$stmt->execute()) {
-                            throw new Exception("Execute failed: " . $stmt->error);
-                        }
-                        $result = $stmt->get_result();
-                        $past_elections = $result->fetch_all(MYSQLI_ASSOC);
-                        if ($past_elections) {
-                            foreach ($past_elections as $past_election) {
-                                $analytics_response = file_get_contents("http://localhost/smartuchaguzi/api/vote-analytics.php?election_id=" . $past_election['id']);
-                                $analytics_data = json_decode($analytics_response, true);
-                                if (isset($analytics_data['positions']) && !empty($analytics_data['positions'])) {
-                                    echo "<div class='results-card'>";
-                                    echo "<h4>Election " . $past_election['id'] . "</h4>";
-                                    foreach ($analytics_data['positions'] as $position) {
-                                        echo "<p>" . htmlspecialchars($position['name']) . ": " . ($position['winner'] ? htmlspecialchars($position['winner']) : 'None') . "</p>";
-                                    }
-                                    echo "</div>";
-                                }
-                            }
-                        } else {
-                            echo "<p>No UDOSO elections have concluded.</p>";
-                        }
-                    } catch (Exception $e) {
-                        error_log("Results section query error: " . $e->getMessage());
-                        echo "<p>Error loading election results. Please try again later.</p>";
-                    }
-                    ?>
-                </div>
+            <div class="quick-links">
+                <h3>Quick Links</h3>
+                <ul>
+                    <li><a href="profile.php">My Profile</a></li>
+                    <li><a href="election-rules.php">Election Rules</a></li>
+                    <li><a href="contact.php">Support</a></li>
+                </ul>
             </div>
         </div>
     </section>
@@ -705,20 +468,21 @@ $profile_picture = 'images/general.png';
 
     <script>
         const userId = <?php echo $user_id; ?>;
-        const electionIds = <?php echo json_encode(array_column($elections, 'id')); ?>;
-
-        const links = document.querySelectorAll('.header .nav a');
-        const sections = document.querySelectorAll('.content-section');
-        links.forEach(link => {
-            link.addEventListener('click', (e) => {
-                e.preventDefault();
-                const sectionId = link.getAttribute('data-section');
-                sections.forEach(section => section.classList.remove('active'));
-                document.getElementById(sectionId).classList.add('active');
-                links.forEach(l => l.classList.remove('active'));
-                link.classList.add('active');
-            });
-        });
+        const electionIds = <?php
+            try {
+                $stmt = $conn->prepare("SELECT id FROM elections WHERE association = 'UDOSO' AND end_time > NOW()");
+                if (!$stmt) {
+                    throw new Exception("Prepare failed: " . $conn->error);
+                }
+                $stmt->execute();
+                $result = $stmt->get_result();
+                $elections = $result->fetch_all(MYSQLI_ASSOC);
+                echo json_encode(array_column($elections, 'id'));
+            } catch (Exception $e) {
+                error_log("Election IDs query error: " . $e->getMessage());
+                echo json_encode([]);
+            }
+        ?>;
 
         const profilePic = document.getElementById('profile-pic');
         const dropdown = document.getElementById('user-dropdown');
@@ -733,25 +497,41 @@ $profile_picture = 'images/general.png';
             }
         });
 
-        async function submitVote(positionId) {
-            const candidateId = document.getElementById(`candidate_${positionId}`).value;
+        function updateTimer() {
+            const now = new Date().getTime();
+            let earliestEndTime = Infinity;
+            <?php
             try {
-                const response = await fetch('/api/blockchain/submit-vote.php', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ user_id: userId, candidate_id: candidateId })
-                });
-                const result = await response.json();
-                if (result.success) {
-                    alert(`Vote submitted successfully! Transaction Hash: ${result.blockchain_hash}`);
-                    location.reload();
-                } else {
-                    alert(`Error submitting vote: ${result.error}`);
+                $stmt = $conn->prepare("SELECT end_time FROM elections WHERE association = 'UDOSO' AND end_time > NOW()");
+                if (!$stmt) {
+                    throw new Exception("Prepare failed: " . $conn->error);
                 }
-            } catch (error) {
-                alert('Error submitting vote: Network issue');
+                $stmt->execute();
+                $result = $stmt->get_result();
+                $end_times = $result->fetch_all(MYSQLI_ASSOC);
+                foreach ($end_times as $et) {
+                    echo "earliestEndTime = Math.min(earliestEndTime, new Date('" . $et['end_time'] . "').getTime());";
+                }
+            } catch (Exception $e) {
+                error_log("Timer query error: " . $e->getMessage());
             }
+            ?>
+            if (earliestEndTime === Infinity) {
+                document.getElementById('timer').innerHTML = 'No Active Elections';
+                return;
+            }
+            const distance = earliestEndTime - now;
+            if (distance < 0) {
+                document.getElementById('timer').innerHTML = 'Election Ended';
+                return;
+            }
+            const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+            document.getElementById('timer').innerHTML = `${hours}:${minutes}:${seconds}`;
         }
+        setInterval(updateTimer, 1000);
+        updateTimer();
 
         async function fetchUserVote() {
             try {
@@ -760,16 +540,16 @@ $profile_picture = 'images/general.png';
                     const response = await fetch(`/api/blockchain/get-votes.php?user_id=${userId}&election_id=${electionId}`);
                     const data = await response.json();
                     if (data.votes && data.votes.length > 0) {
-                        document.getElementById('vote-hash').textContent = data.votes[0].block_hash;
+                        document.getElementById('voting-status').textContent = 'Voted';
                         hashFound = true;
                         break;
                     }
                 }
                 if (!hashFound) {
-                    document.getElementById('vote-hash').textContent = 'No vote recorded yet.';
+                    document.getElementById('voting-status').textContent = 'Not Voted';
                 }
             } catch (error) {
-                document.getElementById('vote-hash').textContent = 'Error fetching vote data.';
+                document.getElementById('voting-status').textContent = 'Error';
             }
         }
 
@@ -796,7 +576,7 @@ $profile_picture = 'images/general.png';
             }
 
             if (inactiveTime >= inactivityTimeout - warningTime && inactiveTime < inactivityTimeout) {
-                timeoutMessage.text付き: "You will be logged out in 1 minute due to inactivity.";
+                timeoutMessage.textContent = "You will be logged out in 1 minute due to inactivity.";
                 modal.style.display = 'flex';
             } else if (inactiveTime >= inactivityTimeout) {
                 window.location.href = 'logout.php';

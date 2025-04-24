@@ -860,7 +860,7 @@ $profile_picture = 'images/general.png';
         async function submitVote(positionId) {
             const candidateId = document.getElementById(`candidate_${positionId}`).value;
             try {
-                const response = await fetch('/api/blockchain/submit-vote.php', {
+                const response = await fetch('./api/blockchain/submit-vote.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ user_id: userId, candidate_id: candidateId })
@@ -881,7 +881,7 @@ $profile_picture = 'images/general.png';
             try {
                 let hashFound = false;
                 for (const electionId of electionIds) {
-                    const response = await fetch(`/api/blockchain/get-votes.php?user_id=${userId}&election_id=${electionId}`);
+                    const response = await fetch(`./api/blockchain/get-votes.php?user_id=${userId}&election_id=${electionId}`);
                     const data = await response.json();
                     if (data.votes && data.votes.length > 0) {
                         document.getElementById('vote-hash').textContent = data.votes[0].block_hash;
