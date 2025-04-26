@@ -18,7 +18,6 @@ try {
     die("Unable to connect to the database. Please try again later.");
 }
 
-// Simplified session validation with logging
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['role']) || $_SESSION['role'] !== 'voter') {
     error_log("Session validation failed: user_id or role not set or invalid. Session: " . print_r($_SESSION, true));
     session_unset();
@@ -27,13 +26,12 @@ if (!isset($_SESSION['user_id']) || !isset($_SESSION['role']) || $_SESSION['role
     exit;
 }
 
-// Log session details for debugging
 error_log("Session after validation: user_id=" . ($_SESSION['user_id'] ?? 'unset') . 
           ", role=" . ($_SESSION['role'] ?? 'unset') . 
           ", college_id=" . ($_SESSION['college_id'] ?? 'unset') . 
           ", association=" . ($_SESSION['association'] ?? 'unset'));
 
-// Optional checks for college_id and association
+
 if (isset($_SESSION['college_id']) && $_SESSION['college_id'] != 1) {
     error_log("College ID mismatch: expected 1, got " . $_SESSION['college_id']);
     header('Location: login.php?error=' . urlencode('Invalid college for this dashboard.'));
@@ -409,7 +407,7 @@ $profile_picture = 'images/general.png';
 
     <section class="dashboard">
         <div class="dash-content">
-            <h2>CIVE UDOSO Election Dashboard</h2>
+            <h2>Election Dashboard</h2>
 
             <div class="overview">
                 <div class="card">
@@ -597,6 +595,6 @@ $profile_picture = 'images/general.png';
 </body>
 </html>
 <?php
-// Close the database connection
+// Closing the database connection
 $conn->close();
 ?>

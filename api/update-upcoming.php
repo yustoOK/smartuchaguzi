@@ -2,7 +2,7 @@
 session_start();
 date_default_timezone_set('Africa/Dar_es_Salaam');
 
-include '../db.php'; //database connection
+include '../db.php'; // Database connection (assumes MySQLi)
 
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
     header('Location: ../login.php?error=' . urlencode('Please log in as admin.'));
@@ -14,15 +14,14 @@ $success = '';
 $notifications = [];
 
 try {
-    // Fetch existing notifications for upcoming elections
-    $stmt = $pdo->query(
+    $stmt = $db->query(
         "SELECT id, title, content, sent_at 
-        FROM notifications 
-        WHERE type = 'upcoming_election' 
-        ORDER BY sent_at DESC"
+         FROM notifications 
+         WHERE type = 'upcoming_election' 
+         ORDER BY sent_at DESC"
     );
-    $notifications = $stmt->fetchAll(PDO::FETCH_ASSOC);
-} catch (PDOException $e) {
+    $notifications = $stmt->fetch_all(MYSQLI_ASSOC);
+} catch (Exception $e) {
     error_log("Fetch notifications failed: " . $e->getMessage());
     $errors[] = "Failed to load upcoming elections.";
 }
@@ -30,7 +29,7 @@ try {
 // Handle adding new notification
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_notification'])) {
     $title = filter_input(INPUT_POST, 'title', FILTER_SANITIZE_FULL_SPECIAL_CHARS);
-    $date = $_POST['date'] ?? '';
+    $date = filter_input(INPUT_POST, 'date', FILTER_SANITIZE_FULL_SPECIAL_CHARS);
     $description = filter_input(INPUT_POST, 'description', FILTER_SANITIZE_FULL_SPECIAL_CHARS);
 
     // Validation
@@ -39,6 +38,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_notification'])) 
     }
     if (empty($date)) {
         $errors[] = "Election date is required.";
+    } elseif (!strtotime($date)) {
+        $errors[] = "Invalid election date format.";
     } elseif (strtotime($date) < strtotime('today')) {
         $errors[] = "Election date must be in the future.";
     }
@@ -48,14 +49,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_notification'])) 
 
     if (empty($errors)) {
         try {
-            $stmt = $pdo->prepare(
+            $stmt = $db->prepare(
                 "INSERT INTO notifications (user_id, title, content, type, sent_at, created_at) 
-                VALUES (?, ?, ?, 'upcoming_election', ?, NOW())"
+                 VALUES (NULL, ?, ?, 'upcoming_election', ?, NOW())"
             );
-            $stmt->execute([$_SESSION['user_id'], $title, $description, $date]);
+            $stmt->bind_param('sss', $title, $description, $date);
+            $stmt->execute();
+            $stmt->close();
             header('Location: update-upcoming.php?success=' . urlencode('Upcoming election added successfully.'));
             exit;
-        } catch (PDOException $e) {
+        } catch (Exception $e) {
             error_log("Add notification failed: " . $e->getMessage());
             $errors[] = "Failed to add upcoming election due to a server error.";
         }
@@ -66,14 +69,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_notification'])) 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_notification'])) {
     $notification_id = filter_var($_POST['notification_id'], FILTER_VALIDATE_INT);
     $title = filter_input(INPUT_POST, 'title', FILTER_SANITIZE_FULL_SPECIAL_CHARS);
-    $date = $_POST['date'] ?? '';
+    $date = filter_input(INPUT_POST, 'date', FILTER_SANITIZE_FULL_SPECIAL_CHARS);
     $description = filter_input(INPUT_POST, 'description', FILTER_SANITIZE_FULL_SPECIAL_CHARS);
 
+    // Validation
+    if ($notification_id === false || $notification_id <= 0) {
+        $errors[] = "Invalid notification ID.";
+    } else {
+        $stmt = $db->prepare("SELECT 1 FROM notifications WHERE id = ? AND type = 'upcoming_election'");
+        $stmt->bind_param('i', $notification_id);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        if ($result->num_rows === 0) {
+            $errors[] = "Notification not found.";
+        }
+        $stmt->close();
+    }
     if (empty($title)) {
         $errors[] = "Election title is required.";
     }
     if (empty($date)) {
         $errors[] = "Election date is required.";
+    } elseif (!strtotime($date)) {
+        $errors[] = "Invalid election date format.";
+    } elseif (strtotime($date) < strtotime('today')) {
+        $errors[] = "Election date must be in the future.";
     }
     if (empty($description)) {
         $errors[] = "Election description is required.";
@@ -81,15 +101,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_notification']
 
     if (empty($errors)) {
         try {
-            $stmt = $pdo->prepare(
+            $stmt = $db->prepare(
                 "UPDATE notifications 
-                SET title = ?, content = ?, sent_at = ? 
-                WHERE id = ? AND type = 'upcoming_election'"
+                 SET title = ?, content = ?, sent_at = ? 
+                 WHERE id = ? AND type = 'upcoming_election'"
             );
-            $stmt->execute([$title, $description, $date, $notification_id]);
+            $stmt->bind_param('sssi', $title, $description, $date, $notification_id);
+            $stmt->execute();
+            $stmt->close();
             header('Location: update-upcoming.php?success=' . urlencode('Upcoming election updated successfully.'));
             exit;
-        } catch (PDOException $e) {
+        } catch (Exception $e) {
             error_log("Update notification failed: " . $e->getMessage());
             $errors[] = "Failed to update upcoming election due to a server error.";
         }
@@ -99,14 +121,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_notification']
 // Handle deleting notification
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_notification'])) {
     $notification_id = filter_var($_POST['notification_id'], FILTER_VALIDATE_INT);
-    try {
-        $stmt = $pdo->prepare("DELETE FROM notifications WHERE id = ? AND type = 'upcoming_election'");
-        $stmt->execute([$notification_id]);
-        header('Location: update-upcoming.php?success=' . urlencode('Upcoming election removed successfully.'));
-        exit;
-    } catch (PDOException $e) {
-        error_log("Delete notification failed: " . $e->getMessage());
-        $errors[] = "Failed to remove upcoming election due to a server error.";
+
+    if ($notification_id === false || $notification_id <= 0) {
+        $errors[] = "Invalid notification ID.";
+    } else {
+        $stmt = $db->prepare("SELECT 1 FROM notifications WHERE id = ? AND type = 'upcoming_election'");
+        $stmt->bind_param('i', $notification_id);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        if ($result->num_rows === 0) {
+            $errors[] = "Notification not found.";
+        }
+        $stmt->close();
+    }
+
+    if (empty($errors)) {
+        try {
+            $stmt = $db->prepare("DELETE FROM notifications WHERE id = ? AND type = 'upcoming_election'");
+            $stmt->bind_param('i', $notification_id);
+            $stmt->execute();
+            $stmt->close();
+            header('Location: update-upcoming.php?success=' . urlencode('Upcoming election removed successfully.'));
+            exit;
+        } catch (Exception $e) {
+            error_log("Delete notification failed: " . $e->getMessage());
+            $errors[] = "Failed to remove upcoming election due to a server error.";
+        }
     }
 }
 ?>
@@ -255,7 +295,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_notification']
                 <p><?php echo htmlspecialchars($_GET['success']); ?></p>
             </div>
         <?php endif; ?>
-        <form method=" personally" action="">
+        <form method="POST" action="">
             <input type="hidden" name="add_notification" value="1">
             <div class="form-group">
                 <label for="title">Election Title</label>
@@ -288,7 +328,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_notification']
                         <td><?php echo htmlspecialchars($notification['sent_at']); ?></td>
                         <td><?php echo htmlspecialchars($notification['content']); ?></td>
                         <td>
-                            <button onclick="editNotification(<?php echo $notification['id']; ?>, '<?php echo addslashes($notification['title']); ?>', '<?php echo $notification['sent_at']; ?>', '<?php echo addslashes($notification['content']); ?>')">Edit</button>
+                            <button onclick="editNotification(<?php echo $notification['id']; ?>, '<?php echo htmlspecialchars(addslashes($notification['title']), ENT_QUOTES, 'UTF-8'); ?>', '<?php echo $notification['sent_at']; ?>', '<?php echo htmlspecialchars(addslashes($notification['content']), ENT_QUOTES, 'UTF-8'); ?>')">Edit</button>
                             <form method="POST" action="" style="display:inline;">
                                 <input type="hidden" name="notification_id" value="<?php echo $notification['id']; ?>">
                                 <input type="hidden" name="delete_notification" value="1">

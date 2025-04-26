@@ -1,6 +1,7 @@
 <?php
 header('Content-Type: application/json');
 include '../../db.php';
+session_start();
 
 try {
     $input = json_decode(file_get_contents('php://input'), true);
@@ -11,6 +12,12 @@ try {
     $user_id = (int)$input['user_id'];
     $candidate_id = (int)$input['candidate_id'];
 
+    // Validate session
+    if (!isset($_SESSION['user_id']) || (int)$_SESSION['user_id'] !== $user_id) {
+        throw new Exception('Unauthorized user');
+    }
+
+    // Fetch candidate details
     $stmt = $db->prepare("SELECT election_id, position_id FROM candidates WHERE id = ?");
     $stmt->bind_param('i', $candidate_id);
     $stmt->execute();
@@ -25,18 +32,27 @@ try {
     $election_id = $candidate['election_id'];
     $position_id = $candidate['position_id'];
 
-    $stmt = $db->prepare("SELECT end_time FROM elections WHERE id = ?");
-    $stmt->bind_param('i', $election_id);
+    // Fetch user details for college_id and hostel_id
+    $stmt = $db->prepare("SELECT college_id, hostel_id FROM userdetails WHERE user_id = ? AND processed_at IS NOT NULL");
+    $stmt->bind_param('i', $user_id);
     $stmt->execute();
     $result = $stmt->get_result();
-    $election = $result->fetch_assoc();
+    $user = $result->fetch_assoc();
     $stmt->close();
 
-    if (!$election || strtotime($election['end_time']) < time()) {
-        throw new Exception('Election has ended or does not exist');
+    if (!$user) {
+        throw new Exception('User details not found or not processed');
     }
+    $college_id = $user['college_id'];
+    $hostel_id = $user['hostel_id'] ?: 0;
 
-    $stmt = $db->prepare("SELECT id FROM votes WHERE user_id = ? AND election_id = ? AND candidate_id IN (SELECT id FROM candidates WHERE position_id = ?)");
+    // Check for duplicate votes
+    $stmt = $db->prepare(
+        "SELECT id FROM votes 
+         WHERE user_id = ? AND election_id = ? AND candidate_id IN (
+             SELECT id FROM candidates WHERE position_id = ?
+         )"
+    );
     $stmt->bind_param('iii', $user_id, $election_id, $position_id);
     $stmt->execute();
     $result = $stmt->get_result();
@@ -47,23 +63,16 @@ try {
         throw new Exception('You have already voted for this position');
     }
 
+    // Fraud detection (before blockchain and database operations)
     $vote_timestamp = date('Y-m-d H:i:s');
-    $vote_data = [
-        'user_id' => $user_id,
-        'election_id' => $election_id,
-        'position_id' => $position_id,
-        'candidate_id' => $candidate_id,
-        'timestamp' => $vote_timestamp
-    ];
-    $vote_hash = hash('sha256', json_encode($vote_data));
-
     $fraud_check_data = [
         'user_id' => $user_id,
         'voter_id' => (string)$user_id,
         'vote_timestamp' => $vote_timestamp,
         'time_diff' => 2.5,
         'vote_frequency' => 0.1,
-        'vpn_usage' => false
+        'vpn_usage' => false,
+        'election_id' => $election_id 
     ];
 
     $ch = curl_init('http://localhost/smartuchaguzi/api/fraud-detection.php');
@@ -79,6 +88,17 @@ try {
         throw new Exception('Vote flagged as potential fraud');
     }
 
+    // Generate vote hash
+    $vote_data = [
+        'electionId' => $election_id,
+        'voter' => getenv('WALLET_ADDRESS'),
+        'positionId' => $position_id,
+        'candidateId' => $candidate_id,
+        'timestamp' => strtotime($vote_timestamp)
+    ];
+    $vote_hash = hash('sha256', json_encode($vote_data));
+
+    // Cast vote on the blockchain
     $node_script = '
         const ethers = require("ethers");
         const provider = new ethers.providers.JsonRpcProvider("' . getenv('SEPOLIA_RPC_URL') . '");
@@ -89,16 +109,19 @@ try {
             wallet
         );
         async function submitVote() {
-            const tx = await contract.castVote(
-                ' . $election_id . ',
-                "' . $vote_hash . '",
-                ' . $user_id . ',
-                ' . $position_id . ',
-                ' . $candidate_id . ',
-                "' . $vote_timestamp . '"
-            );
-            const receipt = await tx.wait();
-            console.log(JSON.stringify({ hash: receipt.transactionHash }));
+            try {
+                const tx = await contract.castVote(
+                    ' . $election_id . ',
+                    ' . $position_id . ',
+                    ' . $candidate_id . ',
+                    ' . $college_id . ',
+                    ' . $hostel_id . '
+                );
+                const receipt = await tx.wait();
+                console.log(JSON.stringify({ hash: receipt.transactionHash }));
+            } catch (error) {
+                console.log(JSON.stringify({ error: error.message }));
+            }
         }
         submitVote();
     ';
@@ -106,18 +129,35 @@ try {
     $output = shell_exec('node temp.js 2>&1');
     unlink('temp.js');
 
+    // Improved error handling for Node.js execution
+    if ($output === null) {
+        throw new Exception('Node.js execution failed: No output received');
+    }
     $blockchain_result = json_decode($output, true);
-    if (!$blockchain_result || !isset($blockchain_result['hash'])) {
-        throw new Exception('Failed to store vote on blockchain');
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        throw new Exception('Failed to parse blockchain response: ' . json_last_error_msg());
+    }
+    if (!$blockchain_result || isset($blockchain_result['error'])) {
+        throw new Exception('Failed to store vote on blockchain: ' . ($blockchain_result['error'] ?? 'Unknown error'));
     }
 
+    // Store vote in the database
     $stmt = $db->prepare(
-        "INSERT INTO votes (user_id, election_id, candidate_id, vote_timestamp, block_hash) 
-         VALUES (?, ?, ?, ?, ?)"
+        "INSERT INTO votes (user_id, election_id, candidate_id, vote_timestamp, blockchain_hash, is_anonymized) 
+         VALUES (?, ?, ?, ?, ?, 0)"
     );
     $stmt->bind_param('iiiss', $user_id, $election_id, $candidate_id, $vote_timestamp, $vote_hash);
     $stmt->execute();
     $vote_id = $db->insert_id;
+    $stmt->close();
+
+    // Store blockchain record
+    $stmt = $db->prepare(
+        "INSERT INTO blockchain_records (vote_id, election_id, hash, timestamp) 
+         VALUES (?, ?, ?, NOW())"
+    );
+    $stmt->bind_param('iis', $vote_id, $election_id, $blockchain_result['hash']);
+    $stmt->execute();
     $stmt->close();
 
     echo json_encode([

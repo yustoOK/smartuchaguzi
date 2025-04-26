@@ -18,7 +18,7 @@ try {
 
 $required_role = 'admin';
 
-// Session validation with logging and user agent check
+
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['role']) || $_SESSION['role'] !== $required_role) {
     error_log("Session validation failed: user_id or role not set or invalid. Session: " . print_r($_SESSION, true));
     session_unset();
@@ -27,11 +27,10 @@ if (!isset($_SESSION['user_id']) || !isset($_SESSION['role']) || $_SESSION['role
     exit;
 }
 
-// Log session details for debugging
+
 error_log("Session after validation: user_id=" . ($_SESSION['user_id'] ?? 'unset') . 
           ", role=" . ($_SESSION['role'] ?? 'unset'));
 
-// User agent validation
 if (!isset($_SESSION['user_agent'])) {
     $_SESSION['user_agent'] = $_SERVER['HTTP_USER_AGENT'];
 } elseif ($_SESSION['user_agent'] !== $_SERVER['HTTP_USER_AGENT']) {
@@ -160,24 +159,21 @@ try {
     <title>Admin Dashboard | SmartUchaguzi</title>
     <link rel="icon" href="./Uploads/Vote.jpeg" type="image/x-icon">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            font-family: 'Poppins', sans-serif;
+            font-family: 'Inter', sans-serif;
         }
 
         body {
-            background: linear-gradient(rgba(26, 60, 52, 0.7), rgba(26, 60, 52, 0.7)), url('images/university.jpeg');
-            background-size: cover;
-            background-position: center;
-            background-attachment: fixed;
-            color: #2d3748;
-            line-height: 1.6;
+            background: #1a202c;
+            color: #e2e8f0;
             min-height: 100vh;
+            line-height: 1.6;
         }
 
         .header {
@@ -185,20 +181,13 @@ try {
             top: 0;
             left: 0;
             width: 100%;
-            background: rgba(26, 60, 52, 0.9);
-            backdrop-filter: blur(10px);
-            padding: 15px 40px;
+            background: #2d3748;
+            padding: 16px 32px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
             z-index: 1000;
-            animation: gradientShift 5s infinite alternate;
-        }
-
-        @keyframes gradientShift {
-            0% { background: rgba(26, 60, 52, 0.9); }
-            100% { background: rgba(44, 82, 76, 0.9); }
         }
 
         .header .logo {
@@ -207,113 +196,103 @@ try {
         }
 
         .header .logo img {
-            width: 40px;
-            height: 40px;
-            margin-right: 15px;
+            width: 36px;
+            height: 36px;
+            margin-right: 12px;
             border-radius: 50%;
-            border: 2px solid #f4a261;
+            border: 2px solid #ed8936;
             transition: transform 0.3s ease;
         }
 
         .header .logo img:hover {
-            transform: rotate(360deg);
+            transform: scale(1.1);
         }
 
         .header .logo h1 {
             font-size: 20px;
             font-weight: 600;
-            background: linear-gradient(to right, #f4a261, #e76f51);
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
+            color: #ed8936;
         }
 
         .header .nav {
             display: flex;
-            gap: 15px;
+            gap: 12px;
         }
 
         .header .nav a {
-            color: #e6e6e6;
+            color: #a0aec0;
             text-decoration: none;
-            font-size: 16px;
+            font-size: 14px;
             font-weight: 500;
             padding: 8px 16px;
-            border-radius: 20px;
-            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
             transition: all 0.3s ease;
         }
 
-        .header .nav a.active {
-            background: #f4a261;
-            color: #fff;
+        .header .nav a:hover {
+            background: #4a5568;
+            color: #e2e8f0;
         }
 
-        .header .nav a:hover {
-            background: #f4a261;
+        .header .nav a.active {
+            background: #ed8936;
             color: #fff;
-            transform: scale(1.05);
         }
 
         .header .user {
             display: flex;
             align-items: center;
-            gap: 15px;
+            gap: 12px;
         }
 
         .header .user span {
-            font-size: 16px;
-            color: #e6e6e6;
+            font-size: 14px;
+            color: #e2e8f0;
+            font-weight: 500;
         }
 
         .header .user img {
-            width: 40px;
-            height: 40px;
+            width: 32px;
+            height: 32px;
             border-radius: 50%;
-            border: 2px solid #f4a261;
+            border: 2px solid #ed8936;
         }
 
         .header .user a {
-            background: linear-gradient(135deg, #f4a261, #e76f51);
+            background: #ed8936;
             color: #fff;
             padding: 8px 16px;
-            border-radius: 6px;
+            border-radius: 8px;
             text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
             transition: all 0.3s ease;
         }
 
         .header .user a:hover {
-            transform: scale(1.05);
-            box-shadow: 0 0 10px rgba(244, 162, 97, 0.5);
+            background: #dd6b20;
+            transform: translateY(-2px);
         }
 
         .dashboard {
-            padding: 100px 20px 40px;
+            padding: 80px 24px 24px;
         }
 
         .dash-content {
-            max-width: 1200px;
+            max-width: 1280px;
             margin: 0 auto;
-            background: rgba(255, 255, 255, 0.95);
-            padding: 30px;
+            background: #2d3748;
+            padding: 24px;
             border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-            animation: fadeIn 0.5s ease-in-out;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
         }
 
         .dash-content h2 {
-            font-size: 28px;
+            font-size: 24px;
+            font-weight: 600;
             text-align: center;
-            margin-bottom: 30px;
-            background: linear-gradient(to right, #1a3c34, #f4a261);
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
+            color: #ed8936;
+            margin-bottom: 24px;
         }
 
         .content-section {
@@ -326,50 +305,49 @@ try {
 
         .overview {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px;
-            margin-bottom: 40px;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 16px;
+            margin-bottom: 32px;
         }
 
         .overview .card {
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
+            background: #3c4a63;
             padding: 20px;
             border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
             text-align: center;
-            transition: transform 0.3s ease;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
         }
 
         .overview .card:hover {
-            transform: translateY(-5px);
+            transform: translateY(-4px);
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.3);
         }
 
         .overview .card i {
-            font-size: 30px;
-            color: #f4a261;
-            margin-bottom: 10px;
+            font-size: 28px;
+            color: #ed8936;
+            margin-bottom: 12px;
         }
 
         .overview .card .text {
-            font-size: 16px;
-            color: #4a5568;
+            font-size: 14px;
+            color: #a0aec0;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
         .overview .card .number {
-            font-size: 24px;
+            font-size: 28px;
             font-weight: 600;
-            color: #1a3c34;
+            color: #e2e8f0;
+            margin-top: 8px;
         }
 
         h3 {
-            font-size: 22px;
-            color: #1a3c34;
-            margin-bottom: 20px;
-            background: linear-gradient(to right, #1a3c34, #f4a261);
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
+            font-size: 18px;
+            font-weight: 600;
+            color: #ed8936;
+            margin-bottom: 16px;
         }
 
         .management-section,
@@ -377,40 +355,41 @@ try {
         .user-section,
         .analytics-section,
         .audit-section {
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
+            background: #3c4a63;
             padding: 20px;
             border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
         }
 
         .action-buttons {
             display: flex;
             justify-content: center;
-            gap: 15px;
+            gap: 12px;
             flex-wrap: wrap;
         }
 
         .action-buttons button {
-            background: linear-gradient(135deg, #f4a261, #e76f51);
+            background: #ed8936;
             color: #fff;
             border: none;
             padding: 10px 20px;
-            border-radius: 6px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
             cursor: pointer;
             transition: all 0.3s ease;
         }
 
         .action-buttons button:hover {
-            transform: scale(1.05);
-            box-shadow: 0 0 15px rgba(244, 162, 97, 0.5);
+            background: #dd6b20;
+            transform: translateY(-2px);
         }
 
         .upcoming-table,
         .audit-table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 20px;
+            margin-top: 16px;
+            font-size: 14px;
         }
 
         .upcoming-table th,
@@ -418,93 +397,116 @@ try {
         .audit-table th,
         .audit-table td {
             padding: 12px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            border-bottom: 1px solid #4a5568;
             text-align: left;
         }
 
         .upcoming-table th,
         .audit-table th {
-            background: #1a3c34;
-            color: #e6e6e6;
+            background: #4a5568;
+            color: #e2e8f0;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 12px;
+        }
+
+        .upcoming-table td,
+        .audit-table td {
+            color: #a0aec0;
+        }
+
+        .upcoming-table td a {
+            color: #ed8936;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .upcoming-table td a:hover {
+            color: #dd6b20;
         }
 
         .analytics-filter {
             display: flex;
             align-items: center;
-            gap: 15px;
-            margin-bottom: 20px;
+            gap: 12px;
+            margin-bottom: 16px;
             justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .analytics-filter label {
+            font-size: 14px;
+            color: #a0aec0;
         }
 
         .analytics-filter select {
-            padding: 8px;
-            border-radius: 6px;
-            border: 1px solid #e6e6e6;
-            background: rgba(255, 255, 255, 0.1);
-            color: #2d3748;
+            padding: 8px 12px;
+            border-radius: 8px;
+            border: 1px solid #4a5568;
+            background: #2d3748;
+            color: #e2e8f0;
+            font-size: 14px;
+            max-width: 300px;
         }
 
         .analytics-filter button {
-            background: linear-gradient(135deg, #f4a261, #e76f51);
+            background: #ed8936;
             border: none;
             color: #fff;
             padding: 8px 16px;
-            border-radius: 6px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
             cursor: pointer;
             transition: all 0.3s ease;
         }
 
         .analytics-filter button:hover {
-            transform: scale(1.05);
+            background: #dd6b20;
+            transform: translateY(-2px);
+        }
+
+        .analytics-filter button:disabled {
+            background: #4a5568;
+            cursor: not-allowed;
         }
 
         .vote-analytics {
-            margin-top: 20px;
+            margin-top: 16px;
+        }
+
+        .vote-analytics h4 {
+            font-size: 16px;
+            color: #ed8936;
+            margin-bottom: 12px;
+            text-align: center;
+        }
+
+        .vote-analytics h5 {
+            font-size: 14px;
+            color: #e2e8f0;
+            margin: 12px 0 8px;
+        }
+
+        .vote-analytics p {
+            font-size: 14px;
+            color: #a0aec0;
+            text-align: center;
         }
 
         .vote-analytics canvas {
             max-width: 100%;
-            margin: 20px auto;
+            margin: 16px auto;
+            background: #2d3748;
+            padding: 16px;
+            border-radius: 12px;
         }
 
         .error {
-            color: #e74c3c;
+            color: #f56565;
             text-align: center;
-            margin-bottom: 20px;
-        }
-
-        .quick-links {
-            margin-top: 40px;
-            text-align: center;
-        }
-
-        .quick-links h3 {
-            font-size: 22px;
-            margin-bottom: 15px;
-        }
-
-        .quick-links ul {
-            list-style: none;
-            display: flex;
-            justify-content: center;
-            gap: 20px;
-            flex-wrap: wrap;
-        }
-
-        .quick-links ul li a {
-            padding: 10px 20px;
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            border-radius: 8px;
-            color: #f4a261;
-            text-decoration: none;
-            transition: all 0.3s ease;
-        }
-
-        .quick-links ul li a:hover {
-            background: #f4a261;
-            color: #fff;
-            transform: scale(1.05);
+            margin-bottom: 16px;
+            font-size: 14px;
         }
 
         .modal {
@@ -514,75 +516,97 @@ try {
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.5);
+            background: rgba(0, 0, 0, 0.7);
             z-index: 2000;
             justify-content: center;
             align-items: center;
         }
 
         .modal-content {
-            background: rgba(255, 255, 255, 0.95);
-            padding: 20px;
+            background: #3c4a63;
+            padding: 24px;
             border-radius: 12px;
             text-align: center;
             max-width: 400px;
             width: 90%;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
         }
 
         .modal-content p {
-            font-size: 16px;
-            color: #2d3748;
-            margin-bottom: 20px;
+            font-size: 14px;
+            color: #e2e8f0;
+            margin-bottom: 16px;
         }
 
         .modal-content button {
-            background: linear-gradient(135deg, #f4a261, #e76f51);
+            background: #ed8936;
             color: #fff;
             border: none;
             padding: 10px 20px;
-            border-radius: 6px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
             cursor: pointer;
             transition: all 0.3s ease;
         }
 
         .modal-content button:hover {
-            transform: scale(1.05);
+            background: #dd6b20;
+            transform: translateY(-2px);
         }
 
         @media (max-width: 768px) {
             .header {
-                padding: 15px 20px;
+                padding: 12px 16px;
                 flex-direction: column;
-                gap: 15px;
+                gap: 12px;
             }
 
             .header .nav {
                 flex-wrap: wrap;
                 justify-content: center;
-                gap: 10px;
+                gap: 8px;
+            }
+
+            .header .nav a {
+                padding: 6px 12px;
+                font-size: 12px;
             }
 
             .overview {
                 grid-template-columns: 1fr;
             }
+
+            .dash-content {
+                padding: 16px;
+            }
+
+            .dash-content h2 {
+                font-size: 20px;
+            }
         }
 
         @media (max-width: 480px) {
             .header .logo h1 {
-                font-size: 18px;
+                font-size: 16px;
             }
 
-            .header .nav a {
+            .header .user span {
+                font-size: 12px;
+            }
+
+            .header .user a {
                 padding: 6px 12px;
-                font-size: 14px;
-            }
-
-            .dash-content h2 {
-                font-size: 24px;
+                font-size: 12px;
             }
 
             .overview .card .number {
-                font-size: 20px;
+                font-size: 24px;
+            }
+
+            .action-buttons button {
+                padding: 8px 16px;
+                font-size: 12px;
             }
         }
     </style>
@@ -782,15 +806,6 @@ try {
                     </table>
                 </div>
             </div>
-
-            <div class="quick-links">
-                <h3>Quick Links</h3>
-                <ul>
-                    <li><a href="admin-profile.php">My Profile</a></li>
-                    <li><a href="election-rules.php">Election Rules</a></li>
-                    <li><a href="contact.php">Support</a></li>
-                </ul>
-            </div>
         </div>
     </section>
 
@@ -810,32 +825,14 @@ try {
             const downloadButton = document.getElementById('download-report');
             const reportElectionId = document.getElementById('report-election-id');
 
-            // Debug navigation link clicks
             navLinks.forEach(link => {
                 link.addEventListener('click', (e) => {
                     e.preventDefault();
                     const sectionId = link.getAttribute('data-section');
-                    console.log(`Navigating to section: ${sectionId}`); // Debug log
-
-                    // Hide all sections and remove active class from links
-                    sections.forEach(section => {
-                        section.classList.remove('active');
-                        console.log(`Hiding section: ${section.id}`); // Debug log
-                    });
-                    navLinks.forEach(l => {
-                        l.classList.remove('active');
-                        console.log(`Removing active class from: ${l.textContent}`); // Debug log
-                    });
-
-                    // Show the selected section and mark the link as active
-                    const targetSection = document.getElementById(sectionId);
-                    if (targetSection) {
-                        targetSection.classList.add('active');
-                        link.classList.add('active');
-                        console.log(`Showing section: ${sectionId}, marked link as active`); // Debug log
-                    } else {
-                        console.error(`Section not found: ${sectionId}`); // Debug error
-                    }
+                    sections.forEach(section => section.classList.remove('active'));
+                    navLinks.forEach(l => l.classList.remove('active'));
+                    document.getElementById(sectionId).classList.add('active');
+                    link.classList.add('active');
                 });
             });
 
@@ -888,8 +885,8 @@ try {
                                     datasets: [{
                                         label: 'Votes',
                                         data: pos.candidates.map(c => c.votes),
-                                        backgroundColor: '#f4a261',
-                                        borderColor: '#e76f51',
+                                        backgroundColor: '#ed8936',
+                                        borderColor: '#dd6b20',
                                         borderWidth: 1
                                     }]
                                 },
@@ -900,7 +897,12 @@ try {
                                     plugins: {
                                         title: {
                                             display: true,
-                                            text: `${pos.name} Vote Distribution`
+                                            text: `${pos.name} Vote Distribution`,
+                                            color: '#e2e8f0',
+                                            font: { size: 14 }
+                                        },
+                                        legend: {
+                                            labels: { color: '#e2e8f0' }
                                         },
                                         tooltip: {
                                             callbacks: {
@@ -911,6 +913,10 @@ try {
                                                 }
                                             }
                                         }
+                                    },
+                                    scales: {
+                                        x: { ticks: { color: '#a0aec0' } },
+                                        y: { ticks: { color: '#a0aec0' } }
                                     }
                                 }
                             });
@@ -970,6 +976,6 @@ try {
 </body>
 </html>
 <?php
-// Close the database connection
+// Closing the database connection
 $pdo = null;
 ?>

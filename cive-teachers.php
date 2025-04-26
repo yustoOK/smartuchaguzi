@@ -2,7 +2,7 @@
 session_start();
 date_default_timezone_set('Africa/Dar_es_Salaam');
 
-// Internal database connection
+//database connection
 $host = 'localhost';
 $dbname = 'smartuchaguzi_db';
 $username = 'root';
@@ -20,7 +20,6 @@ $required_college = 'CIVE';
 $required_association = 'UDOMASA';
 $required_role = 'voter'; 
 
-// Simplified session validation with logging
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['role']) || $_SESSION['role'] !== $required_role) {
     error_log("Session validation failed: user_id or role not set or invalid. Session: " . print_r($_SESSION, true));
     session_unset();
@@ -29,13 +28,12 @@ if (!isset($_SESSION['user_id']) || !isset($_SESSION['role']) || $_SESSION['role
     exit;
 }
 
-// Log session details for debugging
 error_log("Session after validation: user_id=" . ($_SESSION['user_id'] ?? 'unset') . 
           ", role=" . ($_SESSION['role'] ?? 'unset') . 
           ", college_id=" . ($_SESSION['college_id'] ?? 'unset') . 
           ", association=" . ($_SESSION['association'] ?? 'unset'));
 
-// Optional checks for college_id and association
+
 if (isset($_SESSION['college_id'])) {
     $stmt = $pdo->prepare("SELECT name FROM colleges WHERE college_id = ?");
     $stmt->execute([$_SESSION['college_id']]);
@@ -932,6 +930,6 @@ $profile_picture = 'images/general.png';
 </body>
 </html>
 <?php
-// Close the database connection
+// Closing the database connection
 $pdo = null;
 ?>

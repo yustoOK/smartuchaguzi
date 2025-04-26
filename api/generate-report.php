@@ -35,7 +35,7 @@ try {
     $positions = $analytics_data['positions'];
     $total_votes = $analytics_data['totalVotes'];
 
-    // Initialize TCPDF
+    // Initialize TCPDF 
     $pdf = new TCPDF();
     $pdf->SetCreator(PDF_CREATOR);
     $pdf->SetAuthor('SmartUchaguzi');

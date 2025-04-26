@@ -4,15 +4,21 @@ include '../../db.php';
 
 $election_id = isset($_GET['election_id']) ? (int)$_GET['election_id'] : 0;
 
+// Validate election_id
+if (!$election_id) {
+    http_response_code(400);
+    echo json_encode(['error' => 'Election ID is required']);
+    exit;
+}
+
 try {
-    // Fetch vote hashes from database
-    $query = $election_id
-        ? "SELECT vote_id, user_id, election_id, candidate_id, vote_timestamp, block_hash FROM votes WHERE election_id = ?"
-        : "SELECT vote_id, user_id, election_id, candidate_id, vote_timestamp, block_hash FROM votes";
+    // Fetch vote hashes from database, joining with blockchain_records
+    $query = "SELECT v.vote_id, v.user_id, v.election_id, v.candidate_id, v.vote_timestamp, br.hash AS blockchain_hash 
+              FROM votes v 
+              JOIN blockchain_records br ON v.vote_id = br.vote_id 
+              WHERE v.election_id = ?";
     $stmt = $db->prepare($query);
-    if ($election_id) {
-        $stmt->bind_param('i', $election_id);
-    }
+    $stmt->bind_param('i', $election_id);
     $stmt->execute();
     $result = $stmt->get_result();
     $db_votes = $result->fetch_all(MYSQLI_ASSOC);
@@ -43,7 +49,14 @@ try {
     $output = shell_exec('node temp.js 2>&1');
     unlink('temp.js');
 
+    // Improved error handling for Node.js execution
+    if ($output === null) {
+        throw new Exception('Node.js execution failed: No output received');
+    }
     $blockchain_votes = json_decode($output, true);
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        throw new Exception('Failed to parse blockchain votes: ' . json_last_error_msg());
+    }
     if (!$blockchain_votes) {
         throw new Exception('Failed to fetch blockchain votes');
     }
@@ -52,15 +65,43 @@ try {
     $verified_votes = [];
     foreach ($db_votes as $db_vote) {
         foreach ($blockchain_votes as $bc_vote) {
-            if ((string)$db_vote['vote_id'] === $bc_vote['vote_id'] && hash('sha256', json_encode($bc_vote)) === $db_vote['block_hash']) {
-                $verified_votes[] = [
-                    'vote_id' => $db_vote['vote_id'],
-                    'user_id' => $db_vote['user_id'],
-                    'election_id' => $db_vote['election_id'],
-                    'candidate_id' => $db_vote['candidate_id'],
-                    'vote_timestamp' => $db_vote['vote_timestamp']
+            // Match votes using electionId, voter, positionId, candidateId, and a timestamp range
+            $stmt = $db->prepare("SELECT c.position_id FROM candidates WHERE id = ?");
+            $stmt->bind_param('i', $db_vote['candidate_id']);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            $position = $result->fetch_assoc();
+            $stmt->close();
+
+            $db_timestamp = strtotime($db_vote['vote_timestamp']);
+            $bc_timestamp = (int)$bc_vote['timestamp'];
+            $timestamp_diff = abs($db_timestamp - $bc_timestamp);
+
+            if (
+                (string)$db_vote['election_id'] === $bc_vote['electionId'] &&
+                $bc_vote['voter'] === getenv('WALLET_ADDRESS') && // Single wallet address
+                (string)$position['position_id'] === $bc_vote['positionId'] &&
+                (string)$db_vote['candidate_id'] === $bc_vote['candidateId'] &&
+                $timestamp_diff <= 60 // Allow 60-second difference
+            ) {
+                // Verify hash
+                $vote_data = [
+                    'electionId' => (int)$bc_vote['electionId'],
+                    'voter' => $bc_vote['voter'],
+                    'positionId' => (int)$bc_vote['positionId'],
+                    'candidateId' => (int)$bc_vote['candidateId'],
+                    'timestamp' => (int)$bc_vote['timestamp']
                 ];
-                break;
+                if (hash('sha256', json_encode($vote_data)) === $db_vote['blockchain_hash']) {
+                    $verified_votes[] = [
+                        'vote_id' => $db_vote['vote_id'],
+                        'user_id' => $db_vote['user_id'],
+                        'election_id' => $db_vote['election_id'],
+                        'candidate_id' => $db_vote['candidate_id'],
+                        'vote_timestamp' => $db_vote['vote_timestamp']
+                    ];
+                    break;
+                }
             }
         }
     }
