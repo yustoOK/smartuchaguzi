@@ -16,9 +16,9 @@ try {
     die("Unable to connect to the database. Please try again later.");
 }
 
-$required_college = 'COED';
+$required_college = 'CoED';
 $required_association = 'UDOMASA';
-$required_role = 'voter'; // Updated to match the new role value in the users table
+$required_role = 'voter'; 
 
 // Simplified session validation with logging
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['role']) || $_SESSION['role'] !== $required_role) {
