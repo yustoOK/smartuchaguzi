@@ -185,9 +185,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             background-position: center;
             background-attachment: fixed;
             color: #2d3748;
-            line-height: 1.6;
             min-height: 100vh;
-            scroll-behavior: smooth;
         }
         .header {
             position: fixed;
@@ -202,29 +200,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             align-items: center;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
             z-index: 1000;
-            animation: gradientShift 5s infinite alternate;
-        }
-        @keyframes gradientShift {
-            0% { background: rgba(26, 60, 52, 0.9); }
-            100% { background: rgba(44, 82, 76, 0.9); }
         }
         .header .logo {
             display: flex;
             align-items: center;
         }
         .header .logo img {
-            width: 40px;
-            height: 40px;
+            width: 50px;
+            height: 50px;
             margin-right: 15px;
             border-radius: 50%;
             border: 2px solid #f4a261;
-            transition: transform 0.3s ease;
-        }
-        .header .logo img:hover {
-            transform: rotate(360deg);
         }
         .header .logo h1 {
-            font-size: 20px;
+            font-size: 24px;
+            color: #e6e6e6;
             font-weight: 600;
             background: linear-gradient(to right, #f4a261, #e76f51);
             -webkit-background-clip: text;
@@ -233,26 +223,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         }
         .header .nav {
             display: flex;
-            gap: 15px;
+            gap: 20px;
         }
         .header .nav a {
             color: #e6e6e6;
             text-decoration: none;
             font-size: 16px;
-            font-weight: 500;
-            padding: 8px 16px;
-            border-radius: 20px;
-            background: rgba(255, 255, 255, 0.1);
-            transition: all 0.3s ease;
+            padding: 10px 20px;
+            position: relative;
+            transition: color 0.3s ease;
+        }
+        .header .nav a::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: #f4a261;
+            transition: width 0.3s ease;
         }
         .header .nav a.active {
-            background: #f4a261;
-            color: #fff;
+            color: #f4a261;
+        }
+        .header .nav a.active::after {
+            width: 100%;
+        }
+        .header .nav a:hover::after {
+            width: 100%;
         }
         .header .nav a:hover {
-            background: #f4a261;
-            color: #fff;
-            transform: scale(1.05);
+            color: #f4a261;
         }
         .header .user {
             display: flex;
@@ -270,40 +271,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             border: 2px solid #f4a261;
         }
         .header .user a {
-            background: linear-gradient(135deg, #f4a261, #e76f51);
+            background: #f4a261;
             color: #fff;
             padding: 8px 16px;
             border-radius: 6px;
             text-decoration: none;
-            transition: all 0.3s ease;
+            transition: background 0.3s ease;
         }
         .header .user a:hover {
-            transform: scale(1.05);
-            box-shadow: 0 0 10px rgba(244, 162, 97, 0.5);
+            background: #e76f51;
         }
         .dashboard {
             padding: 100px 20px 40px;
+            min-height: calc(100vh - 70px);
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
         }
         .dash-content {
             max-width: 1200px;
-            margin: 0 auto;
+            width: 90%;
             background: rgba(255, 255, 255, 0.95);
-            padding: 30px;
+            padding: 40px;
             border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-            animation: fadeIn 0.5s ease-in-out;
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
         }
         .dash-content h2 {
-            font-size: 28px;
-            text-align: center;
+            font-size: 32px;
+            color: #1a3c34;
             margin-bottom: 30px;
+            text-align: center;
             background: linear-gradient(to right, #1a3c34, #f4a261);
             -webkit-background-clip: text;
-            background-clip: text;
             color: transparent;
         }
         .content-section {
@@ -319,17 +318,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             margin-bottom: 40px;
         }
         .overview .card {
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
+            background: #ffffff;
             padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
             text-align: center;
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            transition: transform 0.3s ease;
         }
         .overview .card:hover {
             transform: translateY(-5px);
-            box-shadow: 0 6px 20px rgba(244, 162, 97, 0.3);
         }
         .overview .card i {
             font-size: 30px;
@@ -339,6 +336,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         .overview .card .text {
             font-size: 16px;
             color: #4a5568;
+            font-weight: 500;
         }
         .overview .card .number {
             font-size: 24px;
@@ -347,12 +345,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             margin-top: 5px;
         }
         h3 {
-            font-size: 22px;
+            font-size: 24px;
             color: #1a3c34;
             margin-bottom: 20px;
+            text-align: center;
             background: linear-gradient(to right, #1a3c34, #f4a261);
             -webkit-background-clip: text;
-            background-clip: text;
             color: transparent;
         }
         .election-cards {
@@ -361,18 +359,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             gap: 20px;
         }
         .election-card, .analytics-card {
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
+            background: #f9f9f9;
             padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
             transition: transform 0.3s ease;
         }
         .election-card:hover, .analytics-card:hover {
             transform: translateY(-5px);
         }
         .election-card p, .analytics-card p {
-            font-size: 16px;
+            font-size: 14px;
             color: #4a5568;
             margin-bottom: 10px;
         }
@@ -386,30 +383,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             padding: 5px;
             border-radius: 4px;
             word-break: break-all;
+            font-size: 12px;
         }
         .vote-section table, .anomaly-section table, .audit-section table {
             width: 100%;
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
             border-collapse: collapse;
             margin-top: 20px;
         }
         .vote-section th, .anomaly-section th, .audit-section th {
-            background: #1a3c34;
-            color: #e6e6e6;
-            padding: 12px;
-            font-size: 16px;
+            background: #e0e0e0;
+            color: #1a3c34;
+            padding: 12px 15px;
+            font-size: 14px;
+            font-weight: 600;
+            text-transform: uppercase;
+            border-bottom: 1px solid #e0e0e0;
         }
         .vote-section td, .anomaly-section td, .audit-section td {
-            padding: 12px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 12px 15px;
+            border-bottom: 1px solid #e0e0e0;
             color: #4a5568;
             font-size: 14px;
+            background: #ffffff;
+        }
+        .vote-section tr:hover, .anomaly-section tr:hover, .audit-section tr:hover {
+            background: #f5f5f5;
         }
         .anomaly-section .score {
-            color: #e74c3c;
+            color: #e76f51;
             font-weight: 500;
         }
         .report-section {
@@ -420,94 +421,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             display: inline-block;
             margin: 10px;
         }
-        .report-section select {
-            padding: 8px;
-            border-radius: 6px;
-            border: 1px solid #e6e6e6;
-            background: rgba(255, 255, 255, 0.1);
-            color: #2d3748;
-            margin-right: 10px;
-        }
         .report-section button {
-            background: linear-gradient(135deg, #f4a261, #e76f51);
+            background: #f4a261;
             border: none;
             color: #fff;
-            padding: 8px 16px;
+            padding: 12px 24px;
             border-radius: 6px;
             cursor: pointer;
-            transition: all 0.3s ease;
+            font-size: 16px;
+            transition: background 0.3s ease;
         }
         .report-section button:hover {
-            transform: scale(1.05);
-            box-shadow: 0 0 10px rgba(244, 162, 97, 0.5);
-        }
-        .quick-links {
-            margin-top: 40px;
-            text-align: center;
-        }
-        .quick-links h3 {
-            font-size: 22px;
-            margin-bottom: 15px;
-        }
-        .quick-links ul {
-            list-style: none;
-            display: flex;
-            justify-content: center;
-            gap: 20px;
-            flex-wrap: wrap;
-        }
-        .quick-links ul li a {
-            display: block;
-            padding: 10px 20px;
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            border-radius: 8px;
-            color: #f4a261;
-            text-decoration: none;
-            transition: all 0.3s ease;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-        }
-        .quick-links ul li a:hover {
-            background: #f4a261;
-            color: #fff;
-            transform: scale(1.05);
+            background: #e76f51;
         }
         footer {
-            background: linear-gradient(135deg, #1a3c34, #2d3748);
+            background: #1a3c34;
             color: #e6e6e6;
-            padding: 40px 20px;
+            padding: 20px;
             text-align: center;
             margin-top: 40px;
         }
         footer p {
             font-size: 14px;
-        }
-        .back-to-top {
-            position: fixed;
-            bottom: 30px;
-            right: 30px;
-            background: linear-gradient(135deg, #f4a261, #e76f51);
-            color: #fff;
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 24px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-            opacity: 0;
-            visibility: hidden;
-            transition: all 0.3s ease;
-            text-decoration: none;
-        }
-        .back-to-top.show {
-            opacity: 1;
-            visibility: visible;
-        }
-        .back-to-top:hover {
-            transform: scale(1.1);
-            box-shadow: 0 6px 20px rgba(244, 162, 97, 0.5);
         }
         .modal {
             display: none;
@@ -522,7 +457,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             align-items: center;
         }
         .modal-content {
-            background: rgba(255, 255, 255, 0.9);
+            background: rgba(255, 255, 255, 0.95);
             padding: 20px;
             border-radius: 8px;
             text-align: center;
@@ -542,7 +477,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             padding: 10px 20px;
             border-radius: 6px;
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: background 0.3s ease;
         }
         .modal-content button:hover {
             background: #e76f51;
@@ -551,48 +486,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             .header {
                 padding: 15px 20px;
                 flex-direction: column;
-                gap: 15px;
+                gap: 10px;
             }
             .header .nav {
                 flex-wrap: wrap;
                 justify-content: center;
-                gap: 10px;
-            }
-            .overview, .election-cards {
-                grid-template-columns: 1fr;
+                gap: 15px;
             }
             .dash-content {
                 padding: 20px;
             }
-        }
-        @media (max-width: 480px) {
-            .header .logo h1 {
-                font-size: 18px;
-            }
-            .header .nav a {
-                padding: 6px 12px;
-                font-size: 14px;
-            }
-            .header .user img {
-                width: 30px;
-                height: 30px;
+            .overview, .election-cards {
+                grid-template-columns: 1fr;
             }
             .dash-content h2 {
                 font-size: 24px;
             }
             h3 {
-                font-size: 18px;
-            }
-            .overview .card .number {
                 font-size: 20px;
             }
+            .vote-section th, .anomaly-section th, .audit-section th,
             .vote-section td, .anomaly-section td, .audit-section td {
+                padding: 8px 10px;
                 font-size: 12px;
-            }
-            .back-to-top {
-                width: 40px;
-                height: 40px;
-                font-size: 20px;
             }
         }
     </style>
@@ -907,22 +823,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     </table>
                 </div>
             </div>
-
-            <div class="quick-links">
-                <h3>Quick Links</h3>
-                <ul>
-                    <li><a href="profile.php">My Profile</a></li>
-                    <li><a href="election-rules.php">Election Rules</a></li>
-                    <li><a href="contact.php">Support</a></li>
-                </ul>
-            </div>
         </div>
     </section>
 
     <footer>
-        <div class="footer-content">
-            <p>© 2025 SmartUchaguzi | University of Dodoma</p>
-        </div>
+        <p>© 2025 SmartUchaguzi | University of Dodoma</p>
     </footer>
 
     <div class="modal" id="timeout-modal">
@@ -931,8 +836,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             <button id="extend-session">OK</button>
         </div>
     </div>
-
-    <a href="#" class="back-to-top" id="back-to-top"><i class="fas fa-chevron-up"></i></a>
 
     <script>
         const links = document.querySelectorAll('.header .nav a');
@@ -946,15 +849,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 links.forEach(l => l.classList.remove('active'));
                 link.classList.add('active');
             });
-        });
-
-        window.addEventListener('scroll', () => {
-            const backToTop = document.getElementById('back-to-top');
-            if (window.scrollY > 300) {
-                backToTop.classList.add('show');
-            } else {
-                backToTop.classList.remove('show');
-            }
         });
 
         const inactivityTimeout = <?php echo $inactivity_timeout; ?> * 1000;

@@ -12,8 +12,7 @@ if (!$election_id) {
 }
 
 try {
-    // Fetch vote hashes from database, joining with blockchain_records
-    $query = "SELECT v.vote_id, v.user_id, v.election_id, v.candidate_id, v.vote_timestamp, br.hash AS blockchain_hash 
+     $query = "SELECT v.vote_id, v.user_id, v.election_id, v.candidate_id, v.vote_timestamp, br.hash AS blockchain_hash 
               FROM votes v 
               JOIN blockchain_records br ON v.vote_id = br.vote_id 
               WHERE v.election_id = ?";
@@ -24,8 +23,7 @@ try {
     $db_votes = $result->fetch_all(MYSQLI_ASSOC);
     $stmt->close();
 
-    // Fetch votes from blockchain using JavaScript (executed server-side via Node.js)
-    $node_script = '
+     $node_script = '
         const ethers = require("ethers");
         const provider = new ethers.providers.JsonRpcProvider("' . getenv('SEPOLIA_RPC_URL') . '");
         const contract = new ethers.Contract(
@@ -49,7 +47,6 @@ try {
     $output = shell_exec('node temp.js 2>&1');
     unlink('temp.js');
 
-    // Improved error handling for Node.js execution
     if ($output === null) {
         throw new Exception('Node.js execution failed: No output received');
     }
@@ -61,11 +58,9 @@ try {
         throw new Exception('Failed to fetch blockchain votes');
     }
 
-    // Verify votes
     $verified_votes = [];
     foreach ($db_votes as $db_vote) {
         foreach ($blockchain_votes as $bc_vote) {
-            // Match votes using electionId, voter, positionId, candidateId, and a timestamp range
             $stmt = $db->prepare("SELECT c.position_id FROM candidates WHERE id = ?");
             $stmt->bind_param('i', $db_vote['candidate_id']);
             $stmt->execute();
@@ -82,7 +77,7 @@ try {
                 $bc_vote['voter'] === getenv('WALLET_ADDRESS') && // Single wallet address
                 (string)$position['position_id'] === $bc_vote['positionId'] &&
                 (string)$db_vote['candidate_id'] === $bc_vote['candidateId'] &&
-                $timestamp_diff <= 60 // Allow 60-second difference
+                $timestamp_diff <= 60 // Allows 60-second difference
             ) {
                 // Verify hash
                 $vote_data = [
