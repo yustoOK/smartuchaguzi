@@ -17,9 +17,9 @@ try {
     die("Unable to connect to the database. Please try again later.");
 }
 
-$required_college = 'COED';
-$required_association = 'UDOMASA';
-$required_role = 'teacher-voter';
+$required_college = 'CoED';
+$required_association = 'UDOSO';
+$required_role = 'voter';
 
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['role']) || $_SESSION['role'] !== $required_role) {
     error_log("Session validation failed: user_id or role not set or invalid. Session: " . print_r($_SESSION, true));

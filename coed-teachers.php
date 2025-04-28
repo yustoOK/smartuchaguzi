@@ -711,12 +711,7 @@ if (empty($errors)) {
         </div>
     </section>
 
-    <div class="modal" id="timeout-modal">
-        <div class="modal-content">
-            <p id="timeout-message">You will be logged out in 1 minute due to inactivity.</p>
-            <button id="extend-session">OK</button>
-        </div>
-    </div>
+    
 
     <script>
         const userId = <?php echo $user_id; ?>;
