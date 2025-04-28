@@ -2,7 +2,6 @@
 session_start();
 date_default_timezone_set('Africa/Dar_es_Salaam');
 
-// Internal database connection
 $host = 'localhost';
 $dbname = 'smartuchaguzi_db';
 $username = 'root';
@@ -22,7 +21,6 @@ $required_college = 'COED';
 $required_association = 'UDOMASA';
 $required_role = 'teacher-voter';
 
-// Simplified session validation with logging
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['role']) || $_SESSION['role'] !== $required_role) {
     error_log("Session validation failed: user_id or role not set or invalid. Session: " . print_r($_SESSION, true));
     session_unset();
@@ -31,13 +29,11 @@ if (!isset($_SESSION['user_id']) || !isset($_SESSION['role']) || $_SESSION['role
     exit;
 }
 
-// Log session details for debugging
 error_log("Session after validation: user_id=" . ($_SESSION['user_id'] ?? 'unset') . 
           ", role=" . ($_SESSION['role'] ?? 'unset') . 
           ", college_id=" . ($_SESSION['college_id'] ?? 'unset') . 
           ", association=" . ($_SESSION['association'] ?? 'unset'));
 
-// Optional checks for college_id and association
 if (isset($_SESSION['college_id'])) {
     $stmt = $conn->prepare("SELECT name FROM colleges WHERE college_id = ?");
     $stmt->bind_param('i', $_SESSION['college_id']);
@@ -123,7 +119,6 @@ try {
 
 $profile_picture = 'images/general.png';
 
-// Fetch user details for voting
 $errors = [];
 $elections = [];
 $user_details = [];
@@ -158,7 +153,6 @@ if (empty($errors)) {
     $association = $user_details['association'];
     $college_id = $user_details['college_id'];
 
-    // Fetch active elections using prepared statement
     try {
         $stmt = $conn->prepare(
             "SELECT election_id, title
@@ -178,12 +172,11 @@ if (empty($errors)) {
         $elections = $result->fetch_all(MYSQLI_ASSOC);
         $stmt->close();
 
-        // For each election, fetch eligible positions and candidates
         foreach ($elections as &$election) {
             $election_id = $election['election_id'];
             $positions = [];
 
-            // Fetch positions the user is eligible to vote for using scope
+            
             $query = "
                 SELECT ep.position_id, ep.name AS position_name, ep.scope, ep.college_id AS position_college_id
                 FROM electionpositions ep
@@ -211,7 +204,6 @@ if (empty($errors)) {
             while ($position = $result->fetch_assoc()) {
                 $position_id = $position['position_id'];
 
-                // Check if the user has already voted for this position
                 $vote_stmt = $conn->prepare(
                     "SELECT 1 FROM votes 
                      WHERE user_id = ? AND election_id = ? AND candidate_id IN (
@@ -233,7 +225,6 @@ if (empty($errors)) {
                 }
                 $vote_stmt->close();
 
-                // Fetch candidates for this position
                 $cand_stmt = $conn->prepare(
                     "SELECT id, official_id, firstname, lastname, association
                      FROM candidates

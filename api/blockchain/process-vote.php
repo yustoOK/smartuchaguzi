@@ -21,7 +21,7 @@ $position_id = (int)$input['position_id'];
 $candidate_id = (int)$input['candidate_id'];
 $ip_address = $_SERVER['REMOTE_ADDR'];
 
-// Validate session for JSON requests
+// Validating session for JSON requests
 if (isset($input['user_id']) && (int)$input['user_id'] !== $user_id) {
     http_response_code(403);
     echo json_encode(['error' => 'Unauthorized user']);
@@ -29,15 +29,14 @@ if (isset($input['user_id']) && (int)$input['user_id'] !== $user_id) {
 }
 
 try {
-    // Log the vote attempt
-    $log_stmt = $db->prepare("INSERT INTO auditlogs (user_id, action, ip_address, details) VALUES (?, ?, ?, ?)");
+     $log_stmt = $db->prepare("INSERT INTO auditlogs (user_id, action, ip_address, details) VALUES (?, ?, ?, ?)");
     $action = "Vote attempt";
     $details = "User attempted to vote for candidate_id $candidate_id in election_id $election_id for position_id $position_id";
     $log_stmt->bind_param('isss', $user_id, $action, $ip_address, $details);
     $log_stmt->execute();
     $log_stmt->close();
 
-    // Check if the election is ongoing
+    // Checking if the election is ongoing
     $stmt = $db->prepare("SELECT status FROM elections WHERE election_id = ?");
     $stmt->bind_param('i', $election_id);
     $stmt->execute();
@@ -49,7 +48,7 @@ try {
         throw new Exception('Election is not ongoing');
     }
 
-    // Fetch user details
+    // Fetching user details
     $stmt = $db->prepare("SELECT college_id, hostel_id FROM userdetails WHERE user_id = ? AND processed_at IS NOT NULL");
     $stmt->bind_param('i', $user_id);
     $stmt->execute();
@@ -63,7 +62,7 @@ try {
     $college_id = $user['college_id'];
     $hostel_id = $user['hostel_id'] ?: 0;
 
-    // Validate candidate
+    // Validating candidate
     $stmt = $db->prepare("SELECT election_id, position_id FROM candidates WHERE id = ?");
     $stmt->bind_param('i', $candidate_id);
     $stmt->execute();
@@ -75,7 +74,7 @@ try {
         throw new Exception('Invalid candidate for this position or election');
     }
 
-    // Check for duplicate votes
+    // Checking for duplicate votes
     $stmt = $db->prepare(
         "SELECT COUNT(*) FROM votes 
          WHERE user_id = ? AND election_id = ? AND candidate_id IN (
@@ -91,7 +90,7 @@ try {
         throw new Exception('You have already voted for this position');
     }
 
-    // Fraud detection
+    // Fraud detection (Most Important)
     $vote_timestamp = date('Y-m-d H:i:s');
     $fraud_check_data = [
         'user_id' => $user_id,
@@ -103,6 +102,7 @@ try {
         'election_id' => $election_id 
     ];
 
+    // Sending data to fraud detection API(the API is hosted locally)
     $ch = curl_init('http://localhost/smartuchaguzi/api/fraud-detection.php');
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_POST, true);
@@ -138,14 +138,16 @@ try {
     ];
     $vote_hash = hash('sha256', json_encode($vote_data));
 
-    // Casting vote on the blockchain
+
+    
+    // Casting vote on the blockchain (Most Important)
     $node_script = '
         const ethers = require("ethers");
         const provider = new ethers.providers.JsonRpcProvider("' . getenv('SEPOLIA_RPC_URL') . '");
         const wallet = new ethers.Wallet("' . getenv('PRIVATE_KEY') . '", provider);
         const contract = new ethers.Contract(
             "' . getenv('VOTE_CONTRACT_ADDRESS') . '",
-            ' . json_encode(json_decode(file_get_contents('../../blockchain/artifacts/contracts/VoteContract.sol/VoteContract.json'))->abi) . ',
+            ' . json_encode(json_decode(file_get_contents('../../blockchain/artifacts/api/blockchain/contracts/VoteContract.sol/VoteContract.json'))->abi) . ',
             wallet
         );
         async function castVote() {
@@ -180,6 +182,9 @@ try {
         throw new Exception('Blockchain vote failed: ' . ($result['error'] ?? 'Unknown error'));
     }
 
+
+
+    
     // Storing vote in the database
     $stmt = $db->prepare(
         "INSERT INTO votes (user_id, election_id, candidate_id, vote_timestamp, blockchain_hash, is_anonymized) 
@@ -213,8 +218,7 @@ try {
         'txHash' => $result['txHash']
     ]);
 } catch (Exception $e) {
-    // Log the error
-    $log_stmt = $db->prepare("INSERT INTO auditlogs (user_id, action, ip_address, details) VALUES (?, ?, ?, ?)");
+     $log_stmt = $db->prepare("INSERT INTO auditlogs (user_id, action, ip_address, details) VALUES (?, ?, ?, ?)");
     $action = "Vote failed";
     $details = "Failed to cast vote: " . $e->getMessage();
     $log_stmt->bind_param('isss', $user_id, $action, $ip_address, $details);

@@ -557,8 +557,7 @@ date_default_timezone_set('Africa/Dar_es_Salaam');
             }
         }
 
-        /* [Rest of CSS unchanged] */
-        .upcoming-elections {
+       .upcoming-elections {
             background: linear-gradient(rgba(26, 60, 52, 0.95), rgba(26, 60, 52, 0.95));
             color: #e6e6e6;
             padding: 80px 20px;
@@ -605,8 +604,7 @@ date_default_timezone_set('Africa/Dar_es_Salaam');
             font-size: 16px;
         }
 
-        /* [Rest of CSS unchanged] */
-    </style>
+         </style>
 </head>
 
 <body>

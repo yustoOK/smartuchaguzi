@@ -163,12 +163,12 @@ if (empty($errors)) {
         $elections = $result->fetch_all(MYSQLI_ASSOC);
         $stmt->close();
 
-        // For each election, fetch eligible positions and candidates
+        // For each election, fetching eligible positions and candidates
         foreach ($elections as &$election) {
             $election_id = $election['election_id'];
             $positions = [];
 
-            // Fetch positions the user is eligible to vote for using scope
+            // Fetching positions the user is eligible to vote for using scope
             $query = "
                 SELECT ep.position_id, ep.name AS position_name, ep.scope, ep.college_id AS position_college_id, ep.hostel_id
                 FROM electionpositions ep
@@ -203,7 +203,7 @@ if (empty($errors)) {
             while ($position = $result->fetch_assoc()) {
                 $position_id = $position['position_id'];
 
-                // Check if the user has already voted for this position
+                // Checking if the user has already voted for this position
                 $vote_stmt = $conn->prepare(
                     "SELECT 1 FROM votes 
                      WHERE user_id = ? AND election_id = ? AND candidate_id IN (
@@ -225,7 +225,7 @@ if (empty($errors)) {
                 }
                 $vote_stmt->close();
 
-                // Fetch candidates for this position, 
+                // Fetching candidates for this position, 
                 $cand_stmt = $conn->prepare(
                     "SELECT id, official_id, firstname, lastname, association
                      FROM candidates
@@ -712,7 +712,7 @@ if (empty($errors)) {
                     const result = await response.json();
                     if (response.ok && result.success) {
                         showSuccess('Vote cast successfully! Transaction Hash: ' + result.txHash);
-                        // Disable radio buttons and button after successful vote
+                        // Disabling radio buttons and button after successful vote
                         form.querySelectorAll('input[name="candidate_id"]').forEach(radio => {
                             radio.disabled = true;
                         });

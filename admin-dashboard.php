@@ -101,7 +101,7 @@ if ($user['college_id']) {
     }
 }
 
-// Log dashboard access
+
 try {
     $stmt = $pdo->prepare("INSERT INTO auditlogs (user_id, action, details, ip_address, timestamp) VALUES (?, ?, ?, ?, NOW())");
     $stmt->execute([$user_id, 'Admin Dashboard Access', 'User accessed admin dashboard', $_SERVER['REMOTE_ADDR']]);
@@ -109,7 +109,7 @@ try {
     error_log("Audit log insertion failed: " . $e->getMessage());
 }
 
-// Overview statistics with error handling
+
 try {
     $stmt = $pdo->prepare("SELECT COUNT(*) FROM candidates");
     $stmt->execute();

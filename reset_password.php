@@ -261,7 +261,6 @@ date_default_timezone_set('Africa/Dar_es_Salaam');
             exit;
         }
 
-        // Checking if token is valid
         $stmt = $pdo->prepare("SELECT * FROM password_resets WHERE token = ? AND expires_at > NOW()");
         $stmt->execute([$token]);
         $reset = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -280,13 +279,11 @@ date_default_timezone_set('Africa/Dar_es_Salaam');
             } elseif ($password !== $confirm_password) {
                 echo '<p class="message error">Passwords do not match.</p>';
             } else {
-                // Update password
                 $password_hash = password_hash($password, PASSWORD_DEFAULT);
                 $stmt = $pdo->prepare("UPDATE users SET password_hash = ? WHERE email = ?");
                 $stmt->execute([$password_hash, $reset['email']]);
 
-                // Delete the reset token
-                $stmt = $pdo->prepare("DELETE FROM password_resets WHERE token = ?");
+                 $stmt = $pdo->prepare("DELETE FROM password_resets WHERE token = ?");
                 $stmt->execute([$token]);
 
                 echo '<p class="message success">Password reset successfully! <a href="login.html" style="color: #f4a261;">Log in</a></p>';

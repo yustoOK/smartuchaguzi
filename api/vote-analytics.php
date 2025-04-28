@@ -4,7 +4,7 @@ include '../db.php';
 
 $election_id = isset($_GET['election_id']) ? (int)$_GET['election_id'] : 0;
 
-// Validate election_id
+// Validating election_id
 if (!$election_id) {
     http_response_code(400);
     echo json_encode(['error' => 'Election ID is required']);
@@ -12,7 +12,7 @@ if (!$election_id) {
 }
 
 try {
-    // Fetch verified votes from blockchain
+    // Fetching verified votes from blockchain
     $votes_response = file_get_contents("http://localhost/smartuchaguzi/api/blockchain/get-votes.php?election_id=$election_id");
     $votes_data = json_decode($votes_response, true);
     if (isset($votes_data['error'])) {
@@ -20,7 +20,7 @@ try {
     }
     $votes = $votes_data['votes'];
 
-    // Fetch election positions
+    // Fetching election positions
     $query = "SELECT ep.id, ep.name 
               FROM election_positions ep 
               JOIN elections e ON ep.election_id = e.id 
@@ -32,12 +32,12 @@ try {
     $positions = $result->fetch_all(MYSQLI_ASSOC);
     $stmt->close();
 
-    // Calculate analytics
+    // Calculating analytics
     $total_votes = count($votes);
     $analytics = [];
 
     foreach ($positions as $position) {
-        // Fetch candidates for this position
+        // Fetching candidates for this position
         $stmt = $db->prepare(
             "SELECT c.id, u.fname AS name 
              FROM candidates c 
@@ -58,7 +58,7 @@ try {
             'winner' => null
         ];
 
-        // Count votes per candidate and determine winner
+        // Counting votes per candidate and determining a winner
         $max_votes = 0;
         $winners = [];
         foreach ($candidates as &$candidate) {

@@ -2,7 +2,7 @@
 session_start();
 date_default_timezone_set('Africa/Dar_es_Salaam');
 
-include '../db.php'; // Database connection (assumes MySQLi)
+include '../db.php'; // Database connection
 
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
     header('Location: ../login.php?error=' . urlencode('Please log in as admin.'));
@@ -26,7 +26,6 @@ try {
     $errors[] = "Failed to load upcoming elections.";
 }
 
-// Handle adding new notification
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_notification'])) {
     $title = filter_input(INPUT_POST, 'title', FILTER_SANITIZE_FULL_SPECIAL_CHARS);
     $date = filter_input(INPUT_POST, 'date', FILTER_SANITIZE_FULL_SPECIAL_CHARS);
@@ -65,7 +64,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_notification'])) 
     }
 }
 
-// Handle updating existing notification
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_notification'])) {
     $notification_id = filter_var($_POST['notification_id'], FILTER_VALIDATE_INT);
     $title = filter_input(INPUT_POST, 'title', FILTER_SANITIZE_FULL_SPECIAL_CHARS);
@@ -118,7 +116,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_notification']
     }
 }
 
-// Handle deleting notification
+// Handling deleting notification
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_notification'])) {
     $notification_id = filter_var($_POST['notification_id'], FILTER_VALIDATE_INT);
 

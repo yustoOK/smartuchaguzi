@@ -40,7 +40,7 @@ contract ElectionContract {
     event CandidateAdded(uint256 candidateId, uint256 electionId, string name, uint256 positionId);
 
     modifier onlyAdmin() {
-        require(msg.sender == admin, "Only admin allowed");
+        require(msg.sender == admin, "Not authorized");
         _;
     }
 

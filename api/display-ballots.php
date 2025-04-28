@@ -13,7 +13,6 @@ $errors = [];
 $elections = [];
 $user_details = [];
 
-// Fetch user details
 try {
     $stmt = $db->prepare(
         "SELECT u.association, u.college_id, u.hostel_id, c.name AS college_name
@@ -40,7 +39,6 @@ if (empty($errors)) {
     $college_id = $user_details['college_id'];
     $hostel_id = $user_details['hostel_id'] ?: 0;
 
-    // Fetch active elections
     try {
         $stmt = $db->query(
             "SELECT election_id, title
@@ -50,12 +48,10 @@ if (empty($errors)) {
         );
         $elections = $stmt->fetch_all(MYSQLI_ASSOC);
 
-        // For each election, fetch eligible positions and candidates
         foreach ($elections as &$election) {
             $election_id = $election['election_id'];
             $positions = [];
 
-            // Fetch positions the user is eligible to vote for using scope
             $query = "
                 SELECT ep.position_id, ep.name AS position_name, ep.scope, ep.college_id AS position_college_id, ep.hostel_id
                 FROM electionpositions ep
@@ -85,8 +81,7 @@ if (empty($errors)) {
             while ($position = $result->fetch_assoc()) {
                 $position_id = $position['position_id'];
 
-                // Check if the user has already voted for this position
-                $vote_stmt = $db->prepare(
+                 $vote_stmt = $db->prepare(
                     "SELECT 1 FROM votes 
                      WHERE user_id = ? AND election_id = ? AND candidate_id IN (
                          SELECT id FROM candidates WHERE position_id = ?
@@ -102,7 +97,6 @@ if (empty($errors)) {
                 }
                 $vote_stmt->close();
 
-                // Fetch candidates for this position, including official_id and association
                 $cand_stmt = $db->prepare(
                     "SELECT id, official_id, firstname, middlename, lastname, association
                      FROM candidates

@@ -3,13 +3,12 @@
 $message = '';
 $status = '';
 
-// Checking if the form was submitted
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    // Sanitizing input data
-    $name = filter_var(trim($_POST['name']), FILTER_SANITIZE_STRING);
+    
+    $name = htmlspecialchars(trim($_POST['name']), ENT_QUOTES, 'UTF-8');
     $email = filter_var(trim($_POST['email']), FILTER_SANITIZE_EMAIL);
-    $subject = filter_var(trim($_POST['subject']), FILTER_SANITIZE_STRING);
-    $user_message = filter_var(trim($_POST['message']), FILTER_SANITIZE_STRING);
+    $subject = htmlspecialchars(trim($_POST['subject']), ENT_QUOTES, 'UTF-8');
+    $user_message = htmlspecialchars(trim($_POST['message']), ENT_QUOTES, 'UTF-8');
 
     // Validatation of input
     if (empty($name) || empty($email) || empty($subject) || empty($user_message)) {
@@ -19,8 +18,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $message = 'Please enter a valid email address.';
         $status = 'error';
     } else {
-        // Preparation of email details
-        $to = 'yustobitalio20@gmail.com';
+        $to = 'smartuchaguzi1@gmail.com';
         $email_subject = "SmartUchaguzi Contact Form: $subject";
         $email_body = "You have received a new message from the SmartUchaguzi contact form.\n\n";
         $email_body .= "Name: $name\n";
@@ -28,12 +26,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $email_body .= "Subject: $subject\n";
         $email_body .= "Message:\n$user_message\n";
 
-        // Setting headers to prevent email injection and allow reply-to
         $headers = "From: SmartUchaguzi <noreply@smartuchaguzi.com>\r\n";
         $headers .= "Reply-To: $email\r\n";
         $headers .= "Content-Type: text/plain; charset=UTF-8\r\n";
 
-        // Send the email
         if (mail($to, $email_subject, $email_body, $headers)) {
             $message = 'Thank you for your message! We will get back to you soon.';
             $status = 'success';

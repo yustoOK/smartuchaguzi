@@ -4,7 +4,6 @@ include '../../db.php';
 
 $election_id = isset($_GET['election_id']) ? (int)$_GET['election_id'] : 0;
 
-// Validate election_id
 if (!$election_id) {
     http_response_code(400);
     echo json_encode(['error' => 'Election ID is required']);

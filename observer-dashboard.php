@@ -5,7 +5,6 @@ ini_set('session.cookie_secure', 1);
 session_start();
 date_default_timezone_set('Africa/Dar_es_Salaam');
 
-// Database connection
 $host = 'localhost';
 $dbname = 'smartuchaguzi_db';
 $username = 'root';
@@ -21,7 +20,6 @@ try {
 
 $required_role = 'observer';
 
-// Simplified session validation with logging
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['role']) || $_SESSION['role'] !== $required_role) {
     error_log("Session validation failed: user_id or role not set or invalid. Session: " . print_r($_SESSION, true));
     session_unset();
@@ -30,11 +28,9 @@ if (!isset($_SESSION['user_id']) || !isset($_SESSION['role']) || $_SESSION['role
     exit;
 }
 
-// Log session details for debugging
 error_log("Session after validation: user_id=" . ($_SESSION['user_id'] ?? 'unset') . 
           ", role=" . ($_SESSION['role'] ?? 'unset'));
 
-// User agent validation
 if (!isset($_SESSION['user_agent']) || $_SESSION['user_agent'] !== $_SERVER['HTTP_USER_AGENT']) {
     error_log("Session hijacking detected: user agent mismatch.");
     session_unset();
@@ -75,7 +71,6 @@ if ($inactive_time >= $inactivity_timeout) {
 
 $_SESSION['last_activity'] = time();
 
-// CSRF token handling
 if (!isset($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
@@ -97,7 +92,6 @@ try {
     exit;
 }
 
-// Overview statistics with error handling
 try {
     $stmt = $pdo->prepare("SELECT COUNT(*) FROM elections");
     $stmt->execute();
@@ -134,7 +128,6 @@ try {
     $total_anomalies = "N/A";
 }
 
-// Handle report generation
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'generate_report') {
     if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_token']) {
         error_log("CSRF token validation failed for user_id: $user_id");

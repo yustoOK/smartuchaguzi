@@ -9,7 +9,7 @@ if (!$election_id) {
 }
 
 try {
-    // Fetch election details
+    // Fetching election details
     $stmt = $db->prepare("SELECT association, start_time, end_time FROM elections WHERE id = ?");
     $stmt->bind_param('i', $election_id);
     $stmt->execute();
@@ -26,7 +26,7 @@ try {
         die('Election not found.');
     }
 
-    // Fetch analytics
+    // Fetching analytics
     $analytics_response = file_get_contents("http://localhost/smartuchaguzi/api/vote-analytics.php?election_id=$election_id");
     $analytics_data = json_decode($analytics_response, true);
     if (isset($analytics_data['error'])) {
@@ -35,7 +35,7 @@ try {
     $positions = $analytics_data['positions'];
     $total_votes = $analytics_data['totalVotes'];
 
-    // Initialize TCPDF 
+    // Initializing TCPDF 
     $pdf = new TCPDF();
     $pdf->SetCreator(PDF_CREATOR);
     $pdf->SetAuthor('SmartUchaguzi');
