@@ -285,7 +285,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <h1>SmartUchaguzi</h1>
             </div>
             <div class="breadcrumb">
-                <a href="index.html">Home</a> / <a href="forgot_password.php">Forgot Password</a>
+                <a href="index.php">Home</a> / <a href="forgot_password.php">Forgot Password</a>
             </div>
         </div>
     </div>
