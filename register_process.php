@@ -37,7 +37,7 @@ function sendVerificationEmail($email, $token)
     $subject = "Verify Your SmartUchaguzi Account";
     $verificationLink = "http://localhost/smartuchaguzi/verify_email.php?token=" . urlencode($token);
     $message = "Hello,\n\nPlease verify your email by clicking the link below:\n$verificationLink\n\nIf you did not register, please ignore this email.\n\nBest regards,\nSmartUchaguzi Team 2025";
-    $headers = "From: yustobitalio20@gmail.com\r\n";
+    $headers = "From: smartuchaguzi@gmail.com\r\n";
 
     return mail($email, $subject, $message, $headers);
 }
