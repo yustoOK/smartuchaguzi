@@ -151,6 +151,6 @@ try {
 } catch (Exception $e) {
     error_log("Fraud detection failed: " . $e->getMessage());
     http_response_code(500);
-    echo json_encode(['error' => 'Failed to process fraud detection']);
+    echo json_encode(['error' => 'Error processing request: ' . $e->getMessage()]);
 }
 ?>
