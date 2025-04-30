@@ -3,7 +3,8 @@
 #This is a FastAPI application that serves a machine learning model for fraud detection.
 # It accepts a POST request with user and voting information, processes the data, and returns a prediction of whether the vote is fraudulent or not.
 
-# The model is loaded from a specified path and the input data is validated before making predictions.
+# The model is loaded from a specified path and the input data is validated before making predictions(Hence we need to ensure it actually exists to avoid exceptions).
+
 # The application handles exceptions and returns appropriate HTTP status codes and messages in case of errors.
 
 from fastapi import FastAPI, HTTPException, Request
