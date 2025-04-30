@@ -410,6 +410,7 @@ if (empty($errors)) {
             text-align: center;
             background: linear-gradient(to right, #1a3c34, #f4a261);
             -webkit-background-clip: text;
+            background-clip: text;
             color: transparent;
         }
         .election-section {
