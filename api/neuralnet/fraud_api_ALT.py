@@ -13,7 +13,7 @@ import tensorflow as tf
 import numpy as np
 
 app = FastAPI()
-model = tf.keras.models.load_model('./neuralnet/fraud_model.keras')
+model = tf.keras.models.load_model('fraud_model.keras')
 
 class FraudRequest(BaseModel):
     user_id: int
