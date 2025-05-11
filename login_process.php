@@ -18,9 +18,7 @@ try {
 function redirectUser($role, $college_id, $association) {
     if ($role === 'admin') {
         header('Location: admin-dashboard.php');
-    } elseif ($role === 'observer') {
-        header('Location: observer-dashboard.php');
-    } elseif ($role === 'voter' && $association === 'UDOSO') {
+    }  elseif ($role === 'voter' && $association === 'UDOSO') {
         if ($college_id === 1) { // CIVE
             header('Location: cive-students.php');
         } elseif ($college_id === 3) { // CNMS

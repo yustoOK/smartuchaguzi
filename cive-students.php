@@ -412,7 +412,7 @@ if (empty($errors)) {
             -webkit-background-clip: text;
             background-clip: text;
             color: transparent;
-        }
+        } 
         .election-section {
             margin-bottom: 40px;
             padding: 20px;
