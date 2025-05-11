@@ -13,27 +13,19 @@ contract VoteContract {
     // Array to store all votes
     Vote[] public votes;
 
-    // Struct to represent a vote
+    // Struct to represent a vote with additional details
     struct Vote {
         uint256 electionId;
         address voter;
         uint256 positionId;
         uint256 candidateId;
         uint256 timestamp;
+        string candidateName; // Optional, for off-chain use
+        string positionName;  // Optional, for off-chain use
     }
-
-    // Struct to hold election time data (fetched off-chain)
-    struct ElectionTime {
-        uint256 startDate;
-        uint256 endDate;
-    }
-
-    // Mapping to store election start and end times (set by admin via off-chain data)
-    mapping(uint256 => ElectionTime) public electionTimes;
 
     // Events for logging
-    event VoteCast(uint256 electionId, address indexed voter, uint256 positionId, uint256 candidateId);
-    event ElectionTimeSet(uint256 electionId, uint256 startDate, uint256 endDate);
+    event VoteCast(uint256 electionId, address indexed voter, uint256 positionId, uint256 candidateId, string candidateName, string positionName);
 
     // Modifiers
     modifier onlyAdmin() {
@@ -41,50 +33,32 @@ contract VoteContract {
         _;
     }
 
-    modifier onlyDuringElection(uint256 electionId) {
-        ElectionTime memory electionTime = electionTimes[electionId];
-        require(electionTime.startDate > 0 && electionTime.endDate > 0, "Election time not set");
-        require(block.timestamp >= electionTime.startDate, "Election not yet started");
-        require(block.timestamp <= electionTime.endDate, "Election has ended");
-        _;
-    }
-
     constructor() {
         admin = msg.sender;
     }
 
-    // Function to set election start and end times (fetched off-chain from the database)
-    function setElectionTime(
-        uint256 electionId,
-        uint256 startDate,
-        uint256 endDate
-    ) external onlyAdmin {
-        require(startDate < endDate, "Invalid time range");
-        electionTimes[electionId] = ElectionTime(startDate, endDate);
-        emit ElectionTimeSet(electionId, startDate, endDate);
-    }
-
-    // Function to cast a vote
+    // Function to cast a vote with additional details
     function castVote(
         uint256 electionId,
         uint256 positionId,
-        uint256 candidateId
-    ) external onlyDuringElection(electionId) {
+        uint256 candidateId,
+        string memory candidateName,
+        string memory positionName
+    ) external {
         // Ensure voter hasn't voted for this position in this election
         require(!hasVoted[msg.sender][electionId][positionId], "Already voted for this position");
         
         // Ensure position ID is within the limit (1 to 5)
         require(positionId >= 1 && positionId <= 5, "Invalid position ID (must be 1 to 5)");
 
-        // Validate candidate (off-chain check assumed; replace with actual logic if needed)
-        bool isValidCandidate = true; // Placeholder for off-chain validation
-        require(isValidCandidate, "Invalid candidate");
+        // Off-chain validation of election_id, candidate_id, and position_id is assumed
+        // This should be handled by the front-end or oracle querying the MySQL database
 
         // Record the vote
         hasVoted[msg.sender][electionId][positionId] = true;
         voteCount[positionId][candidateId]++;
-        votes.push(Vote(electionId, msg.sender, positionId, candidateId, block.timestamp));
-        emit VoteCast(electionId, msg.sender, positionId, candidateId);
+        votes.push(Vote(electionId, msg.sender, positionId, candidateId, block.timestamp, candidateName, positionName));
+        emit VoteCast(electionId, msg.sender, positionId, candidateId, candidateName, positionName);
     }
 
     // Function to get the vote count for a candidate in a position
