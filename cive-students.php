@@ -2,7 +2,6 @@
 session_start();
 date_default_timezone_set('Africa/Dar_es_Salaam');
 
-
 $host = 'localhost';
 $dbname = 'smartuchaguzi_db';
 $username = 'root';
@@ -26,6 +25,11 @@ if (!isset($_SESSION['user_id']) || !isset($_SESSION['role']) || $_SESSION['role
     exit;
 }
 
+if (!isset($_SESSION['2fa_verified']) || $_SESSION['2fa_verified'] !== true) {
+    header('Location: 2fa.php');
+    exit;
+}
+
 error_log("Session after validation: user_id=" . ($_SESSION['user_id'] ?? 'unset') . 
           ", role=" . ($_SESSION['role'] ?? 'unset') . 
           ", college_id=" . ($_SESSION['college_id'] ?? 'unset') . 
@@ -36,6 +40,7 @@ if (isset($_SESSION['college_id']) && $_SESSION['college_id'] != 1) {
     header('Location: login.php?error=' . urlencode('Invalid college for this dashboard.'));
     exit;
 }
+
 if (isset($_SESSION['association']) && $_SESSION['association'] !== 'UDOSO') {
     error_log("Association mismatch: expected UDOSO, got " . $_SESSION['association']);
     header('Location: login.php?error=' . urlencode('Invalid association for this dashboard.'));
@@ -83,15 +88,11 @@ if ($inactive_time >= $inactivity_timeout) {
 $_SESSION['last_activity'] = time();
 
 $user_id = $_SESSION['user_id'];
+$user = [];
 try {
     $stmt = $conn->prepare("SELECT fname, college_id, hostel_id FROM users WHERE user_id = ?");
-    if (!$stmt) {
-        throw new Exception("Prepare failed: " . $conn->error);
-    }
     $stmt->bind_param("i", $user_id);
-    if (!$stmt->execute()) {
-        throw new Exception("Execute failed: " . $stmt->error);
-    }
+    $stmt->execute();
     $result = $stmt->get_result();
     $user = $result->fetch_assoc();
     if (!$user) {
@@ -106,11 +107,8 @@ try {
 }
 
 $profile_picture = 'images/general.png';
-
-// Fetching user details for voting
 $errors = [];
 $elections = [];
-$user_details = [];
 
 try {
     $stmt = $conn->prepare(
@@ -119,65 +117,40 @@ try {
          LEFT JOIN colleges c ON u.college_id = c.college_id
          WHERE u.user_id = ? AND u.active = 1"
     );
-    if (!$stmt) {
-        throw new Exception("Prepare failed: " . $conn->error);
-    }
     $stmt->bind_param('i', $user_id);
-    if (!$stmt->execute()) {
-        throw new Exception("Execute failed: " . $stmt->error);
-    }
+    $stmt->execute();
     $result = $stmt->get_result();
     $user_details = $result->fetch_assoc();
     $stmt->close();
 
     if (!$user_details) {
         $errors[] = "User not found or not active.";
-    }
-} catch (Exception $e) {
-    error_log("Fetch user details failed: " . $e->getMessage());
-    $errors[] = "Failed to load user details due to a server error.";
-}
+    } else {
+        $association = $user_details['association'];
+        $college_id = $user_details['college_id'];
+        $hostel_id = $user_details['hostel_id'] ?: 0;
 
-if (empty($errors)) {
-    $association = $user_details['association'];
-    $college_id = $user_details['college_id'];
-    $hostel_id = $user_details['hostel_id'] ?: 0;
-
-    // Fetching active elections using prepared statement
-    try {
         $stmt = $conn->prepare(
             "SELECT election_id, title
              FROM elections
-             WHERE status = ? AND end_time > NOW()
+             WHERE status = ? AND end_time > NOW() AND association = ?
              ORDER BY start_time ASC"
         );
-        if (!$stmt) {
-            throw new Exception("Prepare failed: " . $conn->error);
-        }
         $status = 'ongoing';
-        $stmt->bind_param('s', $status);
-        if (!$stmt->execute()) {
-            throw new Exception("Execute failed: " . $stmt->error);
-        }
+        $stmt->bind_param('ss', $status, $association);
+        $stmt->execute();
         $result = $stmt->get_result();
         $elections = $result->fetch_all(MYSQLI_ASSOC);
         $stmt->close();
 
-        // For each election, fetching eligible positions and candidates
         foreach ($elections as &$election) {
             $election_id = $election['election_id'];
             $positions = [];
 
-            // Fetching positions the user is eligible to vote for using scope
             $query = "
                 SELECT ep.position_id, ep.name AS position_name, ep.scope, ep.college_id AS position_college_id, ep.hostel_id
                 FROM electionpositions ep
                 WHERE ep.election_id = ?
-                AND ep.position_id IN (
-                    SELECT c.position_id
-                    FROM candidates c
-                    WHERE c.election_id = ? AND c.association = ?
-                )
                 AND (
                     ep.scope = 'university'
                     OR (ep.scope = 'college' AND ep.college_id = ?)
@@ -188,56 +161,23 @@ if (empty($errors)) {
             $query .= ") ORDER BY ep.position_id";
 
             $stmt = $conn->prepare($query);
-            if (!$stmt) {
-                throw new Exception("Prepare failed: " . $conn->error);
-            }
             if ($association === 'UDOSO' && $hostel_id) {
-                $stmt->bind_param('iisii', $election_id, $election_id, $association, $college_id, $hostel_id);
+                $stmt->bind_param('iii', $election_id, $college_id, $hostel_id);
             } else {
-                $stmt->bind_param('iisi', $election_id, $election_id, $association, $college_id);
+                $stmt->bind_param('ii', $election_id, $college_id);
             }
-            if (!$stmt->execute()) {
-                throw new Exception("Execute failed: " . $stmt->error);
-            }
+            $stmt->execute();
             $result = $stmt->get_result();
             while ($position = $result->fetch_assoc()) {
                 $position_id = $position['position_id'];
 
-                // Checking if the user has already voted for this position
-                $vote_stmt = $conn->prepare(
-                    "SELECT 1 FROM votes 
-                     WHERE user_id = ? AND election_id = ? AND candidate_id IN (
-                         SELECT id FROM candidates WHERE position_id = ?
-                     )"
-                );
-                if (!$vote_stmt) {
-                    throw new Exception("Prepare failed: " . $conn->error);
-                }
-                $vote_stmt->bind_param('iii', $user_id, $election_id, $position_id);
-                if (!$vote_stmt->execute()) {
-                    throw new Exception("Execute failed: " . $vote_stmt->error);
-                }
-                $vote_result = $vote_stmt->get_result();
-                if ($vote_result->num_rows > 0) {
-                    $position['already_voted'] = true;
-                } else {
-                    $position['already_voted'] = false;
-                }
-                $vote_stmt->close();
-
-                // Fetching candidates for this position, 
                 $cand_stmt = $conn->prepare(
-                    "SELECT id, official_id, firstname, lastname, association
+                    "SELECT id, official_id, firstname, lastname
                      FROM candidates
-                     WHERE election_id = ? AND position_id = ? AND association = ?"
+                     WHERE election_id = ? AND position_id = ?"
                 );
-                if (!$cand_stmt) {
-                    throw new Exception("Prepare failed: " . $conn->error);
-                }
-                $cand_stmt->bind_param('iis', $election_id, $position_id, $association);
-                if (!$cand_stmt->execute()) {
-                    throw new Exception("Execute failed: " . $cand_stmt->error);
-                }
+                $cand_stmt->bind_param('ii', $election_id, $position_id);
+                $cand_stmt->execute();
                 $cand_result = $cand_stmt->get_result();
                 $candidates = $cand_result->fetch_all(MYSQLI_ASSOC);
                 $cand_stmt->close();
@@ -249,10 +189,10 @@ if (empty($errors)) {
 
             $election['positions'] = $positions;
         }
-    } catch (Exception $e) {
-        error_log("Fetch elections failed: " . $e->getMessage());
-        $errors[] = "Failed to load elections due to a server error: " . htmlspecialchars($e->getMessage());
     }
+} catch (Exception $e) {
+    error_log("Fetch elections failed: " . $e->getMessage());
+    $errors[] = "Failed to load elections due to a server error: " . htmlspecialchars($e->getMessage());
 }
 ?>
 
@@ -279,211 +219,143 @@ if (empty($errors)) {
             min-height: 100vh;
         }
         .header {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            background: rgba(26, 60, 52, 0.9);
-            backdrop-filter: blur(10px);
-            padding: 15px 40px;
+            background: #1a3c34;
+            color: #e6e6e6;
+            padding: 15px 30px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            position: fixed;
+            width: 100%;
+            top: 0;
             z-index: 1000;
         }
-        .header .logo {
+        .logo {
             display: flex;
             align-items: center;
         }
-        .header .logo img {
-            width: 50px;
-            height: 50px;
-            margin-right: 15px;
-            border-radius: 50%;
-            border: 2px solid #f4a261;
-        }
-        .header .logo h1 {
-            font-size: 24px;
-            color: #e6e6e6;
-            font-weight: 600;
-            background: linear-gradient(to right, #f4a261, #e76f51);
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
-        }
-        .header .nav {
-            display: flex;
-            gap: 20px;
-        }
-        .header .nav a {
-            color: #e6e6e6;
-            text-decoration: none;
-            font-size: 16px;
-            padding: 10px 20px;
-            position: relative;
-            transition: color 0.3s ease;
-        }
-        .header .nav a::after {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 0;
-            height: 2px;
-            background: #f4a261;
-            transition: width 0.3s ease;
-        }
-        .header .nav a:hover::after {
-            width: 100%;
-        }
-        .header .nav a:hover {
-            color: #f4a261;
-        }
-        .header .user {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-        .header .user img {
+        .logo img {
             width: 40px;
             height: 40px;
             border-radius: 50%;
-            border: 2px solid #f4a261;
+            margin-right: 10px;
+        }
+        .logo h1 {
+            font-size: 24px;
+            font-weight: 600;
+        }
+        .nav a {
+            color: #e6e6e6;
+            text-decoration: none;
+            margin: 0 15px;
+            font-size: 16px;
+            transition: color 0.3s ease;
+        }
+        .nav a:hover {
+            color: #f4a261;
+        }
+        .user {
+            display: flex;
+            align-items: center;
+        }
+        .user img {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            margin-right: 10px;
             cursor: pointer;
         }
-        .header .user .dropdown {
+        .dropdown {
+            display: none;
             position: absolute;
             top: 60px;
-            right: 0;
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
+            right: 20px;
+            background: #fff;
             border-radius: 8px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-            display: none;
-            flex-direction: column;
-            width: 200px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
         }
-        .header .user .dropdown.active {
-            display: flex;
-        }
-        .header .user .dropdown a {
-            color: #e6e6e6;
+        .dropdown a, .dropdown span {
+            display: block;
             padding: 10px 20px;
+            color: #2d3748;
             text-decoration: none;
-            font-size: 14px;
-            transition: background 0.3s ease;
+            font-size: 16px;
         }
-        .header .user .dropdown a:hover {
-            background: rgba(244, 162, 97, 0.3);
-        }
-        .header .user .logout-link {
+        .dropdown a:hover {
             background: #f4a261;
             color: #fff;
-            padding: 8px 16px;
-            border-radius: 6px;
-            text-decoration: none;
         }
-        .header .user .logout-link:hover {
-            background: #e76f51;
+        .logout-link {
+            display: none;
+            color: #e6e6e6;
+            text-decoration: none;
+            font-size: 16px;
         }
         .dashboard {
-            padding: 0 20px 40px;
-            margin-top: 70px; 
-            min-height: calc(100vh - 70px); 
+            margin-top: 80px;
+            padding: 30px;
             display: flex;
             justify-content: center;
-            align-items: flex-start; 
         }
         .dash-content {
-            max-width: 1200px;
-            width: 90%;
             background: rgba(255, 255, 255, 0.95);
-            padding: 40px;
+            padding: 30px;
             border-radius: 12px;
+            width: 100%;
+            max-width: 1200px;
             box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
         }
         .dash-content h2 {
-            font-size: 32px;
-            color: #1a3c34;
-            margin-bottom: 30px;
-            text-align: center;
-            background: linear-gradient(to right, #1a3c34, #f4a261);
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
-        } 
-        .election-section {
-            margin-bottom: 40px;
-            padding: 20px;
-            background: #f9f9f9;
-            border-radius: 10px;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
-        }
-        .election-section h3 {
-            font-size: 24px;
+            font-size: 28px;
             color: #1a3c34;
             margin-bottom: 20px;
             text-align: center;
         }
+        .election-section {
+            margin-bottom: 30px;
+        }
+        .election-section h3 {
+            font-size: 22px;
+            color: #2d3748;
+            margin-bottom: 15px;
+        }
         .position-section {
-            margin: 20px 0;
-            padding: 15px;
-            background: #ffffff;
-            border-radius: 8px;
-            border: 1px solid #e0e0e0;
+            margin-bottom: 20px;
         }
         .position-section h4 {
-            font-size: 20px;
-            color: #1a3c34;
-            margin-bottom: 15px;
+            font-size: 18px;
+            color: #2d3748;
+            margin-bottom: 10px;
         }
         .candidate-table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 10px;
+            margin-bottom: 20px;
         }
         .candidate-table th, .candidate-table td {
-            padding: 12px 15px;
+            padding: 12px;
             text-align: left;
             border-bottom: 1px solid #e0e0e0;
         }
         .candidate-table th {
-            background: #e0e0e0;
-            color: #1a3c34;
-            font-weight: 600;
+            background: #1a3c34;
+            color: #e6e6e6;
+            text-transform: uppercase;
+            font-size: 14px;
         }
         .candidate-table td {
-            background: #ffffff;
+            background: #fff;
+            font-size: 16px;
         }
         .candidate-table tr:hover {
-            background: #f5f5f5;
-        }
-        button {
-            background: #f4a261;
-            color: #fff;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 16px;
-            margin-top: 15px;
-            transition: background 0.3s ease;
-            display: block;
-            margin-left: auto;
-        }
-        button:hover {
-            background: #e76f51;
-        }
-        button:disabled {
-            background: #cccccc;
-            cursor: not-allowed;
+            background: #f9f9f9;
         }
         .error, .success {
             padding: 15px;
             border-radius: 6px;
             margin-bottom: 20px;
-            text-align: center;
             font-size: 16px;
         }
         .error {
@@ -504,18 +376,17 @@ if (empty($errors)) {
             width: 100%;
             height: 100%;
             background: rgba(0, 0, 0, 0.5);
-            z-index: 2000;
+            z-index: 1001;
             justify-content: center;
             align-items: center;
         }
         .modal-content {
-            background: rgba(255, 255, 255, 0.95);
+            background: #fff;
             padding: 20px;
             border-radius: 8px;
             text-align: center;
             max-width: 400px;
             width: 90%;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
         }
         .modal-content p {
             font-size: 16px;
@@ -529,37 +400,64 @@ if (empty($errors)) {
             padding: 10px 20px;
             border-radius: 6px;
             cursor: pointer;
-            transition: background 0.3s ease;
+            font-size: 16px;
         }
         .modal-content button:hover {
             background: #e76f51;
         }
         @media (max-width: 768px) {
             .header {
-                padding: 15px 20px;
                 flex-direction: column;
-                gap: 10px;
+                padding: 10px 20px;
             }
-            .header .nav {
-                flex-wrap: wrap;
-                justify-content: center;
-                gap: 15px;
+            .logo h1 {
+                font-size: 20px;
+            }
+            .nav {
+                margin: 10px 0;
+                text-align: center;
+            }
+            .nav a {
+                margin: 0 10px;
+                font-size: 14px;
+            }
+            .user img {
+                display: none;
+            }
+            .dropdown {
+                display: block;
+                position: static;
+                box-shadow: none;
+                background: none;
+                text-align: center;
+            }
+            .dropdown a, .dropdown span {
+                color: #e6e6e6;
+                padding: 5px 10px;
+            }
+            .dropdown a:hover {
+                background: none;
+                color: #f4a261;
+            }
+            .logout-link {
+                display: block;
+                margin-top: 10px;
             }
             .dash-content {
                 padding: 20px;
-            }
-            .candidate-table th, .candidate-table td {
-                padding: 8px 10px;
-                font-size: 14px;
             }
             .dash-content h2 {
                 font-size: 24px;
             }
             .election-section h3 {
-                font-size: 20px;
+                font-size: 18px;
             }
             .position-section h4 {
-                font-size: 18px;
+                font-size: 16px;
+            }
+            .candidate-table th, .candidate-table td {
+                padding: 8px;
+                font-size: 14px;
             }
         }
     </style>
@@ -571,8 +469,9 @@ if (empty($errors)) {
             <h1>SmartUchaguzi</h1>
         </div>
         <div class="nav">
-            <a href="#">Verify Vote</a><!--api/blockchain/get-votes.php-->
-            <a href="#">Results</a><!--api/vote-analytics.php-->
+            <a href="process-vote.php">Cast Vote</a>
+            <a href="#">Verify Vote</a>
+            <a href="#">Results</a>
         </div>
         <div class="user">
             <img src="<?php echo htmlspecialchars($profile_picture); ?>" alt="User Profile Picture" id="profile-pic">
@@ -587,7 +486,7 @@ if (empty($errors)) {
 
     <section class="dashboard">
         <div class="dash-content">
-            <h2>Vote for Candidates</h2>
+            <h2>Candidate Details</h2>
 
             <?php if (!empty($errors)): ?>
                 <div class="error">
@@ -600,9 +499,6 @@ if (empty($errors)) {
                     <p>No ongoing elections available at this time.</p>
                 </div>
             <?php else: ?>
-                <div id="success-message" class="success" style="display: none;"></div>
-                <div id="error-message" class="error" style="display: none;"></div>
-
                 <?php foreach ($elections as $election): ?>
                     <div class="election-section">
                         <h3>Election: <?php echo htmlspecialchars($election['title']); ?></h3>
@@ -614,42 +510,31 @@ if (empty($errors)) {
                             <?php foreach ($election['positions'] as $position): ?>
                                 <div class="position-section">
                                     <h4>Position: <?php echo htmlspecialchars($position['position_name']); ?></h4>
-                                    <?php if ($position['already_voted']): ?>
-                                        <div class="success">
-                                            <p>You have already voted for this position.</p>
-                                        </div>
-                                    <?php elseif (empty($position['candidates'])): ?>
+                                    <?php if (empty($position['candidates'])): ?>
                                         <div class="error">
                                             <p>No candidates available for this position.</p>
                                         </div>
                                     <?php else: ?>
-                                        <form class="vote-form" data-election-id="<?php echo $election['election_id']; ?>" data-position-id="<?php echo $position['position_id']; ?>">
-                                            <table class="candidate-table">
-                                                <thead>
+                                        <table class="candidate-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Official ID</th>
+                                                    <th>First Name</th>
+                                                    <th>Last Name</th>
+                                                    <th>Association</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <?php foreach ($position['candidates'] as $candidate): ?>
                                                     <tr>
-                                                        <th>Official ID</th>
-                                                        <th>Full Name</th>
-                                                        <th>Association</th>
-                                                        <th>Position</th>
-                                                        <th>Vote</th>
+                                                        <td><?php echo htmlspecialchars($candidate['official_id']); ?></td>
+                                                        <td><?php echo htmlspecialchars($candidate['firstname']); ?></td>
+                                                        <td><?php echo htmlspecialchars($candidate['lastname']); ?></td>
+                                                        <td><?php echo htmlspecialchars($association); ?></td>
                                                     </tr>
-                                                </thead>
-                                                <tbody>
-                                                    <?php foreach ($position['candidates'] as $candidate): ?>
-                                                        <tr>
-                                                            <td><?php echo htmlspecialchars($candidate['official_id'] ?? 'N/A'); ?></td>
-                                                            <td><?php echo htmlspecialchars($candidate['firstname'] . ' ' . $candidate['lastname']); ?></td>
-                                                            <td><?php echo htmlspecialchars($candidate['association'] ?? 'N/A'); ?></td>
-                                                            <td><?php echo htmlspecialchars($position['position_name']); ?></td>
-                                                            <td>
-                                                                <input type="radio" name="candidate_id" value="<?php echo $candidate['id']; ?>" id="candidate_<?php echo $candidate['id']; ?>" required <?php echo $position['already_voted'] ? 'disabled' : ''; ?>>
-                                                            </td>
-                                                        </tr>
-                                                    <?php endforeach; ?>
-                                                </tbody>
-                                            </table>
-                                            <button type="submit" <?php echo $position['already_voted'] ? 'disabled' : ''; ?>>Cast Vote</button>
-                                        </form>
+                                                <?php endforeach; ?>
+                                            </tbody>
+                                        </table>
                                     <?php endif; ?>
                                 </div>
                             <?php endforeach; ?>
@@ -668,127 +553,55 @@ if (empty($errors)) {
     </div>
 
     <script>
-        const userId = <?php echo $user_id; ?>;
+        const inactivityTimeout = <?php echo $inactivity_timeout; ?>;
+        const warningTime = <?php echo $warning_time; ?>;
+        let inactivityTimer;
+        let warningTimer;
+        const timeoutModal = document.getElementById('timeout-modal');
+        const timeoutMessage = document.getElementById('timeout-message');
+        const extendSessionButton = document.getElementById('extend-session');
+
+        function resetInactivityTimer() {
+            clearTimeout(inactivityTimer);
+            clearTimeout(warningTimer);
+            timeoutModal.style.display = 'none';
+
+            warningTimer = setTimeout(() => {
+                timeoutMessage.textContent = 'You will be logged out in 1 minute due to inactivity.';
+                timeoutModal.style.display = 'flex';
+            }, (inactivityTimeout - warningTime) * 1000);
+
+            inactivityTimer = setTimeout(() => {
+                window.location.href = 'login.php?error=' + encodeURIComponent('Session expired due to inactivity. Please log in again.');
+            }, inactivityTimeout * 1000);
+        }
+
+        document.addEventListener('mousemove', resetInactivityTimer);
+        document.addEventListener('keypress', resetInactivityTimer);
+        document.addEventListener('click', resetInactivityTimer);
+        document.addEventListener('scroll', resetInactivityTimer);
+
+        extendSessionButton.addEventListener('click', () => {
+            resetInactivityTimer();
+        });
+
+        resetInactivityTimer();
 
         const profilePic = document.getElementById('profile-pic');
-        const dropdown = document.getElementById('user-dropdown');
-        profilePic.addEventListener('click', (e) => {
-            e.stopPropagation();
-            dropdown.classList.toggle('active');
+        const userDropdown = document.getElementById('user-dropdown');
+
+        profilePic.addEventListener('click', () => {
+            userDropdown.style.display = userDropdown.style.display === 'block' ? 'none' : 'block';
         });
 
         document.addEventListener('click', (e) => {
-            if (!dropdown.contains(e.target) && e.target !== profilePic) {
-                dropdown.classList.remove('active');
+            if (!profilePic.contains(e.target) && !userDropdown.contains(e.target)) {
+                userDropdown.style.display = 'none';
             }
         });
-
-        document.querySelectorAll('.vote-form').forEach(form => {
-            form.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const electionId = form.getAttribute('data-election-id');
-                const positionId = form.getAttribute('data-position-id');
-                const candidateId = form.querySelector('input[name="candidate_id"]:checked')?.value;
-
-                if (!candidateId) {
-                    showError('Please select a candidate to vote for.');
-                    return;
-                }
-
-                const submitButton = form.querySelector('button');
-                submitButton.disabled = true;
-                submitButton.textContent = 'Submitting...';
-
-                try {
-                    const response = await fetch('api/process-vote.php', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                        body: new URLSearchParams({
-                            election_id: electionId,
-                            position_id: positionId,
-                            candidate_id: candidateId
-                        })
-                    });
-
-                    const result = await response.json();
-                    if (response.ok && result.success) {
-                        showSuccess('Vote cast successfully! Transaction Hash: ' + result.txHash);
-                        // Disabling radio buttons and button after successful vote
-                        form.querySelectorAll('input[name="candidate_id"]').forEach(radio => {
-                            radio.disabled = true;
-                        });
-                        submitButton.disabled = true;
-                        submitButton.textContent = 'Vote Cast';
-                    } else {
-                        throw new Error(result.error || 'Failed to cast vote.');
-                    }
-                } catch (error) {
-                    showError(error.message);
-                } finally {
-                    if (!submitButton.disabled) {
-                        submitButton.textContent = 'Cast Vote';
-                    }
-                }
-            });
-        });
-
-        function showSuccess(message) {
-            const successDiv = document.getElementById('success-message');
-            successDiv.textContent = message;
-            successDiv.style.display = 'block';
-            document.getElementById('error-message').style.display = 'none';
-        }
-
-        function showError(message) {
-            const errorDiv = document.getElementById('error-message');
-            errorDiv.textContent = message;
-            errorDiv.style.display = 'block';
-            document.getElementById('success-message').style.display = 'none';
-        }
-
-        const inactivityTimeout = <?php echo $inactivity_timeout; ?> * 1000;
-        const maxSessionDuration = <?php echo $max_session_duration; ?> * 1000;
-        const warningTime = <?php echo $warning_time; ?> * 1000;
-        let lastActivity = Date.now();
-        let sessionStart = <?php echo $_SESSION['start_time'] * 1000; ?>;
-
-        const modal = document.getElementById('timeout-modal');
-        const timeoutMessage = document.getElementById('timeout-message');
-        const extendButton = document.getElementById('extend-session');
-
-        function checkTimeouts() {
-            const currentTime = Date.now();
-            const inactiveTime = currentTime - lastActivity;
-            const sessionTime = currentTime - sessionStart;
-
-            if (sessionTime >= maxSessionDuration - warningTime && sessionTime < maxSessionDuration) {
-                timeoutMessage.textContent = "Your session will expire in 1 minute.";
-                modal.style.display = 'flex';
-            } else if (sessionTime >= maxSessionDuration) {
-                window.location.href = 'logout.php';
-            }
-
-            if (inactiveTime >= inactivityTimeout - warningTime && inactiveTime < inactivityTimeout) {
-                timeoutMessage.textContent = "You will be logged out in 1 minute due to inactivity.";
-                modal.style.display = 'flex';
-            } else if (inactiveTime >= inactivityTimeout) {
-                window.location.href = 'logout.php';
-            }
-        }
-
-        document.addEventListener('mousemove', () => lastActivity = Date.now());
-        document.addEventListener('keydown', () => lastActivity = Date.now());
-
-        extendButton.addEventListener('click', () => {
-            lastActivity = Date.now();
-            modal.style.display = 'none';
-        });
-
-        setInterval(checkTimeouts, 1000);
     </script>
 </body>
 </html>
 <?php
-// Closing the database connection
 $conn->close();
 ?>

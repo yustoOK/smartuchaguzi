@@ -1,232 +1,809 @@
 <?php
-header('Content-Type: application/json');
-include '../../db.php';
 session_start();
+date_default_timezone_set('Africa/Dar_es_Salaam');
 
-// Input validation
-$input = $_POST;
-if (empty($input)) {
-    $input = json_decode(file_get_contents('php://input'), true) ?? [];
-}
-
-if (!isset($_SESSION['user_id']) || !isset($input['election_id']) || !isset($input['position_id']) || !isset($input['candidate_id'])) {
-    http_response_code(400);
-    echo json_encode(['error' => 'Missing required fields']);
-    exit;
-}
-
-$user_id = (int)$_SESSION['user_id'];
-$election_id = (int)$input['election_id'];
-$position_id = (int)$input['position_id'];
-$candidate_id = (int)$input['candidate_id'];
-$ip_address = $_SERVER['REMOTE_ADDR'];
-
-// Validating session for JSON requests
-if (isset($input['user_id']) && (int)$input['user_id'] !== $user_id) {
-    http_response_code(403);
-    echo json_encode(['error' => 'Unauthorized user']);
-    exit;
-}
+$host = 'localhost';
+$dbname = 'smartuchaguzi_db';
+$username = 'root';
+$password = 'Leonida1972@@@@';
 
 try {
-     $log_stmt = $db->prepare("INSERT INTO auditlogs (user_id, action, ip_address, details) VALUES (?, ?, ?, ?)");
-    $action = "Vote attempt";
-    $details = "User attempted to vote for candidate_id $candidate_id in election_id $election_id for position_id $position_id";
-    $log_stmt->bind_param('isss', $user_id, $action, $ip_address, $details);
-    $log_stmt->execute();
-    $log_stmt->close();
-
-    // Checking if the election is ongoing
-    $stmt = $db->prepare("SELECT status FROM elections WHERE election_id = ?");
-    $stmt->bind_param('i', $election_id);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    $election = $result->fetch_assoc();
-    $stmt->close();
-
-    if (!$election || $election['status'] !== 'ongoing') {
-        throw new Exception('Election is not ongoing');
+    $conn = new mysqli($host, $username, $password, $dbname);
+    if ($conn->connect_error) {
+        throw new Exception("Database connection failed: " . $conn->connect_error);
     }
+} catch (Exception $e) {
+    error_log("Database connection error: " . $e->getMessage());
+    die("Unable to connect to the database. Please try again later.");
+}
 
-    // Fetching user details
-    $stmt = $db->prepare("SELECT college_id, hostel_id FROM userdetails WHERE user_id = ? AND processed_at IS NOT NULL");
-    $stmt->bind_param('i', $user_id);
+if (!isset($_SESSION['user_id']) || !isset($_SESSION['role']) || $_SESSION['role'] !== 'voter') {
+    error_log("Session validation failed: user_id or role not set or invalid. Session: " . print_r($_SESSION, true));
+    session_unset();
+    session_destroy();
+    header('Location: login.php?error=' . urlencode('Access Denied.'));
+    exit;
+}
+
+if (!isset($_SESSION['2fa_verified']) || $_SESSION['2fa_verified'] !== true) {
+    header('Location: 2fa.php');
+    exit;
+}
+
+if (!isset($_SESSION['user_agent']) || $_SESSION['user_agent'] !== $_SERVER['HTTP_USER_AGENT']) {
+    error_log("User agent mismatch; possible session hijacking attempt.");
+    session_unset();
+    session_destroy();
+    header('Location: login.php?error=' . urlencode('Session validation failed.'));
+    exit;
+}
+
+$inactivity_timeout = 5 * 60;
+$max_session_duration = 30 * 60;
+$warning_time = 60;
+
+if (!isset($_SESSION['start_time'])) {
+    $_SESSION['start_time'] = time();
+}
+
+if (!isset($_SESSION['last_activity'])) {
+    $_SESSION['last_activity'] = time();
+}
+
+$time_elapsed = time() - $_SESSION['start_time'];
+if ($time_elapsed >= $max_session_duration) {
+    error_log("Session expired due to maximum duration: $time_elapsed seconds elapsed.");
+    session_unset();
+    session_destroy();
+    header('Location: login.php?error=' . urlencode('Session expired. Please log in again.'));
+    exit;
+}
+
+$inactive_time = time() - $_SESSION['last_activity'];
+if ($inactive_time >= $inactivity_timeout) {
+    error_log("Session expired due to inactivity: $inactive_time seconds elapsed.");
+    session_unset();
+    session_destroy();
+    header('Location: login.php?error=' . urlencode('Session expired due to inactivity. Please log in again.'));
+    exit;
+}
+
+$_SESSION['last_activity'] = time();
+
+$user_id = $_SESSION['user_id'];
+$user = [];
+try {
+    $stmt = $conn->prepare("SELECT fname, college_id, hostel_id, association FROM users WHERE user_id = ?");
+    $stmt->bind_param("i", $user_id);
     $stmt->execute();
     $result = $stmt->get_result();
     $user = $result->fetch_assoc();
-    $stmt->close();
-
     if (!$user) {
-        throw new Exception('User details not found or not processed');
+        throw new Exception("No user found for user_id: " . $user_id);
     }
-    $college_id = $user['college_id'];
-    $hostel_id = $user['hostel_id'] ?: 0;
+} catch (Exception $e) {
+    error_log("Query error: " . $e->getMessage());
+    session_unset();
+    session_destroy();
+    header('Location: login.php?error=' . urlencode('User not found or server error. Please log in again.'));
+    exit;
+}
 
-    // Validating candidate
-    $stmt = $db->prepare("SELECT election_id, position_id FROM candidates WHERE id = ?");
-    $stmt->bind_param('i', $candidate_id);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    $candidate = $result->fetch_assoc();
-    $stmt->close();
+$profile_picture = 'images/general.png';
+$errors = [];
+$elections = [];
 
-    if (!$candidate || $candidate['election_id'] !== $election_id || $candidate['position_id'] !== $position_id) {
-        throw new Exception('Invalid candidate for this position or election');
-    }
-
-    // Checking for duplicate votes
-    $stmt = $db->prepare(
-        "SELECT COUNT(*) FROM votes 
-         WHERE user_id = ? AND election_id = ? AND candidate_id IN (
-             SELECT id FROM candidates WHERE position_id = ?
-         )"
+try {
+    $stmt = $conn->prepare(
+        "SELECT u.association, u.college_id, u.hostel_id, c.name AS college_name
+         FROM users u
+         LEFT JOIN colleges c ON u.college_id = c.college_id
+         WHERE u.user_id = ? AND u.active = 1"
     );
-    $stmt->bind_param('iii', $user_id, $election_id, $position_id);
+    $stmt->bind_param('i', $user_id);
     $stmt->execute();
     $result = $stmt->get_result();
-    $vote_count = $result->fetch_row()[0];
+    $user_details = $result->fetch_assoc();
     $stmt->close();
-    if ($vote_count > 0) {
-        throw new Exception('You have already voted for this position');
-    }
 
-    // Fraud detection (Most Important)
-    $vote_timestamp = date('Y-m-d H:i:s');
-    $fraud_check_data = [
-        'user_id' => $user_id,
-        'voter_id' => (string)$user_id,
-        'vote_timestamp' => $vote_timestamp,
-        'time_diff' => 2.5,
-        'vote_frequency' => 0.1,
-        'vpn_usage' => false,
-        'election_id' => $election_id 
-    ];
+    if (!$user_details) {
+        $errors[] = "User not found or not active.";
+    } else {
+        $association = $user_details['association'];
+        $college_id = $user_details['college_id'];
+        $hostel_id = $user_details['hostel_id'] ?: 0;
 
-    // Sending data to fraud detection API(the API is hosted locally)
-    $ch = curl_init('http://localhost/smartuchaguzi/api/fraud-detection.php');
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_POST, true);
-    curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($fraud_check_data));
-    $fraud_response = curl_exec($ch);
-    $curl_error = curl_error($ch);
-    curl_close($ch);
-
-    if ($fraud_response === false) {
-        throw new Exception('Fraud detection failed: ' . $curl_error);
-    }
-    $fraud_result = json_decode($fraud_response, true);
-    if (!$fraud_result || isset($fraud_result['error']) || $fraud_result['action'] !== 'allow') {
-        // Log fraud detection failure
-        $log_stmt = $db->prepare("INSERT INTO auditlogs (user_id, action, ip_address, details) VALUES (?, ?, ?, ?)");
-        $action = "Fraud detected";
-        $details = "Fraud detected: " . ($fraud_result['error'] ?? 'Vote flagged as potential fraud');
-        $log_stmt->bind_param('isss', $user_id, $action, $ip_address, $details);
-        $log_stmt->execute();
-        $log_stmt->close();
-
-        throw new Exception('Vote flagged as potential fraud');
-    }
-
-    // Generating vote hash
-    $vote_data = [
-        'electionId' => $election_id,
-        'voter' => getenv('WALLET_ADDRESS'),
-        'positionId' => $position_id,
-        'candidateId' => $candidate_id,
-        'timestamp' => strtotime($vote_timestamp)
-    ];
-    $vote_hash = hash('sha256', json_encode($vote_data));
-
-
-    
-    // Casting vote on the blockchain (Most Important)
-    $node_script = '
-        const ethers = require("ethers");
-        const provider = new ethers.providers.JsonRpcProvider("' . getenv('SEPOLIA_RPC_URL') . '");
-        const wallet = new ethers.Wallet("' . getenv('PRIVATE_KEY') . '", provider);
-        const contract = new ethers.Contract(
-            "' . getenv('VOTE_CONTRACT_ADDRESS') . '",
-            ' . json_encode(json_decode(file_get_contents('../../blockchain/artifacts/api/blockchain/contracts/VoteContract.sol/VoteContract.json'))->abi) . ',
-            wallet
+        $stmt = $conn->prepare(
+            "SELECT election_id, title
+             FROM elections
+             WHERE status = ? AND end_time > NOW() AND association = ?
+             ORDER BY start_time ASC"
         );
-        async function castVote() {
-            try {
-                const tx = await contract.castVote(
-                    ' . $election_id . ',
-                    ' . $position_id . ',
-                    ' . $candidate_id . ',
-                    ' . $college_id . ',
-                    ' . $hostel_id . '
+        $status = 'ongoing';
+        $stmt->bind_param('ss', $status, $association);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $elections = $result->fetch_all(MYSQLI_ASSOC);
+        $stmt->close();
+
+        foreach ($elections as &$election) {
+            $election_id = $election['election_id'];
+            $positions = [];
+
+            $query = "
+                SELECT ep.position_id, ep.name AS position_name, ep.scope, ep.college_id AS position_college_id, ep.hostel_id
+                FROM electionpositions ep
+                WHERE ep.election_id = ?
+                AND (
+                    ep.scope = 'university'
+                    OR (ep.scope = 'college' AND ep.college_id = ?)
+                ";
+            if ($association === 'UDOSO' && $hostel_id) {
+                $query .= " OR (ep.scope = 'hostel' AND ep.hostel_id = ?)";
+            }
+            $query .= ") ORDER BY ep.position_id";
+
+            $stmt = $conn->prepare($query);
+            if ($association === 'UDOSO' && $hostel_id) {
+                $stmt->bind_param('iii', $election_id, $college_id, $hostel_id);
+            } else {
+                $stmt->bind_param('ii', $election_id, $college_id);
+            }
+            $stmt->execute();
+            $result = $stmt->get_result();
+            while ($position = $result->fetch_assoc()) {
+                $position_id = $position['position_id'];
+
+                $cand_stmt = $conn->prepare(
+                    "SELECT id, official_id, firstname, lastname
+                     FROM candidates
+                     WHERE election_id = ? AND position_id = ?"
                 );
-                const receipt = await tx.wait();
-                console.log(JSON.stringify({ success: true, txHash: receipt.transactionHash }));
-            } catch (error) {
-                console.log(JSON.stringify({ success: false, error: error.message }));
+                $cand_stmt->bind_param('ii', $election_id, $position_id);
+                $cand_stmt->execute();
+                $cand_result = $cand_stmt->get_result();
+                $candidates = $cand_result->fetch_all(MYSQLI_ASSOC);
+                $cand_stmt->close();
+
+                $position['candidates'] = $candidates;
+                $positions[] = $position;
+            }
+            $stmt->close();
+
+            $election['positions'] = $positions;
+        }
+    }
+} catch (Exception $e) {
+    error_log("Fetch elections failed: " . $e->getMessage());
+    $errors[] = "Failed to load elections due to a server error: " . htmlspecialchars($e->getMessage());
+}
+?>
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cast Vote | SmartUchaguzi</title>
+    <link rel="icon" href="./Uploads/Vote.jpeg" type="image/x-icon">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Poppins', sans-serif;
+        }
+        body {
+            background: linear-gradient(rgba(26, 60, 52, 0.7), rgba(26, 60, 52, 0.7)), url('images/cive.jpeg');
+            background-size: cover;
+            color: #2d3748;
+            min-height: 100vh;
+        }
+        .header {
+            background: #1a3c34;
+            color: #e6e6e6;
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            position: fixed;
+            width: 100%;
+            top: 0;
+            z-index: 1000;
+        }
+        .logo {
+            display: flex;
+            align-items: center;
+        }
+        .logo img {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            margin-right: 10px;
+        }
+        .logo h1 {
+            font-size: 24px;
+            font-weight: 600;
+        }
+        .nav a {
+            color: #e6e6e6;
+            text-decoration: none;
+            margin: 0 15px;
+            font-size: 16px;
+            transition: color 0.3s ease;
+        }
+        .nav a:hover {
+            color: #f4a261;
+        }
+        .user {
+            display: flex;
+            align-items: center;
+        }
+        .user img {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            margin-right: 10px;
+            cursor: pointer;
+        }
+        .dropdown {
+            display: none;
+            position: absolute;
+            top: 60px;
+            right: 20px;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        .dropdown a, .dropdown span {
+            display: block;
+            padding: 10px 20px;
+            color: #2d3748;
+            text-decoration: none;
+            font-size: 16px;
+        }
+        .dropdown a:hover {
+            background: #f4a261;
+            color: #fff;
+        }
+        .logout-link {
+            display: none;
+            color: #e6e6e6;
+            text-decoration: none;
+            font-size: 16px;
+        }
+        .dashboard {
+            margin-top: 80px;
+            padding: 30px;
+            display: flex;
+            justify-content: center;
+        }
+        .dash-content {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 30px;
+            border-radius: 12px;
+            width: 100%;
+            max-width: 1200px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+        }
+        .dash-content h2 {
+            font-size: 28px;
+            color: #1a3c34;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .election-section {
+            margin-bottom: 30px;
+        }
+        .election-section h3 {
+            font-size: 22px;
+            color: #2d3748;
+            margin-bottom: 15px;
+        }
+        .position-section {
+            margin-bottom: 20px;
+        }
+        .position-section h4 {
+            font-size: 18px;
+            color: #2d3748;
+            margin-bottom: 10px;
+        }
+        .candidate-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        .candidate-table th, .candidate-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .candidate-table th {
+            background: #1a3c34;
+            color: #e6e6e6;
+            text-transform: uppercase;
+            font-size: 14px;
+        }
+        .candidate-table td {
+            background: #fff;
+            font-size: 16px;
+        }
+        .candidate-table tr:hover {
+            background: #f9f9f9;
+        }
+        .vote-form button {
+            background: #f4a261;
+            color: #fff;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.3s ease;
+            margin-top: 10px;
+        }
+        .vote-form button:hover {
+            background: #e76f51;
+        }
+        .vote-form button:disabled {
+            background: #cccccc;
+            cursor: not-allowed;
+        }
+        .error, .success {
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            font-size: 16px;
+        }
+        .error {
+            background: #ffe6e6;
+            color: #e76f51;
+            border: 1px solid #e76f51;
+        }
+        .success {
+            background: #e6fff5;
+            color: #2a9d8f;
+            border: 1px solid #2a9d8f;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1001;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+        }
+        .modal-content p {
+            font-size: 16px;
+            color: #2d3748;
+            margin-bottom: 20px;
+        }
+        .modal-content button {
+            background: #f4a261;
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .modal-content button:hover {
+            background: #e76f51;
+        }
+        @media (max-width: 768px) {
+            .header {
+                flex-direction: column;
+                padding: 10px 20px;
+            }
+            .logo h1 {
+                font-size: 20px;
+            }
+            .nav {
+                margin: 10px 0;
+                text-align: center;
+            }
+            .nav a {
+                margin: 0 10px;
+                font-size: 14px;
+            }
+            .user img {
+                display: none;
+            }
+            .dropdown {
+                display: block;
+                position: static;
+                box-shadow: none;
+                background: none;
+                text-align: center;
+            }
+            .dropdown a, .dropdown span {
+                color: #e6e6e6;
+                padding: 5px 10px;
+            }
+            .dropdown a:hover {
+                background: none;
+                color: #f4a261;
+            }
+            .logout-link {
+                display: block;
+                margin-top: 10px;
+            }
+            .dash-content {
+                padding: 20px;
+            }
+            .dash-content h2 {
+                font-size: 24px;
+            }
+            .election-section h3 {
+                font-size: 18px;
+            }
+            .position-section h4 {
+                font-size: 16px;
+            }
+            .candidate-table th, .candidate-table td {
+                padding: 8px;
+                font-size: 14px;
             }
         }
-        castVote();
-    ';
-    file_put_contents('temp.js', $node_script);
-    $output = shell_exec('node temp.js 2>&1');
-    unlink('temp.js');
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="logo">
+            <img src="./Uploads/Vote.jpeg" alt="SmartUchaguzi Logo">
+            <h1>SmartUchaguzi</h1>
+        </div>
+        <div class="nav">
+            <a href="<?php echo htmlspecialchars($association === 'UDOSO' ? 'cive-students.php' : 'cive-teachers.php'); ?>">Back to Dashboard</a>
+            <a href="#">Verify Vote</a>
+            <a href="#">Results</a>
+        </div>
+        <div class="user">
+            <img src="<?php echo htmlspecialchars($profile_picture); ?>" alt="User Profile Picture" id="profile-pic">
+            <div class="dropdown" id="user-dropdown">
+                <span style="color: #e6e6e6; padding: 10px 20px;"><?php echo htmlspecialchars($user['fname'] ?? 'User'); ?></span>
+                <a href="profile.php">My Profile</a>
+                <a href="logout.php">Logout</a>
+            </div>
+            <a href="logout.php" class="logout-link">Logout</a>
+        </div>
+    </header>
 
-    if ($output === null) {
-        throw new Exception('Node.js execution failed: No output received');
-    }
-    $result = json_decode($output, true);
-    if (json_last_error() !== JSON_ERROR_NONE) {
-        throw new Exception('Failed to parse blockchain response: ' . json_last_error_msg());
-    }
-    if (!$result || !$result['success']) {
-        throw new Exception('Blockchain vote failed: ' . ($result['error'] ?? 'Unknown error'));
-    }
+    <section class="dashboard">
+        <div class="dash-content">
+            <h2>Cast Your Vote</h2>
 
+            <?php if (!empty($errors)): ?>
+                <div class="error">
+                    <?php foreach ($errors as $error): ?>
+                        <p><?php echo htmlspecialchars($error); ?></p>
+                    <?php endforeach; ?>
+                </div>
+            <?php elseif (empty($elections)): ?>
+                <div class="error">
+                    <p>No ongoing elections available at this time.</p>
+                </div>
+            <?php else: ?>
+                <div id="success-message" class="success" style="display: none;"></div>
+                <div id="error-message" class="error" style="display: none;"></div>
 
+                <?php foreach ($elections as $election): ?>
+                    <div class="election-section">
+                        <h3>Election: <?php echo htmlspecialchars($election['title']); ?></h3>
+                        <?php if (empty($election['positions'])): ?>
+                            <div class="error">
+                                <p>No positions available for you to vote in this election.</p>
+                            </div>
+                        <?php else: ?>
+                            <?php foreach ($election['positions'] as $position): ?>
+                                <div class="position-section">
+                                    <h4>Position: <?php echo htmlspecialchars($position['position_name']); ?></h4>
+                                    <?php if (empty($position['candidates'])): ?>
+                                        <div class="error">
+                                            <p>No candidates available for this position.</p>
+                                        </div>
+                                    <?php else: ?>
+                                        <form class="vote-form" data-election-id="<?php echo $election['election_id']; ?>" data-position-id="<?php echo $position['position_id']; ?>">
+                                            <table class="candidate-table">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Official ID</th>
+                                                        <th>First Name</th>
+                                                        <th>Last Name</th>
+                                                        <th>Association</th>
+                                                        <th>Vote</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <?php foreach ($position['candidates'] as $candidate): ?>
+                                                        <tr>
+                                                            <td><?php echo htmlspecialchars($candidate['official_id']); ?></td>
+                                                            <td><?php echo htmlspecialchars($candidate['firstname']); ?></td>
+                                                            <td><?php echo htmlspecialchars($candidate['lastname']); ?></td>
+                                                            <td><?php echo htmlspecialchars($association); ?></td>
+                                                            <td>
+                                                                <input type="radio" name="candidate_id" value="<?php echo $candidate['id']; ?>" id="candidate_<?php echo $candidate['id']; ?>" required>
+                                                            </td>
+                                                        </tr>
+                                                    <?php endforeach; ?>
+                                                </tbody>
+                                            </table>
+                                            <button type="submit">Cast Vote</button>
+                                        </form>
+                                    <?php endif; ?>
+                                </div>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </div>
+                <?php endforeach; ?>
+            <?php endif; ?>
+        </div>
+    </section>
 
-    
-    // Storing vote in the database
-    $stmt = $db->prepare(
-        "INSERT INTO votes (user_id, election_id, candidate_id, vote_timestamp, blockchain_hash, is_anonymized) 
-         VALUES (?, ?, ?, ?, ?, 0)"
-    );
-    $stmt->bind_param('iiiss', $user_id, $election_id, $candidate_id, $vote_timestamp, $vote_hash);
-    $stmt->execute();
-    $vote_id = $db->insert_id;
-    $stmt->close();
+    <div class="modal" id="timeout-modal">
+        <div class="modal-content">
+            <p id="timeout-message">You will be logged out in 1 minute due to inactivity.</p>
+            <button id="extend-session">OK</button>
+        </div>
+    </div>
 
-    // Storing blockchain record
-    $stmt = $db->prepare(
-        "INSERT INTO blockchain_records (vote_id, election_id, hash, timestamp) 
-         VALUES (?, ?, ?, NOW())"
-    );
-    $stmt->bind_param('iis', $vote_id, $election_id, $result['txHash']);
-    $stmt->execute();
-    $stmt->close();
+    <script src="https://cdn.ethers.io/lib/ethers-5.7.2.umd.min.js" type="text/javascript"></script>
+    <script>
+        const provider = new ethers.providers.JsonRpcProvider('https://sepolia.infura.io/v3/YOUR_INFURA_PROJECT_ID');
+        const contractAddress = '0x7f37Ea78D22DA910e66F8FdC1640B75dc88fa44F';
+        const contractABI = [
+            {
+                "inputs": [],
+                "stateMutability": "nonpayable",
+                "type": "constructor"
+            },
+            {
+                "anonymous": false,
+                "inputs": [
+                    {"indexed": false, "internalType": "uint256", "name": "electionId", "type": "uint256"},
+                    {"indexed": true, "internalType": "address", "name": "voter", "type": "address"},
+                    {"indexed": false, "internalType": "uint256", "name": "positionId", "type": "uint256"},
+                    {"indexed": false, "internalType": "uint256", "name": "candidateId", "type": "uint256"},
+                    {"indexed": false, "internalType": "string", "name": "candidateName", "type": "string"},
+                    {"indexed": false, "internalType": "string", "name": "positionName", "type": "string"}
+                ],
+                "name": "VoteCast",
+                "type": "event"
+            },
+            {
+                "inputs": [],
+                "name": "admin",
+                "outputs": [{"internalType": "address", "name": "", "type": "address"}],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {"internalType": "uint256", "name": "electionId", "type": "uint256"},
+                    {"internalType": "uint256", "name": "positionId", "type": "uint256"},
+                    {"internalType": "uint256", "name": "candidateId", "type": "uint256"},
+                    {"internalType": "string", "name": "candidateName", "type": "string"},
+                    {"internalType": "string", "name": "positionName", "type": "string"}
+                ],
+                "name": "castVote",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {"internalType": "uint256", "name": "positionId", "type": "uint256"},
+                    {"internalType": "uint256", "name": "candidateId", "type": "uint256"}
+                ],
+                "name": "getVoteCount",
+                "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [{"internalType": "uint256", "name": "electionId", "type": "uint256"}],
+                "name": "getVotesByElection",
+                "outputs": [
+                    {
+                        "components": [
+                            {"internalType": "uint256", "name": "electionId", "type": "uint256"},
+                            {"internalType": "address", "name": "voter", "type": "address"},
+                            {"internalType": "uint256", "name": "positionId", "type": "uint256"},
+                            {"internalType": "uint256", "name": "candidateId", "type": "uint256"},
+                            {"internalType": "uint256", "name": "timestamp", "type": "uint256"},
+                            {"internalType": "string", "name": "candidateName", "type": "string"},
+                            {"internalType": "string", "name": "positionName", "type": "string"}
+                        ],
+                        "internalType": "struct VoteContract.Vote[]",
+                        "name": "",
+                        "type": "tuple[]"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {"internalType": "address", "name": "", "type": "address"},
+                    {"internalType": "uint256", "name": "", "type": "uint256"},
+                    {"internalType": "uint256", "name": "", "type": "uint256"}
+                ],
+                "name": "hasVoted",
+                "outputs": [{"internalType": "bool", "name": "", "type": "bool"}],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {"internalType": "uint256", "name": "", "type": "uint256"},
+                    {"internalType": "uint256", "name": "", "type": "uint256"}
+                ],
+                "name": "voteCount",
+                "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+                "name": "votes",
+                "outputs": [
+                    {"internalType": "uint256", "name": "electionId", "type": "uint256"},
+                    {"internalType": "address", "name": "voter", "type": "address"},
+                    {"internalType": "uint256", "name": "positionId", "type": "uint256"},
+                    {"internalType": "uint256", "name": "candidateId", "type": "uint256"},
+                    {"internalType": "uint256", "name": "timestamp", "type": "uint256"},
+                    {"internalType": "string", "name": "candidateName", "type": "string"},
+                    {"internalType": "string", "name": "positionName", "type": "string"}
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            }
+        ];
+        const contract = new ethers.Contract(contractAddress, contractABI, provider);
 
-    // Log success
-    $log_stmt = $db->prepare("INSERT INTO auditlogs (user_id, action, ip_address, details) VALUES (?, ?, ?, ?)");
-    $action = "Vote cast";
-    $details = "Vote successfully cast for candidate_id $candidate_id in election_id $election_id";
-    $log_stmt->bind_param('isss', $user_id, $action, $ip_address, $details);
-    $log_stmt->execute();
-    $log_stmt->close();
+        function showSuccess(message) {
+            const successMessage = document.getElementById('success-message');
+            successMessage.textContent = message;
+            successMessage.style.display = 'block';
+            setTimeout(() => {
+                successMessage.style.display = 'none';
+            }, 5000);
+        }
 
-    echo json_encode([
-        'success' => true,
-        'vote_id' => $vote_id,
-        'txHash' => $result['txHash']
-    ]);
-} catch (Exception $e) {
-     $log_stmt = $db->prepare("INSERT INTO auditlogs (user_id, action, ip_address, details) VALUES (?, ?, ?, ?)");
-    $action = "Vote failed";
-    $details = "Failed to cast vote: " . $e->getMessage();
-    $log_stmt->bind_param('isss', $user_id, $action, $ip_address, $details);
-    $log_stmt->execute();
-    $log_stmt->close();
+        function showError(message) {
+            const errorMessage = document.getElementById('error-message');
+            errorMessage.textContent = message;
+            errorMessage.style.display = 'block';
+            setTimeout(() => {
+                errorMessage.style.display = 'none';
+            }, 5000);
+        }
 
-    error_log("Process vote failed: " . $e->getMessage());
-    http_response_code(400);
-    echo json_encode(['error' => $e->getMessage()]);
-}
+        document.querySelectorAll('.vote-form').forEach(form => {
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const electionId = form.getAttribute('data-election-id');
+                const positionId = form.getAttribute('data-position-id');
+                const candidateId = form.querySelector('input[name="candidate_id"]:checked')?.value;
+                const candidateName = form.querySelector('input[name="candidate_id"]:checked')?.closest('tr').querySelector('td:nth-child(2)').textContent;
+                const positionName = form.querySelector('h4').textContent.replace('Position: ', '');
+
+                if (!candidateId) {
+                    showError('Please select a candidate to vote for.');
+                    return;
+                }
+
+                const submitButton = form.querySelector('button');
+                submitButton.disabled = true;
+                submitButton.textContent = 'Submitting...';
+
+                try {
+                    const signer = provider.getSigner();
+                    const contractWithSigner = contract.connect(signer);
+                    const tx = await contractWithSigner.castVote(
+                        electionId,
+                        positionId,
+                        candidateId,
+                        candidateName,
+                        positionName,
+                        { gasLimit: 300000 }
+                    );
+                    const receipt = await tx.wait();
+
+                    // Log vote in MySQL database
+                    const response = await fetch('log-vote.php', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            user_id: <?php echo $user_id; ?>,
+                            election_id: electionId,
+                            position_id: positionId,
+                            candidate_id: candidateId,
+                            transaction_hash: receipt.transactionHash
+                        })
+                    });
+                    const result = await response.json();
+                    if (!result.success) {
+                        throw new Error('Failed to log vote in database: ' + result.message);
+                    }
+
+                    showSuccess('Vote cast successfully! Transaction Hash: ' + receipt.transactionHash);
+                    form.querySelectorAll('input[name="candidate_id"]').forEach(radio => radio.disabled = true);
+                    submitButton.disabled = true;
+                    submitButton.textContent = 'Vote Cast';
+                } catch (error) {
+                    showError('Error casting vote: ' + error.message);
+                    submitButton.disabled = false;
+                    submitButton.textContent = 'Cast Vote';
+                }
+            });
+        });
+
+        const inactivityTimeout = <?php echo $inactivity_timeout; ?>;
+        const warningTime = <?php echo $warning_time; ?>;
+        let inactivityTimer;
+        let warningTimer;
+        const timeoutModal = document.getElementById('timeout-modal');
+        const timeoutMessage = document.getElementById('timeout-message');
+        const extendSessionButton = document.getElementById('extend-session');
+
+        function resetInactivityTimer() {
+            clearTimeout(inactivityTimer);
+            clearTimeout(warningTimer);
+            timeoutModal.style.display = 'none';
+
+            warningTimer = setTimeout(() => {
+                timeoutMessage.textContent = 'You will be logged out in 1 minute due to inactivity.';
+                timeoutModal.style.display = 'flex';
+            }, (inactivityTimeout - warningTime) * 1000);
+
+            inactivityTimer = setTimeout(() => {
+                window.location.href = 'login.php?error=' + encodeURIComponent('Session expired due to inactivity. Please log in again.');
+            }, inactivityTimeout * 1000);
+        }
+
+        document.addEventListener('mousemove', resetInactivityTimer);
+        document.addEventListener('keypress', resetInactivityTimer);
+        document.addEventListener('click', resetInactivityTimer);
+        document.addEventListener('scroll', resetInactivityTimer);
+
+        extendSessionButton.addEventListener('click', () => {
+            resetInactivityTimer();
+        });
+
+        resetInactivityTimer();
+
+        const profilePic = document.getElementById('profile-pic');
+        const userDropdown = document.getElementById('user-dropdown');
+
+        profilePic.addEventListener('click', () => {
+            userDropdown.style.display = userDropdown.style.display === 'block' ? 'none' : 'block';
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!profilePic.contains(e.target) && !userDropdown.contains(e.target)) {
+                userDropdown.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>
+<?php
+$conn->close();
 ?>

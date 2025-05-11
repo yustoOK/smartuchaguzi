@@ -20,8 +20,8 @@ contract VoteContract {
         uint256 positionId;
         uint256 candidateId;
         uint256 timestamp;
-        string candidateName; // Optional, for off-chain use
-        string positionName;  // Optional, for off-chain use
+        string candidateName; 
+        string positionName;  
     }
 
     // Events for logging
@@ -48,13 +48,8 @@ contract VoteContract {
         // Ensure voter hasn't voted for this position in this election
         require(!hasVoted[msg.sender][electionId][positionId], "Already voted for this position");
         
-        // Ensure position ID is within the limit (1 to 5)
         require(positionId >= 1 && positionId <= 5, "Invalid position ID (must be 1 to 5)");
 
-        // Off-chain validation of election_id, candidate_id, and position_id is assumed
-        // This should be handled by the front-end or oracle querying the MySQL database
-
-        // Record the vote
         hasVoted[msg.sender][electionId][positionId] = true;
         voteCount[positionId][candidateId]++;
         votes.push(Vote(electionId, msg.sender, positionId, candidateId, block.timestamp, candidateName, positionName));
