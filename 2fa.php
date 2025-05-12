@@ -18,13 +18,15 @@ try {
 }
 
 // Session validation
-if (!isset($_SESSION['user_id']) || !isset($_SESSION['role']) || $_SESSION['role'] !== 'voter') {
+if (!isset($_SESSION['user_id']) || !isset($_SESSION['role']) || !in_array($_SESSION['role'], ['voter', 'admin'])) {
     error_log("Session validation failed: user_id or role not set or invalid. Session: " . print_r($_SESSION, true));
     session_unset();
     session_destroy();
     header('Location: /smartuchaguzi/login.php?error=' . urlencode('Access Denied.')); // Relative URL
     exit;
 }
+
+
 
 if (!isset($_SESSION['user_agent']) || $_SESSION['user_agent'] !== $_SERVER['HTTP_USER_AGENT']) {
     error_log("User agent mismatch; possible session hijacking attempt.");
