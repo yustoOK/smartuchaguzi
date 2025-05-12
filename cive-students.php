@@ -477,7 +477,7 @@ try {
             <img src="<?php echo htmlspecialchars($profile_picture); ?>" alt="User Profile Picture" id="profile-pic">
             <div class="dropdown" id="user-dropdown">
                 <span style="color: #e6e6e6; padding: 10px 20px;"><?php echo htmlspecialchars($user['fname'] ?? 'User'); ?></span>
-                <a href="profile.php">My Profile</a>
+                <a href="#">My Profile</a>
                 <a href="logout.php">Logout</a>
             </div>
             <a href="logout.php" class="logout-link">Logout</a>
