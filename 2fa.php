@@ -22,7 +22,7 @@ if (!isset($_SESSION['user_id']) || !isset($_SESSION['role']) || $_SESSION['role
     error_log("Session validation failed: user_id or role not set or invalid. Session: " . print_r($_SESSION, true));
     session_unset();
     session_destroy();
-    header('Location: login.php?error=' . urlencode('Access Denied.'));
+    header('Location: /smartuchaguzi/login.php?error=' . urlencode('Access Denied.')); // Relative URL
     exit;
 }
 
@@ -30,7 +30,7 @@ if (!isset($_SESSION['user_agent']) || $_SESSION['user_agent'] !== $_SERVER['HTT
     error_log("User agent mismatch; possible session hijacking attempt.");
     session_unset();
     session_destroy();
-    header('Location: login.php?error=' . urlencode('Session validation failed.'));
+    header('Location: /smartuchaguzi/login.php?error=' . urlencode('Session validation failed.')); // Relative URL
     exit;
 }
 
@@ -51,7 +51,7 @@ if ($time_elapsed >= $max_session_duration) {
     error_log("Session expired due to maximum duration: $time_elapsed seconds elapsed.");
     session_unset();
     session_destroy();
-    header('Location: login.php?error=' . urlencode('Session expired. Please log in again.'));
+    header('Location: /smartuchaguzi/login.php?error=' . urlencode('Session expired. Please log in again.')); // Relative URL
     exit;
 }
 
@@ -60,7 +60,7 @@ if ($inactive_time >= $inactivity_timeout) {
     error_log("Session expired due to inactivity: $inactive_time seconds elapsed.");
     session_unset();
     session_destroy();
-    header('Location: login.php?error=' . urlencode('Session expired due to inactivity. Please log in again.'));
+    header('Location: /smartuchaguzi/login.php?error=' . urlencode('Session expired due to inactivity. Please log in again.')); // Relative URL
     exit;
 }
 
@@ -80,15 +80,20 @@ try {
     error_log("Query error: " . $e->getMessage());
     session_unset();
     session_destroy();
-    header('Location: login.php?error=' . urlencode('Server error. Please log in again.'));
+    header('Location: /smartuchaguzi/login.php?error=' . urlencode('Server error. Please log in again.')); // Relative URL
     exit;
 }
 
 // Include TOTP and QR Code libraries
-require './2fa/vendor/autoload.php';
+require 'C:/xampp/htdocs/smartuchaguzi/2fa/vendor/autoload.php';
 use OTPHP\TOTP;
 use Endroid\QrCode\QrCode;
 use Endroid\QrCode\Writer\PngWriter;
+
+// Debug: Check if GD is loaded
+if (!extension_loaded('gd')) {
+    $errors[] = "GD extension is not enabled. Please enable it in php.ini and restart Apache.";
+}
 
 $setup_needed = empty($totp_secret);
 $errors = [];
@@ -97,7 +102,7 @@ $qrCodeDataUri = '';
 
 if ($setup_needed && isset($_POST['setup_totp'])) {
     $totp = TOTP::create();
-    $totp->setLabel("SmartUchaguzi:{$user_id}");
+    $totp->setLabel("SmartUchaguzi-{$user_id}");
     $totp->setIssuer('SmartUchaguzi');
     $totp_secret = $totp->getSecret();
     $provisioning_uri = $totp->getProvisioningUri();
@@ -133,14 +138,14 @@ if (!$setup_needed && isset($_POST['verify_totp'])) {
             $association = $_SESSION['association'] ?? '';
             $dashboard = '';
             if ($role === 'admin') {
-                $dashboard = 'admin-dashboard.php';
+                $dashboard = '/smartuchaguzi/admin-dashboard.php'; // Relative URL
             } elseif ($role === 'voter') {
-                if ($college_id == 1 && $association === 'UDOSO') $dashboard = 'cive-students.php';
-                elseif ($college_id == 2 && $association === 'UDOSO') $dashboard = 'coed-students.php';
-                elseif ($college_id == 3 && $association === 'UDOSO') $dashboard = 'cnms-students.php';
-                elseif ($college_id == 1 && $association === 'UDOMASA') $dashboard = 'cive-teachers.php';
-                elseif ($college_id == 2 && $association === 'UDOMASA') $dashboard = 'coed-teachers.php';
-                elseif ($college_id == 3 && $association === 'UDOMASA') $dashboard = 'cnms-teachers.php';
+                if ($college_id == 1 && $association === 'UDOSO') $dashboard = '/smartuchaguzi/cive-students.php';
+                elseif ($college_id == 2 && $association === 'UDOSO') $dashboard = '/smartuchaguzi/coed-students.php';
+                elseif ($college_id == 3 && $association === 'UDOSO') $dashboard = '/smartuchaguzi/cnms-students.php';
+                elseif ($college_id == 1 && $association === 'UDOMASA') $dashboard = '/smartuchaguzi/cive-teachers.php';
+                elseif ($college_id == 2 && $association === 'UDOMASA') $dashboard = '/smartuchaguzi/coed-teachers.php';
+                elseif ($college_id == 3 && $association === 'UDOMASA') $dashboard = '/smartuchaguzi/cnms-teachers.php';
             }
             if ($dashboard) {
                 header("Location: $dashboard");
@@ -161,7 +166,7 @@ if (!$setup_needed && isset($_POST['verify_totp'])) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>2FA Verification | SmartUchaguzi</title>
-    <link rel="icon" href="./Uploads/Vote.jpeg" type="image/x-icon">
+    <link rel="icon" href="/smartuchaguzi/Uploads/Vote.jpeg" type="image/x-icon"> <!-- Relative URL -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
@@ -172,7 +177,7 @@ if (!$setup_needed && isset($_POST['verify_totp'])) {
             font-family: 'Poppins', sans-serif;
         }
         body {
-            background: linear-gradient(rgba(26, 60, 52, 0.7), rgba(26, 60, 52, 0.7)), url('images/cive.jpeg');
+            background: linear-gradient(rgba(26, 60, 52, 0.7), rgba(26, 60, 52, 0.7)), url('/smartuchaguzi/images/cive.jpeg'); /* Relative URL */
             background-size: cover;
             color: #2d3748;
             min-height: 100vh;
