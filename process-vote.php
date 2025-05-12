@@ -17,6 +17,85 @@ try {
     die("Unable to connect to the database. Please try again later.");
 }
 
+// Helper Functions for Feature Collection
+function getUserVoteCount($conn, $user_id)
+{
+    $stmt = $conn->prepare("SELECT COUNT(*) as vote_count FROM blockchain WHERE user_id = ?");
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    $result = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+    return $result['vote_count'];
+}
+
+function calculateVoteFrequency($conn, $user_id)
+{
+    $stmt = $conn->prepare("SELECT created_at FROM blockchain WHERE user_id = ? ORDER BY created_at DESC LIMIT 2");
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $timestamps = [];
+    while ($row = $result->fetch_assoc()) {
+        $timestamps[] = strtotime($row['created_at']);
+    }
+    $stmt->close();
+    if (count($timestamps) < 2) return 0;
+    $time_diff = $timestamps[0] - $timestamps[1];
+    return $time_diff > 0 ? 1 / $time_diff : 0;
+}
+
+function checkMultipleLogins($conn, $user_id)
+{
+    $stmt = $conn->prepare("SELECT COUNT(*) as login_count FROM sessions WHERE user_id = ? AND login_time >= NOW() - INTERVAL 1 HOUR");
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    $result = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+    return $result['login_count'] > 1 ? 1 : 0;
+}
+
+function detectVPN($ip)
+{
+    // Simple heuristic: Check for known VPN provider IP ranges (simplified for demo)
+    $ch = curl_init("http://ip-api.com/json/$ip");
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    $response = curl_exec($ch);
+    curl_close($ch);
+    $data = json_decode($response, true);
+    return (isset($data['isp']) && stripos($data['isp'], 'vpn') !== false) ? 1 : 0;
+}
+
+function isTanzaniaLocation($ip)
+{
+    $ch = curl_init("http://ipapi.co/$ip/json/");
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    $response = curl_exec($ch);
+    curl_close($ch);
+    $data = json_decode($response, true);
+    return (isset($data['country_code']) && $data['country_code'] === 'TZ') ? 0 : 1;
+}
+
+function logFraud($conn, $user_id, $election_id, $is_fraudulent, $confidence, $details, $action)
+{
+    $description = $is_fraudulent ? "Fraud detected with confidence $confidence" : "No fraud detected";
+    $stmt = $conn->prepare(
+        "INSERT INTO frauddetectionlogs (user_id, election_id, is_fraudulent, confidence, details, description, action, created_at) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, NOW())"
+    );
+    $stmt->bind_param("iiidsss", $user_id, $election_id, $is_fraudulent, $confidence, $details, $description, $action);
+    $stmt->execute();
+    $stmt->close();
+}
+
+function blockUser($conn, $user_id)
+{
+    $stmt = $conn->prepare("UPDATE users SET active = 0 WHERE user_id = ?");
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    $stmt->close();
+}
+
+// Session Validation
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['role']) || $_SESSION['role'] !== 'voter') {
     error_log("Session validation failed: user_id or role not set or invalid. Session: " . print_r($_SESSION, true));
     session_unset();
@@ -73,19 +152,19 @@ $_SESSION['last_activity'] = time();
 $user_id = $_SESSION['user_id'];
 $user = [];
 try {
-    $stmt = $conn->prepare("SELECT fname, college_id, hostel_id, association FROM users WHERE user_id = ?");
+    $stmt = $conn->prepare("SELECT fname, college_id, hostel_id, association, active FROM users WHERE user_id = ?");
     $stmt->bind_param("i", $user_id);
     $stmt->execute();
     $result = $stmt->get_result();
     $user = $result->fetch_assoc();
-    if (!$user) {
-        throw new Exception("No user found for user_id: " . $user_id);
+    if (!$user || $user['active'] == 0) {
+        throw new Exception("No user found or user is blocked for user_id: " . $user_id);
     }
 } catch (Exception $e) {
     error_log("Query error: " . $e->getMessage());
     session_unset();
     session_destroy();
-    header('Location: login.php?error=' . urlencode('User not found or server error. Please log in again.'));
+    header('Location: login.php?error=' . urlencode('User not found, blocked, or server error. Please log in again.'));
     exit;
 }
 
@@ -181,6 +260,7 @@ try {
 
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -195,12 +275,14 @@ try {
             box-sizing: border-box;
             font-family: 'Poppins', sans-serif;
         }
+
         body {
             background: linear-gradient(rgba(26, 60, 52, 0.7), rgba(26, 60, 52, 0.7)), url('images/cive.jpeg');
             background-size: cover;
             color: #2d3748;
             min-height: 100vh;
         }
+
         .header {
             background: #1a3c34;
             color: #e6e6e6;
@@ -214,20 +296,24 @@ try {
             top: 0;
             z-index: 1000;
         }
+
         .logo {
             display: flex;
             align-items: center;
         }
+
         .logo img {
             width: 40px;
             height: 40px;
             border-radius: 50%;
             margin-right: 10px;
         }
+
         .logo h1 {
             font-size: 24px;
             font-weight: 600;
         }
+
         .nav a {
             color: #e6e6e6;
             text-decoration: none;
@@ -235,13 +321,16 @@ try {
             font-size: 16px;
             transition: color 0.3s ease;
         }
+
         .nav a:hover {
             color: #f4a261;
         }
+
         .user {
             display: flex;
             align-items: center;
         }
+
         .user img {
             width: 40px;
             height: 40px;
@@ -249,6 +338,7 @@ try {
             margin-right: 10px;
             cursor: pointer;
         }
+
         .dropdown {
             display: none;
             position: absolute;
@@ -259,29 +349,35 @@ try {
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
             overflow: hidden;
         }
-        .dropdown a, .dropdown span {
+
+        .dropdown a,
+        .dropdown span {
             display: block;
             padding: 10px 20px;
             color: #2d3748;
             text-decoration: none;
             font-size: 16px;
         }
+
         .dropdown a:hover {
             background: #f4a261;
             color: #fff;
         }
+
         .logout-link {
             display: none;
             color: #e6e6e6;
             text-decoration: none;
             font-size: 16px;
         }
+
         .dashboard {
             margin-top: 80px;
             padding: 30px;
             display: flex;
             justify-content: center;
         }
+
         .dash-content {
             background: rgba(255, 255, 255, 0.95);
             padding: 30px;
@@ -290,51 +386,63 @@ try {
             max-width: 1200px;
             box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
         }
+
         .dash-content h2 {
             font-size: 28px;
             color: #1a3c34;
             margin-bottom: 20px;
             text-align: center;
         }
+
         .election-section {
             margin-bottom: 30px;
         }
+
         .election-section h3 {
             font-size: 22px;
             color: #2d3748;
             margin-bottom: 15px;
         }
+
         .position-section {
             margin-bottom: 20px;
         }
+
         .position-section h4 {
             font-size: 18px;
             color: #2d3748;
             margin-bottom: 10px;
         }
+
         .candidate-table {
             width: 100%;
             border-collapse: collapse;
             margin-bottom: 20px;
         }
-        .candidate-table th, .candidate-table td {
+
+        .candidate-table th,
+        .candidate-table td {
             padding: 12px;
             text-align: left;
             border-bottom: 1px solid #e0e0e0;
         }
+
         .candidate-table th {
             background: #1a3c34;
             color: #e6e6e6;
             text-transform: uppercase;
             font-size: 14px;
         }
+
         .candidate-table td {
             background: #fff;
             font-size: 16px;
         }
+
         .candidate-table tr:hover {
             background: #f9f9f9;
         }
+
         .vote-form button {
             background: #f4a261;
             color: #fff;
@@ -346,29 +454,36 @@ try {
             transition: background 0.3s ease;
             margin-top: 10px;
         }
+
         .vote-form button:hover {
             background: #e76f51;
         }
+
         .vote-form button:disabled {
             background: #cccccc;
             cursor: not-allowed;
         }
-        .error, .success {
+
+        .error,
+        .success {
             padding: 15px;
             border-radius: 6px;
             margin-bottom: 20px;
             font-size: 16px;
         }
+
         .error {
             background: #ffe6e6;
             color: #e76f51;
             border: 1px solid #e76f51;
         }
+
         .success {
             background: #e6fff5;
             color: #2a9d8f;
             border: 1px solid #2a9d8f;
         }
+
         .modal {
             display: none;
             position: fixed;
@@ -381,6 +496,7 @@ try {
             justify-content: center;
             align-items: center;
         }
+
         .modal-content {
             background: #fff;
             padding: 20px;
@@ -389,11 +505,13 @@ try {
             max-width: 400px;
             width: 90%;
         }
+
         .modal-content p {
             font-size: 16px;
             color: #2d3748;
             margin-bottom: 20px;
         }
+
         .modal-content button {
             background: #f4a261;
             color: #fff;
@@ -403,28 +521,35 @@ try {
             cursor: pointer;
             font-size: 16px;
         }
+
         .modal-content button:hover {
             background: #e76f51;
         }
+
         @media (max-width: 768px) {
             .header {
                 flex-direction: column;
                 padding: 10px 20px;
             }
+
             .logo h1 {
                 font-size: 20px;
             }
+
             .nav {
                 margin: 10px 0;
                 text-align: center;
             }
+
             .nav a {
                 margin: 0 10px;
                 font-size: 14px;
             }
+
             .user img {
                 display: none;
             }
+
             .dropdown {
                 display: block;
                 position: static;
@@ -432,37 +557,48 @@ try {
                 background: none;
                 text-align: center;
             }
-            .dropdown a, .dropdown span {
+
+            .dropdown a,
+            .dropdown span {
                 color: #e6e6e6;
                 padding: 5px 10px;
             }
+
             .dropdown a:hover {
                 background: none;
                 color: #f4a261;
             }
+
             .logout-link {
                 display: block;
                 margin-top: 10px;
             }
+
             .dash-content {
                 padding: 20px;
             }
+
             .dash-content h2 {
                 font-size: 24px;
             }
+
             .election-section h3 {
                 font-size: 18px;
             }
+
             .position-section h4 {
                 font-size: 16px;
             }
-            .candidate-table th, .candidate-table td {
+
+            .candidate-table th,
+            .candidate-table td {
                 padding: 8px;
                 font-size: 14px;
             }
         }
     </style>
 </head>
+
 <body>
     <header class="header">
         <div class="logo">
@@ -565,23 +701,51 @@ try {
 
     <script src="https://cdn.ethers.io/lib/ethers-5.7.2.umd.min.js" type="text/javascript"></script>
     <script>
-        const provider = new ethers.providers.JsonRpcProvider('https://sepolia.infura.io/v3/YOUR_INFURA_PROJECT_ID');
+        const provider = new ethers.providers.JsonRpcProvider('https://eth-sepolia.g.alchemy.com/v2/1isPc6ojuMcMbyoNNeQkLDGM76n8oT8B');
         const contractAddress = '0x7f37Ea78D22DA910e66F8FdC1640B75dc88fa44F';
-        const contractABI = [
-            {
+        const contractABI = [{
                 "inputs": [],
                 "stateMutability": "nonpayable",
                 "type": "constructor"
             },
             {
                 "anonymous": false,
-                "inputs": [
-                    {"indexed": false, "internalType": "uint256", "name": "electionId", "type": "uint256"},
-                    {"indexed": true, "internalType": "address", "name": "voter", "type": "address"},
-                    {"indexed": false, "internalType": "uint256", "name": "positionId", "type": "uint256"},
-                    {"indexed": false, "internalType": "uint256", "name": "candidateId", "type": "uint256"},
-                    {"indexed": false, "internalType": "string", "name": "candidateName", "type": "string"},
-                    {"indexed": false, "internalType": "string", "name": "positionName", "type": "string"}
+                "inputs": [{
+                        "indexed": false,
+                        "internalType": "uint256",
+                        "name": "electionId",
+                        "type": "uint256"
+                    },
+                    {
+                        "indexed": true,
+                        "internalType": "address",
+                        "name": "voter",
+                        "type": "address"
+                    },
+                    {
+                        "indexed": false,
+                        "internalType": "uint256",
+                        "name": "positionId",
+                        "type": "uint256"
+                    },
+                    {
+                        "indexed": false,
+                        "internalType": "uint256",
+                        "name": "candidateId",
+                        "type": "uint256"
+                    },
+                    {
+                        "indexed": false,
+                        "internalType": "string",
+                        "name": "candidateName",
+                        "type": "string"
+                    },
+                    {
+                        "indexed": false,
+                        "internalType": "string",
+                        "name": "positionName",
+                        "type": "string"
+                    }
                 ],
                 "name": "VoteCast",
                 "type": "event"
@@ -589,17 +753,40 @@ try {
             {
                 "inputs": [],
                 "name": "admin",
-                "outputs": [{"internalType": "address", "name": "", "type": "address"}],
+                "outputs": [{
+                    "internalType": "address",
+                    "name": "",
+                    "type": "address"
+                }],
                 "stateMutability": "view",
                 "type": "function"
             },
             {
-                "inputs": [
-                    {"internalType": "uint256", "name": "electionId", "type": "uint256"},
-                    {"internalType": "uint256", "name": "positionId", "type": "uint256"},
-                    {"internalType": "uint256", "name": "candidateId", "type": "uint256"},
-                    {"internalType": "string", "name": "candidateName", "type": "string"},
-                    {"internalType": "string", "name": "positionName", "type": "string"}
+                "inputs": [{
+                        "internalType": "uint256",
+                        "name": "electionId",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "positionId",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "candidateId",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "string",
+                        "name": "candidateName",
+                        "type": "string"
+                    },
+                    {
+                        "internalType": "string",
+                        "name": "positionName",
+                        "type": "string"
+                    }
                 ],
                 "name": "castVote",
                 "outputs": [],
@@ -607,69 +794,166 @@ try {
                 "type": "function"
             },
             {
-                "inputs": [
-                    {"internalType": "uint256", "name": "positionId", "type": "uint256"},
-                    {"internalType": "uint256", "name": "candidateId", "type": "uint256"}
-                ],
-                "name": "getVoteCount",
-                "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
-                "stateMutability": "view",
-                "type": "function"
-            },
-            {
-                "inputs": [{"internalType": "uint256", "name": "electionId", "type": "uint256"}],
-                "name": "getVotesByElection",
-                "outputs": [
+                "inputs": [{
+                        "internalType": "uint256",
+                        "name": "positionId",
+                        "type": "uint256"
+                    },
                     {
-                        "components": [
-                            {"internalType": "uint256", "name": "electionId", "type": "uint256"},
-                            {"internalType": "address", "name": "voter", "type": "address"},
-                            {"internalType": "uint256", "name": "positionId", "type": "uint256"},
-                            {"internalType": "uint256", "name": "candidateId", "type": "uint256"},
-                            {"internalType": "uint256", "name": "timestamp", "type": "uint256"},
-                            {"internalType": "string", "name": "candidateName", "type": "string"},
-                            {"internalType": "string", "name": "positionName", "type": "string"}
-                        ],
-                        "internalType": "struct VoteContract.Vote[]",
-                        "name": "",
-                        "type": "tuple[]"
+                        "internalType": "uint256",
+                        "name": "candidateId",
+                        "type": "uint256"
                     }
                 ],
+                "name": "getVoteCount",
+                "outputs": [{
+                    "internalType": "uint256",
+                    "name": "",
+                    "type": "uint256"
+                }],
                 "stateMutability": "view",
                 "type": "function"
             },
             {
-                "inputs": [
-                    {"internalType": "address", "name": "", "type": "address"},
-                    {"internalType": "uint256", "name": "", "type": "uint256"},
-                    {"internalType": "uint256", "name": "", "type": "uint256"}
+                "inputs": [{
+                    "internalType": "uint256",
+                    "name": "electionId",
+                    "type": "uint256"
+                }],
+                "name": "getVotesByElection",
+                "outputs": [{
+                    "components": [{
+                            "internalType": "uint256",
+                            "name": "electionId",
+                            "type": "uint256"
+                        },
+                        {
+                            "internalType": "address",
+                            "name": "voter",
+                            "type": "address"
+                        },
+                        {
+                            "internalType": "uint256",
+                            "name": "positionId",
+                            "type": "uint256"
+                        },
+                        {
+                            "internalType": "uint256",
+                            "name": "candidateId",
+                            "type": "uint256"
+                        },
+                        {
+                            "internalType": "uint256",
+                            "name": "timestamp",
+                            "type": "uint256"
+                        },
+                        {
+                            "internalType": "string",
+                            "name": "candidateName",
+                            "type": "string"
+                        },
+                        {
+                            "internalType": "string",
+                            "name": "positionName",
+                            "type": "string"
+                        }
+                    ],
+                    "internalType": "struct VoteContract.Vote[]",
+                    "name": "",
+                    "type": "tuple[]"
+                }],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [{
+                        "internalType": "address",
+                        "name": "",
+                        "type": "address"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "",
+                        "type": "uint256"
+                    }
                 ],
                 "name": "hasVoted",
-                "outputs": [{"internalType": "bool", "name": "", "type": "bool"}],
+                "outputs": [{
+                    "internalType": "bool",
+                    "name": "",
+                    "type": "bool"
+                }],
                 "stateMutability": "view",
                 "type": "function"
             },
             {
-                "inputs": [
-                    {"internalType": "uint256", "name": "", "type": "uint256"},
-                    {"internalType": "uint256", "name": "", "type": "uint256"}
+                "inputs": [{
+                        "internalType": "uint256",
+                        "name": "",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "",
+                        "type": "uint256"
+                    }
                 ],
                 "name": "voteCount",
-                "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+                "outputs": [{
+                    "internalType": "uint256",
+                    "name": "",
+                    "type": "uint256"
+                }],
                 "stateMutability": "view",
                 "type": "function"
             },
             {
-                "inputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+                "inputs": [{
+                    "internalType": "uint256",
+                    "name": "",
+                    "type": "uint256"
+                }],
                 "name": "votes",
-                "outputs": [
-                    {"internalType": "uint256", "name": "electionId", "type": "uint256"},
-                    {"internalType": "address", "name": "voter", "type": "address"},
-                    {"internalType": "uint256", "name": "positionId", "type": "uint256"},
-                    {"internalType": "uint256", "name": "candidateId", "type": "uint256"},
-                    {"internalType": "uint256", "name": "timestamp", "type": "uint256"},
-                    {"internalType": "string", "name": "candidateName", "type": "string"},
-                    {"internalType": "string", "name": "positionName", "type": "string"}
+                "outputs": [{
+                        "internalType": "uint256",
+                        "name": "electionId",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "address",
+                        "name": "voter",
+                        "type": "address"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "positionId",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "candidateId",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "timestamp",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "string",
+                        "name": "candidateName",
+                        "type": "string"
+                    },
+                    {
+                        "internalType": "string",
+                        "name": "positionName",
+                        "type": "string"
+                    }
                 ],
                 "stateMutability": "view",
                 "type": "function"
@@ -711,9 +995,107 @@ try {
 
                 const submitButton = form.querySelector('button');
                 submitButton.disabled = true;
-                submitButton.textContent = 'Submitting...';
+                submitButton.textContent = 'Checking for Fraud...';
 
+                // Fraud Detection API Call
                 try {
+                    const fraudData = {
+                        time_diff: <?php echo time() - $_SESSION['last_activity']; ?>,
+                        votes_per_user: <?php echo getUserVoteCount($conn, $user_id); ?>,
+                        vote_frequency: <?php echo calculateVoteFrequency($conn, $user_id); ?>,
+                        vpn_usage: <?php echo detectVPN($_SERVER['REMOTE_ADDR']); ?>,
+                        multiple_logins: <?php echo checkMultipleLogins($conn, $user_id); ?>,
+                        session_duration: <?php echo time() - $_SESSION['start_time']; ?>,
+                        location_flag: <?php echo isTanzaniaLocation($_SERVER['REMOTE_ADDR']); ?>
+                    };
+
+                    const fraudResponse = await fetch('http://localhost:5000/predict', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(fraudData)
+                    });
+                    const fraudResult = await fraudResponse.json();
+
+                    if (fraudResult.error) {
+                        throw new Error('Fraud detection failed: ' + fraudResult.error);
+                    }
+
+                    const isFraudulent = fraudResult.fraud_label;
+                    const confidence = fraudResult.fraud_probability;
+                    let action = 'none';
+                    const details = JSON.stringify(fraudData);
+
+                    if (isFraudulent) {
+                        action = confidence > 0.9 ? 'block_user' : 'logout';
+                        // Log fraud
+                        const fraudLogResponse = await fetch('log-fraud.php', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                user_id: <?php echo $user_id; ?>,
+                                election_id: electionId,
+                                is_fraudulent: isFraudulent,
+                                confidence: confidence,
+                                details: details,
+                                action: action
+                            })
+                        });
+                        const fraudLogResult = await fraudLogResponse.json();
+                        if (!fraudLogResult.success) {
+                            throw new Error('Failed to log fraud: ' + fraudLogResult.message);
+                        }
+
+                        // Take action
+                        if (action === 'block_user') {
+                            await fetch('block-user.php', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({
+                                    user_id: <?php echo $user_id; ?>
+                                })
+                            });
+                            showError('Fraud detected. Your account has been blocked.');
+                            setTimeout(() => {
+                                window.location.href = 'login.php?error=' + encodeURIComponent('Account blocked due to fraud detection.');
+                            }, 3000);
+                            return;
+                        } else {
+                            showError('Fraud detected. You will be logged out.');
+                            setTimeout(() => {
+                                window.location.href = 'login.php?error=' + encodeURIComponent('Logged out due to fraud detection.');
+                            }, 3000);
+                            return;
+                        }
+                    } else {
+                        // Log non-fraudulent attempt
+                        const fraudLogResponse = await fetch('log-fraud.php', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                user_id: <?php echo $user_id; ?>,
+                                election_id: electionId,
+                                is_fraudulent: isFraudulent,
+                                confidence: confidence,
+                                details: details,
+                                action: action
+                            })
+                        });
+                        const fraudLogResult = await fraudLogResponse.json();
+                        if (!fraudLogResult.success) {
+                            throw new Error('Failed to log fraud: ' + fraudLogResult.message);
+                        }
+                    }
+
+                    // Proceed with vote casting if no fraud
+                    submitButton.textContent = 'Submitting Vote...';
                     const signer = provider.getSigner();
                     const contractWithSigner = contract.connect(signer);
                     const tx = await contractWithSigner.castVote(
@@ -721,15 +1103,18 @@ try {
                         positionId,
                         candidateId,
                         candidateName,
-                        positionName,
-                        { gasLimit: 300000 }
+                        positionName, {
+                            gasLimit: 300000
+                        }
                     );
                     const receipt = await tx.wait();
 
                     // Log vote in MySQL database
                     const response = await fetch('log-vote.php', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
                         body: JSON.stringify({
                             user_id: <?php echo $user_id; ?>,
                             election_id: electionId,
@@ -748,7 +1133,7 @@ try {
                     submitButton.disabled = true;
                     submitButton.textContent = 'Vote Cast';
                 } catch (error) {
-                    showError('Error casting vote: ' + error.message);
+                    showError('Error: ' + error.message);
                     submitButton.disabled = false;
                     submitButton.textContent = 'Cast Vote';
                 }
@@ -803,6 +1188,7 @@ try {
         });
     </script>
 </body>
+
 </html>
 <?php
 $conn->close();
