@@ -329,7 +329,7 @@
                 <input type="password" id="confirm_password" name="confirm_password" placeholder="Confirm Password" required>
             </div>
             <button type="submit" class="register-btn">Register</button>
-            <button type="button" class="login-btn" onclick="window.location.href='login.php'">Login</button>
+            <button type="button" class="login-btn" onclick="window.location.href='index.php'">Login</button>
         </form>
     </div>
 

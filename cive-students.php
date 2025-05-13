@@ -30,10 +30,10 @@ if (!isset($_SESSION['2fa_verified']) || $_SESSION['2fa_verified'] !== true) {
     exit;
 }
 
-error_log("Session after validation: user_id=" . ($_SESSION['user_id'] ?? 'unset') . 
-          ", role=" . ($_SESSION['role'] ?? 'unset') . 
-          ", college_id=" . ($_SESSION['college_id'] ?? 'unset') . 
-          ", association=" . ($_SESSION['association'] ?? 'unset'));
+error_log("Session after validation: user_id=" . ($_SESSION['user_id'] ?? 'unset') .
+    ", role=" . ($_SESSION['role'] ?? 'unset') .
+    ", college_id=" . ($_SESSION['college_id'] ?? 'unset') .
+    ", association=" . ($_SESSION['association'] ?? 'unset'));
 
 if (isset($_SESSION['college_id']) && $_SESSION['college_id'] != 1) {
     error_log("College ID mismatch: expected 1, got " . $_SESSION['college_id']);
@@ -172,9 +172,9 @@ try {
                 $position_id = $position['position_id'];
 
                 $cand_stmt = $conn->prepare(
-                    "SELECT id, official_id, firstname, lastname
-                     FROM candidates
-                     WHERE election_id = ? AND position_id = ?"
+                    "SELECT id, official_id, firstname, lastname, passport 
+     FROM candidates 
+     WHERE election_id = ? AND position_id = ?"
                 );
                 $cand_stmt->bind_param('ii', $election_id, $position_id);
                 $cand_stmt->execute();
@@ -198,6 +198,7 @@ try {
 
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -207,261 +208,343 @@ try {
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Poppins', sans-serif;
-        }
-        body {
-            background: linear-gradient(rgba(26, 60, 52, 0.7), rgba(26, 60, 52, 0.7)), url('images/cive.jpeg');
-            background-size: cover;
-            color: #2d3748;
-            min-height: 100vh;
-        }
-        .header {
-            background: #1a3c34;
-            color: #e6e6e6;
-            padding: 15px 30px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-            position: fixed;
-            width: 100%;
-            top: 0;
-            z-index: 1000;
-        }
-        .logo {
-            display: flex;
-            align-items: center;
-        }
-        .logo img {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            margin-right: 10px;
-        }
-        .logo h1 {
-            font-size: 24px;
-            font-weight: 600;
-        }
-        .nav a {
-            color: #e6e6e6;
-            text-decoration: none;
-            margin: 0 15px;
-            font-size: 16px;
-            transition: color 0.3s ease;
-        }
-        .nav a:hover {
-            color: #f4a261;
-        }
-        .user {
-            display: flex;
-            align-items: center;
-        }
-        .user img {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            margin-right: 10px;
-            cursor: pointer;
-        }
-        .dropdown {
-            display: none;
-            position: absolute;
-            top: 60px;
-            right: 20px;
-            background: #fff;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-            overflow: hidden;
-        }
-        .dropdown a, .dropdown span {
-            display: block;
-            padding: 10px 20px;
-            color: #2d3748;
-            text-decoration: none;
-            font-size: 16px;
-        }
-        .dropdown a:hover {
-            background: #f4a261;
-            color: #fff;
-        }
-        .logout-link {
-            display: none;
-            color: #e6e6e6;
-            text-decoration: none;
-            font-size: 16px;
-        }
-        .dashboard {
-            margin-top: 80px;
-            padding: 30px;
-            display: flex;
-            justify-content: center;
-        }
-        .dash-content {
-            background: rgba(255, 255, 255, 0.95);
-            padding: 30px;
-            border-radius: 12px;
-            width: 100%;
-            max-width: 1200px;
-            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
-        }
-        .dash-content h2 {
-            font-size: 28px;
-            color: #1a3c34;
-            margin-bottom: 20px;
-            text-align: center;
-        }
-        .election-section {
-            margin-bottom: 30px;
-        }
-        .election-section h3 {
-            font-size: 22px;
-            color: #2d3748;
-            margin-bottom: 15px;
-        }
-        .position-section {
-            margin-bottom: 20px;
-        }
-        .position-section h4 {
-            font-size: 18px;
-            color: #2d3748;
-            margin-bottom: 10px;
-        }
-        .candidate-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 20px;
-        }
-        .candidate-table th, .candidate-table td {
-            padding: 12px;
-            text-align: left;
-            border-bottom: 1px solid #e0e0e0;
-        }
-        .candidate-table th {
-            background: #1a3c34;
-            color: #e6e6e6;
-            text-transform: uppercase;
-            font-size: 14px;
-        }
-        .candidate-table td {
-            background: #fff;
-            font-size: 16px;
-        }
-        .candidate-table tr:hover {
-            background: #f9f9f9;
-        }
-        .error, .success {
-            padding: 15px;
-            border-radius: 6px;
-            margin-bottom: 20px;
-            font-size: 16px;
-        }
-        .error {
-            background: #ffe6e6;
-            color: #e76f51;
-            border: 1px solid #e76f51;
-        }
-        .success {
-            background: #e6fff5;
-            color: #2a9d8f;
-            border: 1px solid #2a9d8f;
-        }
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.5);
-            z-index: 1001;
-            justify-content: center;
-            align-items: center;
-        }
-        .modal-content {
-            background: #fff;
-            padding: 20px;
-            border-radius: 8px;
-            text-align: center;
-            max-width: 400px;
-            width: 90%;
-        }
-        .modal-content p {
-            font-size: 16px;
-            color: #2d3748;
-            margin-bottom: 20px;
-        }
-        .modal-content button {
-            background: #f4a261;
-            color: #fff;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 16px;
-        }
-        .modal-content button:hover {
-            background: #e76f51;
-        }
-        @media (max-width: 768px) {
-            .header {
-                flex-direction: column;
-                padding: 10px 20px;
-            }
-            .logo h1 {
-                font-size: 20px;
-            }
-            .nav {
-                margin: 10px 0;
-                text-align: center;
-            }
-            .nav a {
-                margin: 0 10px;
-                font-size: 14px;
-            }
-            .user img {
-                display: none;
-            }
-            .dropdown {
-                display: block;
-                position: static;
-                box-shadow: none;
-                background: none;
-                text-align: center;
-            }
-            .dropdown a, .dropdown span {
-                color: #e6e6e6;
-                padding: 5px 10px;
-            }
-            .dropdown a:hover {
-                background: none;
-                color: #f4a261;
-            }
-            .logout-link {
-                display: block;
-                margin-top: 10px;
-            }
-            .dash-content {
-                padding: 20px;
-            }
-            .dash-content h2 {
-                font-size: 24px;
-            }
-            .election-section h3 {
-                font-size: 18px;
-            }
-            .position-section h4 {
-                font-size: 16px;
-            }
-            .candidate-table th, .candidate-table td {
-                padding: 8px;
-                font-size: 14px;
-            }
-        }
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Poppins', sans-serif;
+}
+
+body {
+    background: linear-gradient(rgba(26, 60, 52, 0.7), rgba(26, 60, 52, 0.7)), url('images/cive.jpeg');
+    background-size: cover;
+    color: #2d3748;
+    min-height: 100vh;
+}
+
+.header {
+    background: #1a3c34;
+    color: #e6e6e6;
+    padding: 15px 30px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    position: fixed;
+    width: 100%;
+    top: 0;
+    z-index: 1000;
+}
+
+.logo {
+    display: flex;
+    align-items: center;
+}
+
+.logo img {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    margin-right: 10px;
+}
+
+.logo h1 {
+    font-size: 24px;
+    font-weight: 600;
+}
+
+.nav a {
+    color: #e6e6e6;
+    text-decoration: none;
+    margin: 0 15px;
+    font-size: 16px;
+    transition: color 0.3s ease;
+}
+
+.nav a:hover {
+    color: #f4a261;
+}
+
+.user {
+    display: flex;
+    align-items: center;
+}
+
+.user img {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    margin-right: 10px;
+    cursor: pointer;
+}
+
+.dropdown {
+    display: none;
+    position: absolute;
+    top: 60px;
+    right: 20px;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+.dropdown a,
+.dropdown span {
+    display: block;
+    padding: 10px 20px;
+    color: #2d3748;
+    text-decoration: none;
+    font-size: 16px;
+}
+
+.dropdown a:hover {
+    background: #f4a261;
+    color: #fff;
+}
+
+.logout-link {
+    display: none;
+    color: #e6e6e6;
+    text-decoration: none;
+    font-size: 16px;
+}
+
+.dashboard {
+    margin-top: 80px;
+    padding: 30px;
+    display: flex;
+    justify-content: center;
+}
+
+.dash-content {
+    background: rgba(255, 255, 255, 0.95);
+    padding: 30px;
+    border-radius: 12px;
+    width: 100%;
+    max-width: 1200px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+}
+
+.dash-content h2 {
+    font-size: 28px;
+    color: #1a3c34;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.election-section {
+    margin-bottom: 30px;
+}
+
+.election-section h3 {
+    font-size: 22px;
+    color: #2d3748;
+    margin-bottom: 15px;
+}
+
+.position-section {
+    margin-bottom: 20px;
+}
+
+.position-section h4 {
+    font-size: 18px;
+    color: #2d3748;
+    margin-bottom: 10px;
+}
+
+.candidate-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.candidate-card {
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    padding: 15px;
+    text-align: center;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.candidate-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+}
+
+.candidate-img {
+    width: 100px;
+    height: 100px;
+    object-fit: cover;
+    border-radius: 50%;
+    margin-bottom: 10px;
+    border: 2px solid #1a3c34;
+    transition: border-color 0.3s ease;
+}
+
+.candidate-card:hover .candidate-img {
+    border-color: #f4a261;
+}
+
+.candidate-info {
+    margin-bottom: 15px;
+}
+
+.candidate-info p {
+    margin: 5px 0;
+    font-size: 14px;
+    color: #2d3748;
+}
+
+.error,
+.success {
+    padding: 15px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+    font-size: 16px;
+}
+
+.error {
+    background: #ffe6e6;
+    color: #e76f51;
+    border: 1px solid #e76f51;
+}
+
+.success {
+    background: #e6fff5;
+    color: #2a9d8f;
+    border: 1px solid #2a9d8f;
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1001;
+    justify-content: center;
+    align-items: center;
+}
+
+.modal-content {
+    background: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    text-align: center;
+    max-width: 400px;
+    width: 90%;
+}
+
+.modal-content p {
+    font-size: 16px;
+    color: #2d3748;
+    margin-bottom: 20px;
+}
+
+.modal-content button {
+    background: #f4a261;
+    color: #fff;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 16px;
+}
+
+.modal-content button:hover {
+    background: #e76f51;
+}
+
+@media (max-width: 768px) {
+    .header {
+        flex-direction: column;
+        padding: 10px 20px;
+    }
+
+    .logo h1 {
+        font-size: 20px;
+    }
+
+    .nav {
+        margin: 10px 0;
+        text-align: center;
+    }
+
+    .nav a {
+        margin: 0 10px;
+        font-size: 14px;
+    }
+
+    .user img {
+        display: none;
+    }
+
+    .dropdown {
+        display: block;
+        position: static;
+        box-shadow: none;
+        background: none;
+        text-align: center;
+    }
+
+    .dropdown a,
+    .dropdown span {
+        color: #e6e6e6;
+        padding: 5px 10px;
+    }
+
+    .dropdown a:hover {
+        background: none;
+        color: #f4a261;
+    }
+
+    .logout-link {
+        display: block;
+        margin-top: 10px;
+    }
+
+    .dash-content {
+        padding: 20px;
+    }
+
+    .dash-content h2 {
+        font-size: 24px;
+    }
+
+    .election-section h3 {
+        font-size: 18px;
+    }
+
+    .position-section h4 {
+        font-size: 16px;
+    }
+
+    .candidate-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .candidate-card {
+        padding: 10px;
+    }
+
+    .candidate-img {
+        width: 80px;
+        height: 80px;
+    }
+
+    .candidate-info p {
+        font-size: 12px;
+    }
+}
     </style>
 </head>
+
 <body>
     <header class="header">
         <div class="logo">
@@ -515,26 +598,20 @@ try {
                                             <p>No candidates available for this position.</p>
                                         </div>
                                     <?php else: ?>
-                                        <table class="candidate-table">
-                                            <thead>
-                                                <tr>
-                                                    <th>Official ID</th>
-                                                    <th>First Name</th>
-                                                    <th>Last Name</th>
-                                                    <th>Association</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                <?php foreach ($position['candidates'] as $candidate): ?>
-                                                    <tr>
-                                                        <td><?php echo htmlspecialchars($candidate['official_id']); ?></td>
-                                                        <td><?php echo htmlspecialchars($candidate['firstname']); ?></td>
-                                                        <td><?php echo htmlspecialchars($candidate['lastname']); ?></td>
-                                                        <td><?php echo htmlspecialchars($association); ?></td>
-                                                    </tr>
-                                                <?php endforeach; ?>
-                                            </tbody>
-                                        </table>
+                                        <form class="vote-form" data-election-id="<?php echo $election['election_id']; ?>" data-position-id="<?php echo $position['position_id']; ?>">
+    <div class="candidate-grid">
+        <?php foreach ($position['candidates'] as $candidate): ?>
+            <div class="candidate-card">
+                <img src="<?php echo htmlspecialchars($candidate['passport'] ?: 'images/general.png'); ?>" alt="Candidate Passport" class="candidate-img">
+                <div class="candidate-info">
+                    <p><strong>Official ID:</strong> <?php echo htmlspecialchars($candidate['official_id']); ?></p>
+                    <p><strong>Name:</strong> <?php echo htmlspecialchars($candidate['firstname'] . ' ' . $candidate['lastname']); ?></p>
+                    <p><strong>Association:</strong> <?php echo htmlspecialchars($association); ?></p>
+                </div>
+            </div>
+        <?php endforeach; ?>
+    </div>
+</form>
                                     <?php endif; ?>
                                 </div>
                             <?php endforeach; ?>
@@ -601,6 +678,7 @@ try {
         });
     </script>
 </body>
+
 </html>
 <?php
 $conn->close();
