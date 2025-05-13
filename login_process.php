@@ -18,7 +18,7 @@ try {
 function redirectUser($role, $college_id, $association) {
     if ($role === 'admin') {
         header('Location: admin-dashboard.php');
-    }  elseif ($role === 'voter' && $association === 'UDOSO') {
+    } elseif ($role === 'voter' && $association === 'UDOSO') {
         if ($college_id === 1) { // CIVE
             header('Location: cive-students.php');
         } elseif ($college_id === 3) { // CNMS
@@ -86,10 +86,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['start_time'] = time();
             $_SESSION['last_activity'] = time();
 
+            // Store session data in the sessions table
+            $session_token = bin2hex(random_bytes(32));
+            $ip_address = $_SERVER['REMOTE_ADDR'] ?? 'Unknown';
+            $stmt = $pdo->prepare("INSERT INTO sessions (user_id, session_token, ip_address, login_time, last_activity) VALUES (?, ?, ?, NOW(), NOW())");
+            $stmt->execute([$user['user_id'], $session_token, $ip_address]);
+
             error_log("Session set success after login: " . print_r($_SESSION, true));
 
             $action = "User logged in: {$user['email']}";
-            $ip_address = $_SERVER['REMOTE_ADDR'] ?? 'Unknown';
             $stmt = $pdo->prepare("INSERT INTO auditlogs (user_id, action, ip_address, timestamp) VALUES (?, ?, ?, NOW())");
             $stmt->execute([$user['user_id'], $action, $ip_address]);
 
