@@ -13,9 +13,9 @@ def generate_geo():
 def generate_voter_id():
     year = random.randint(2021, 2024)
     number = random.randint(10000, 99999)
-    return f"UDOM/{year}/{number}"
+    return f"T/UDOM/{year}/{number}"
 
-def generate_training_data(num_samples=50000, fraud_ratio=0.03, output_path='fraud_data_udom.csv', seed=42):
+def generate_training_data(num_samples=50000, fraud_ratio=0.03, output_path='C:\\Users\\yusto\\Desktop\\fraud_data - pheew.csv', seed=42):
     assert num_samples > 0, "num_samples must be positive"
     assert 0 <= fraud_ratio <= 1, "fraud_ratio must be between 0 and 1"
 

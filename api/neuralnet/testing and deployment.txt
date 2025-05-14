@@ -10,3 +10,12 @@ TESTING:
   "session_duration": 45.0,
   "geo_location": 4
 }
+
+{
+  "time_diff": 3.0,
+  "votes_per_user": 4,
+  "vpn_usage": 0,
+  "multiple_logins": 1,
+  "session_duration": 50.0,
+  "geo_location": 0
+}

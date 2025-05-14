@@ -1,7 +1,10 @@
+import pandas as pd
 import numpy as np
-import tensorflow as tf
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
+from sklearn.utils import class_weight
+import tensorflow as tf
+from tensorflow.keras import layers, models
 import pickle
 import os
 
@@ -9,57 +12,56 @@ import os
 np.random.seed(42)
 tf.random.set_seed(42)
 
-# Generate synthetic dataset (mimics generate_fraud_data_udom_v4.py)
-def generate_synthetic_data(n_samples=50000, fraud_ratio=0.03):
-    X = []
-    y = []
-    for _ in range(n_samples):
-        is_fraud = np.random.random() < fraud_ratio
-        if is_fraud:
-            X.append([
-                max(0.01, np.random.normal(2, 1.5)),  # time_diff
-                max(1, np.random.poisson(5) + 1),      # votes_per_user
-                np.random.choice([0, 1], p=[0.4, 0.6]), # vpn_usage
-                max(1, np.random.poisson(2) + 1),      # multiple_logins
-                max(10, np.random.normal(45, 20)),     # session_duration
-                np.random.choice([0, 4], p=[0.7, 0.3]) # geo_location
-            ])
-            y.append(1)
-        else:
-            X.append([
-                max(0.01, np.random.normal(8, 3)),
-                max(1, np.random.poisson(3) + 1),
-                np.random.choice([0, 1], p=[0.95, 0.05]),
-                max(1, np.random.poisson(1) + 1),
-                max(10, np.random.normal(100, 30)),
-                np.random.choice([0, 1, 2, 3, 4], p=[0.85, 0.05, 0.05, 0.03, 0.02])
-            ])
-            y.append(0)
-    return np.array(X), np.array(y)
+# Load dataset
+data_path = "C:\\Users\\yusto\\Desktop\\fraud_data - pheew.csv"
+try:
+    df = pd.read_csv(data_path)
+except FileNotFoundError:
+    raise FileNotFoundError(f"Dataset not found at {data_path}")
 
-# Generate data
-X, y = generate_synthetic_data()
+# Select features and target
+features = ['time_diff', 'votes_per_user', 'vpn_usage', 'multiple_logins', 'session_duration', 'geo_location']
+target = 'label'
+
+# Validate dataset
+if not all(col in df.columns for col in features + [target]):
+    raise ValueError("Dataset missing required columns")
+
+# Handle missing values
+df = df[features + [target]].dropna()
+
+# Features and target
+X = df[features].values
+y = df[target].values
 
 # Split data
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
+X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
 
-# Scale features
+# Scale numerical features
 scaler = StandardScaler()
-X_train_scaled = scaler.fit_transform(X_train)
-X_test_scaled = scaler.transform(X_test)
+numerical_indices = [0, 1, 4]  # time_diff, votes_per_user, session_duration
+X_train_scaled = X_train.copy()
+X_val_scaled = X_val.copy()
+X_train_scaled[:, numerical_indices] = scaler.fit_transform(X_train[:, numerical_indices])
+X_val_scaled[:, numerical_indices] = scaler.transform(X_val[:, numerical_indices])
 
 # Save scaler
 with open('scaler.pkl', 'wb') as f:
     pickle.dump(scaler, f)
 
+# Compute class weights to handle imbalance (~3% fraud)
+class_weights = class_weight.compute_class_weight('balanced', classes=np.unique(y_train), y=y_train)
+class_weight_dict = {0: class_weights[0], 1: class_weights[1]}
+
 # Build NN model
-model = tf.keras.Sequential([
-    tf.keras.layers.Dense(64, activation='relu', input_shape=(6,)),
-    tf.keras.layers.Dropout(0.3),
-    tf.keras.layers.Dense(32, activation='relu'),
-    tf.keras.layers.Dropout(0.3),
-    tf.keras.layers.Dense(16, activation='relu'),
-    tf.keras.layers.Dense(1, activation='sigmoid')
+model = models.Sequential([
+    layers.Input(shape=(len(features),)),
+    layers.Dense(64, activation='relu'),
+    layers.Dropout(0.3),
+    layers.Dense(32, activation='relu'),
+    layers.Dropout(0.3),
+    layers.Dense(16, activation='relu'),
+    layers.Dense(1, activation='sigmoid')
 ])
 
 # Compile model
@@ -68,14 +70,14 @@ model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy']
 # Train model
 history = model.fit(
     X_train_scaled, y_train,
-    validation_data=(X_test_scaled, y_test),
+    validation_data=(X_val_scaled, y_val),
     epochs=20,
     batch_size=32,
-    class_weight={0: 1.0, 1: 10.0},  # Handle class imbalance
+    class_weight=class_weight_dict,
     verbose=1
 )
 
 # Save model
 model.save('fraud_model.h5')
 
-print("Model training completed and saved as 'fraud_model.h5'.")
+print("Training complete. Model and scaler saved.")
