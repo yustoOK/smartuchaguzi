@@ -3,7 +3,7 @@ session_start();
 date_default_timezone_set('Africa/Dar_es_Salaam');
 
 // Load configuration
-require_once 'config.php'; // Defines $host, $dbname, $username, $password, $alchemy_api_key
+require_once 'config.php';
 
 try {
     $conn = new mysqli($host, $username, $password, $dbname);
