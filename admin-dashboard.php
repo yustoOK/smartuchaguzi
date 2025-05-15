@@ -150,6 +150,7 @@ try {
 
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -170,12 +171,14 @@ try {
             --dark-text-color: #e2e8f0;
             --sidebar-width: 250px;
         }
+
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
             font-family: 'Poppins', sans-serif;
         }
+
         body {
             background: linear-gradient(rgba(26, 60, 52, 0.7), rgba(26, 60, 52, 0.7)), url('images/university.jpeg');
             background-size: cover;
@@ -185,10 +188,12 @@ try {
             min-height: 100vh;
             transition: background-color 0.3s, color 0.3s;
         }
+
         body.dark-mode {
             background: #1a202c;
             color: var(--dark-text-color);
         }
+
         body.dark-mode .dash-content,
         body.dark-mode .overview .card,
         body.dark-mode .management-section,
@@ -201,12 +206,14 @@ try {
             background: var(--dark-bg-color);
             color: var(--dark-text-color);
         }
+
         body.dark-mode .upcoming-table td,
         body.dark-mode .audit-table td,
         body.dark-mode .fraud-table td {
             background: #2d3748;
             color: var(--dark-text-color);
         }
+
         .header {
             position: fixed;
             top: 0;
@@ -221,10 +228,12 @@ try {
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
             z-index: 1000;
         }
+
         .header .logo {
             display: flex;
             align-items: center;
         }
+
         .header .logo img {
             width: 3rem;
             height: 3rem;
@@ -232,6 +241,7 @@ try {
             border-radius: 50%;
             border: 2px solid var(--primary-color);
         }
+
         .header .logo h1 {
             font-size: 1.5rem;
             color: #e6e6e6;
@@ -241,27 +251,32 @@ try {
             background-clip: text;
             color: transparent;
         }
+
         .header .menu-toggle {
             display: none;
             font-size: 1.5rem;
             color: #e6e6e6;
             cursor: pointer;
         }
+
         .header .user {
             display: flex;
             align-items: center;
             gap: 1rem;
         }
+
         .header .user span {
             font-size: 1rem;
             color: #e6e6e6;
         }
+
         .header .user img {
             width: 2.5rem;
             height: 2.5rem;
             border-radius: 50%;
             border: 2px solid var(--primary-color);
         }
+
         .header .user a,
         .header .user button {
             background: var(--primary-color);
@@ -273,10 +288,12 @@ try {
             cursor: pointer;
             transition: background 0.3s ease;
         }
+
         .header .user a:hover,
         .header .user button:hover {
             background: var(--secondary-color);
         }
+
         .sidebar {
             position: fixed;
             top: 0;
@@ -289,12 +306,14 @@ try {
             transition: transform 0.3s ease;
             z-index: 900;
         }
+
         .sidebar .nav {
             display: flex;
             flex-direction: column;
             gap: 0.5rem;
             padding: 1rem;
         }
+
         .sidebar .nav a {
             color: #e6e6e6;
             text-decoration: none;
@@ -304,6 +323,7 @@ try {
             transition: color 0.3s ease, background 0.3s ease;
             border-radius: 6px;
         }
+
         .sidebar .nav a::after {
             content: '';
             position: absolute;
@@ -314,24 +334,29 @@ try {
             background: var(--primary-color);
             transition: width 0.3s ease;
         }
+
         .sidebar .nav a.active {
             color: var(--primary-color);
             background: rgba(255, 255, 255, 0.1);
         }
+
         .sidebar .nav a.active::after,
         .sidebar .nav a:hover::after {
             width: 100%;
         }
+
         .sidebar .nav a:hover {
             color: var(--primary-color);
             background: rgba(255, 255, 255, 0.1);
         }
+
         .main-content {
             margin-left: var(--sidebar-width);
             padding: 5rem 1rem 2rem;
             min-height: 100vh;
             transition: margin-left 0.3s ease;
         }
+
         .dash-content {
             max-width: 80rem;
             width: 95%;
@@ -342,6 +367,7 @@ try {
             margin: 0 auto;
             transition: background-color 0.3s, color 0.3s;
         }
+
         .dash-content h2 {
             font-size: 2rem;
             color: #1a3c34;
@@ -352,18 +378,22 @@ try {
             background-clip: text;
             color: transparent;
         }
+
         .content-section {
             display: none;
         }
+
         .content-section.active {
             display: block;
         }
+
         .overview {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
             gap: 1rem;
             margin-bottom: 2rem;
         }
+
         .overview .card {
             background: #ffffff;
             padding: 1.5rem;
@@ -372,25 +402,30 @@ try {
             text-align: center;
             transition: transform 0.3s ease;
         }
+
         .overview .card:hover {
             transform: translateY(-0.3rem);
         }
+
         .overview .card i {
             font-size: 2rem;
             color: var(--primary-color);
             margin-bottom: 0.5rem;
         }
+
         .overview .card .text {
             font-size: 1rem;
             color: #4a5568;
             font-weight: 500;
         }
+
         .overview .card .number {
             font-size: 1.5rem;
             font-weight: 600;
             color: #1a3c34;
             margin-top: 0.3rem;
         }
+
         h3 {
             font-size: 1.5rem;
             color: #1a3c34;
@@ -401,6 +436,7 @@ try {
             background-clip: text;
             color: transparent;
         }
+
         .management-section,
         .upcoming-section,
         .user-section,
@@ -412,12 +448,14 @@ try {
             border-radius: 10px;
             box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
         }
+
         .action-buttons {
             display: flex;
             justify-content: center;
             gap: 1rem;
             flex-wrap: wrap;
         }
+
         .action-buttons button {
             background: var(--primary-color);
             color: #fff;
@@ -428,9 +466,11 @@ try {
             cursor: pointer;
             transition: background 0.3s ease;
         }
+
         .action-buttons button:hover {
             background: var(--secondary-color);
         }
+
         .upcoming-table,
         .audit-table,
         .fraud-table {
@@ -438,6 +478,7 @@ try {
             border-collapse: collapse;
             margin-top: 1rem;
         }
+
         .upcoming-table th,
         .upcoming-table td,
         .audit-table th,
@@ -448,6 +489,7 @@ try {
             border-bottom: 1px solid #e0e0e0;
             text-align: left;
         }
+
         .upcoming-table th,
         .audit-table th,
         .fraud-table th {
@@ -457,6 +499,7 @@ try {
             text-transform: uppercase;
             font-size: 0.9rem;
         }
+
         .upcoming-table td,
         .audit-table td,
         .fraud-table td {
@@ -464,19 +507,23 @@ try {
             font-size: 0.9rem;
             background: #ffffff;
         }
+
         .upcoming-table tr:hover,
         .audit-table tr:hover,
         .fraud-table tr:hover {
             background: #f5f5f5;
         }
+
         .upcoming-table td a {
             color: var(--primary-color);
             text-decoration: none;
             font-weight: 500;
         }
+
         .upcoming-table td a:hover {
             color: var(--secondary-color);
         }
+
         .analytics-filter {
             display: flex;
             align-items: center;
@@ -485,10 +532,12 @@ try {
             justify-content: center;
             flex-wrap: wrap;
         }
+
         .analytics-filter label {
             font-size: 1rem;
             color: #4a5568;
         }
+
         .analytics-filter select {
             padding: 0.5rem 1rem;
             border-radius: 6px;
@@ -498,6 +547,7 @@ try {
             font-size: 1rem;
             max-width: 18rem;
         }
+
         .analytics-filter button {
             background: var(--primary-color);
             border: none;
@@ -508,16 +558,20 @@ try {
             cursor: pointer;
             transition: background 0.3s ease;
         }
+
         .analytics-filter button:hover {
             background: var(--secondary-color);
         }
+
         .analytics-filter button:disabled {
             background: #e0e0e0;
             cursor: not-allowed;
         }
+
         .vote-analytics {
             margin-top: 1rem;
         }
+
         .vote-analytics h4 {
             font-size: 1.25rem;
             color: #1a3c34;
@@ -528,18 +582,21 @@ try {
             background-clip: text;
             color: transparent;
         }
+
         .vote-analytics h5 {
             font-size: 1rem;
             color: var(--text-color);
             margin: 1rem 0 0.5rem;
             text-align: center;
         }
+
         .vote-analytics p {
             font-size: 0.9rem;
             color: #4a5568;
             text-align: center;
             margin-bottom: 0.5rem;
         }
+
         .vote-analytics canvas {
             max-width: 100%;
             margin: 1rem auto;
@@ -548,25 +605,29 @@ try {
             border-radius: 10px;
             box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
         }
+
         .error {
             color: var(--secondary-color);
             text-align: center;
             margin-bottom: 1rem;
             font-size: 0.9rem;
         }
+
         footer {
-    background: #1a3c34;
-    color: #e6e6e6;
-    padding: 1rem;
-    text-align: center;
-    margin-top: 2rem;
-    position: fixed;      
-    bottom: 0;                
-    width: 100%;              
-}
+            background: #1a3c34;
+            color: #e6e6e6;
+            padding: 1rem;
+            text-align: center;
+            margin-top: 2rem;
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+        }
+
         footer p {
             font-size: 0.9rem;
         }
+
         .modal {
             display: none;
             position: fixed;
@@ -579,6 +640,7 @@ try {
             justify-content: center;
             align-items: center;
         }
+
         .modal-content {
             background: var(--bg-color);
             padding: 1.5rem;
@@ -588,11 +650,13 @@ try {
             width: 90%;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
         }
+
         .modal-content p {
             font-size: 1rem;
             color: var(--text-color);
             margin-bottom: 1rem;
         }
+
         .modal-content button {
             background: var(--primary-color);
             color: #fff;
@@ -602,49 +666,63 @@ try {
             cursor: pointer;
             transition: background 0.3s ease;
         }
+
         .modal-content button:hover {
             background: var(--secondary-color);
         }
+
         @media (max-width: 1024px) {
             .main-content {
                 margin-left: 0;
             }
+
             .sidebar {
                 transform: translateX(-100%);
             }
+
             .sidebar.active {
                 transform: translateX(0);
             }
+
             .header .menu-toggle {
                 display: block;
             }
+
             .dash-content {
                 width: 98%;
                 padding: 1.5rem;
             }
+
             .overview {
                 grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
             }
         }
+
         @media (max-width: 768px) {
             .header {
                 padding: 1rem;
             }
+
             .header .logo h1 {
                 font-size: 1.2rem;
             }
+
             .dash-content {
                 padding: 1rem;
             }
+
             .dash-content h2 {
                 font-size: 1.5rem;
             }
+
             h3 {
                 font-size: 1.25rem;
             }
+
             .overview .card {
                 padding: 1rem;
             }
+
             .upcoming-table th,
             .upcoming-table td,
             .audit-table th,
@@ -654,16 +732,19 @@ try {
                 padding: 0.5rem;
                 font-size: 0.8rem;
             }
+
             .analytics-filter select,
             .analytics-filter button {
                 font-size: 0.9rem;
                 padding: 0.5rem;
             }
         }
+
         @media (max-width: 480px) {
             .overview {
                 grid-template-columns: 1fr;
             }
+
             .action-buttons button {
                 padding: 0.5rem 1rem;
                 font-size: 0.9rem;
@@ -671,6 +752,7 @@ try {
         }
     </style>
 </head>
+
 <body>
     <header class="header">
         <div class="logo">
@@ -992,7 +1074,10 @@ try {
                             return;
                         }
 
-                        const { positions, totalVotes } = data;
+                        const {
+                            positions,
+                            totalVotes
+                        } = data;
                         let html = '<h4>Vote Analytics</h4>';
                         positions.forEach(pos => {
                             html += `
@@ -1024,17 +1109,23 @@ try {
                                 },
                                 options: {
                                     scales: {
-                                        y: { beginAtZero: true }
+                                        y: {
+                                            beginAtZero: true
+                                        }
                                     },
                                     plugins: {
                                         title: {
                                             display: true,
                                             text: `${pos.name} Vote Distribution`,
                                             color: '#2d3748',
-                                            font: { size: 14 }
+                                            font: {
+                                                size: 14
+                                            }
                                         },
                                         legend: {
-                                            labels: { color: '#4a5568' }
+                                            labels: {
+                                                color: '#4a5568'
+                                            }
                                         },
                                         tooltip: {
                                             callbacks: {
@@ -1047,8 +1138,16 @@ try {
                                         }
                                     },
                                     scales: {
-                                        x: { ticks: { color: '#4a5568' } },
-                                        y: { ticks: { color: '#4a5568' } }
+                                        x: {
+                                            ticks: {
+                                                color: '#4a5568'
+                                            }
+                                        },
+                                        y: {
+                                            ticks: {
+                                                color: '#4a5568'
+                                            }
+                                        }
                                     }
                                 }
                             });
@@ -1143,6 +1242,7 @@ try {
         });
     </script>
 </body>
+
 </html>
 <?php
 $pdo = null;
