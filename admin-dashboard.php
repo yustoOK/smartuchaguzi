@@ -42,7 +42,7 @@ if (!isset($_SESSION['user_agent'])) {
     exit;
 }
 
-$inactivity_timeout = 15 * 60; // 15 minutes
+$inactivity_timeout = 30 * 60; // 30 minutes
 $max_session_duration = 12 * 60 * 60; // 12 hours
 $warning_time = 60;
 
@@ -156,33 +156,34 @@ try {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="robots" content="noindex, nofollow">
-    <title>Admin Dashboard | SmartUchaguzi</title>
+    <title>Admin | SmartUchaguzi</title>
     <link rel="icon" href="./Uploads/Vote.jpeg" type="image/x-icon">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
-            --primary-color: #f4a261;
-            --secondary-color: #e76f51;
-            --text-color: #2d3748;
-            --bg-color: rgba(255, 255, 255, 0.95);
-            --dark-bg-color: #1a202c;
+            --primary-color: #3b82f6;
+            --secondary-color: #10b981;
+            --accent-color: #f97316;
+            --text-color: #1f2937;
+            --bg-color: #f8fafc;
+            --dark-bg-color: #1e293b;
             --dark-text-color: #e2e8f0;
-            --sidebar-width: 250px;
+            --sidebar-width: 260px;
+            --glass-bg: rgba(255, 255, 255, 0.15);
+            --glass-border: rgba(255, 255, 255, 0.3);
         }
 
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            font-family: 'Poppins', sans-serif;
+            font-family: 'Inter', sans-serif;
         }
 
         body {
-            background: linear-gradient(rgba(26, 60, 52, 0.7), rgba(26, 60, 52, 0.7)), url('images/university.jpeg');
-            background-size: cover;
-            background-position: center;
+            background: linear-gradient(135deg, #1e3a8a, #047857);
             background-attachment: fixed;
             color: var(--text-color);
             min-height: 100vh;
@@ -190,7 +191,7 @@ try {
         }
 
         body.dark-mode {
-            background: #1a202c;
+            background: linear-gradient(135deg, #0f172a, #1e293b);
             color: var(--dark-text-color);
         }
 
@@ -205,12 +206,13 @@ try {
         body.dark-mode .sidebar {
             background: var(--dark-bg-color);
             color: var(--dark-text-color);
+            border: 1px solid rgba(255, 255, 255, 0.1);
         }
 
         body.dark-mode .upcoming-table td,
         body.dark-mode .audit-table td,
         body.dark-mode .fraud-table td {
-            background: #2d3748;
+            background: #334155;
             color: var(--dark-text-color);
         }
 
@@ -219,33 +221,38 @@ try {
             top: 0;
             left: 0;
             width: 100%;
-            background: rgba(26, 60, 52, 0.9);
-            backdrop-filter: blur(10px);
+            background: rgba(15, 23, 42, 0.9);
+            backdrop-filter: blur(12px);
             padding: 1rem 2rem;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
             z-index: 1000;
         }
 
         .header .logo {
             display: flex;
             align-items: center;
+            gap: 1rem;
         }
 
         .header .logo img {
-            width: 3rem;
-            height: 3rem;
-            margin-right: 1rem;
+            width: 2.5rem;
+            height: 2.5rem;
             border-radius: 50%;
-            border: 2px solid var(--primary-color);
+            border: 2px solid var(--accent-color);
+            transition: transform 0.3s ease;
+        }
+
+        .header .logo img:hover {
+            transform: rotate(360deg);
         }
 
         .header .logo h1 {
-            font-size: 1.5rem;
-            color: #e6e6e6;
-            font-weight: 600;
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: #fff;
             background: linear-gradient(to right, var(--primary-color), var(--secondary-color));
             -webkit-background-clip: text;
             background-clip: text;
@@ -255,8 +262,13 @@ try {
         .header .menu-toggle {
             display: none;
             font-size: 1.5rem;
-            color: #e6e6e6;
+            color: #fff;
             cursor: pointer;
+            transition: color 0.3s ease;
+        }
+
+        .header .menu-toggle:hover {
+            color: var(--accent-color);
         }
 
         .header .user {
@@ -267,14 +279,20 @@ try {
 
         .header .user span {
             font-size: 1rem;
-            color: #e6e6e6;
+            color: #fff;
+            font-weight: 500;
         }
 
         .header .user img {
-            width: 2.5rem;
-            height: 2.5rem;
+            width: 2.2rem;
+            height: 2.2rem;
             border-radius: 50%;
-            border: 2px solid var(--primary-color);
+            border: 2px solid var(--secondary-color);
+            transition: transform 0.3s ease;
+        }
+
+        .header .user img:hover {
+            transform: scale(1.1);
         }
 
         .header .user a,
@@ -282,16 +300,18 @@ try {
             background: var(--primary-color);
             color: #fff;
             padding: 0.5rem 1rem;
-            border-radius: 6px;
+            border-radius: 8px;
             text-decoration: none;
             border: none;
             cursor: pointer;
-            transition: background 0.3s ease;
+            font-weight: 500;
+            transition: background 0.3s ease, transform 0.2s ease;
         }
 
         .header .user a:hover,
         .header .user button:hover {
             background: var(--secondary-color);
+            transform: translateY(-2px);
         }
 
         .sidebar {
@@ -300,11 +320,12 @@ try {
             left: 0;
             width: var(--sidebar-width);
             height: 100%;
-            background: rgba(26, 60, 52, 0.9);
+            background: linear-gradient(180deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.95));
             padding-top: 5rem;
             overflow-y: auto;
             transition: transform 0.3s ease;
             z-index: 900;
+            box-shadow: 2px 0 15px rgba(0, 0, 0, 0.2);
         }
 
         .sidebar .nav {
@@ -315,39 +336,32 @@ try {
         }
 
         .sidebar .nav a {
-            color: #e6e6e6;
+            color: #d1d5db;
             text-decoration: none;
             font-size: 1rem;
-            padding: 0.75rem 1rem;
-            position: relative;
-            transition: color 0.3s ease, background 0.3s ease;
-            border-radius: 6px;
+            font-weight: 500;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.3s ease;
         }
 
-        .sidebar .nav a::after {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 0;
-            height: 2px;
-            background: var(--primary-color);
-            transition: width 0.3s ease;
-        }
-
-        .sidebar .nav a.active {
-            color: var(--primary-color);
-            background: rgba(255, 255, 255, 0.1);
-        }
-
-        .sidebar .nav a.active::after,
-        .sidebar .nav a:hover::after {
-            width: 100%;
+        .sidebar .nav a i {
+            font-size: 1.2rem;
         }
 
         .sidebar .nav a:hover {
-            color: var(--primary-color);
             background: rgba(255, 255, 255, 0.1);
+            color: var(--primary-color);
+            transform: translateX(5px);
+        }
+
+        .sidebar .nav a.active {
+            background: var(--primary-color);
+            color: #fff;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
         }
 
         .main-content {
@@ -360,20 +374,34 @@ try {
         .dash-content {
             max-width: 80rem;
             width: 95%;
-            background: var(--bg-color);
+            background: var(--glass-bg);
+            backdrop-filter: blur(15px);
+            border: 1px solid var(--glass-border);
             padding: 2rem;
-            border-radius: 12px;
-            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+            border-radius: 16px;
+            box-shadow: 0 8px 40px rgba(0, 0, 0, 0.2);
             margin: 0 auto;
-            transition: background-color 0.3s, color 0.3s;
+            transition: all 0.3s ease;
+        }
+
+        .dash-content:hover {
+            transform: translateY(-5px);
         }
 
         .dash-content h2 {
             font-size: 2rem;
-            color: #1a3c34;
+            font-weight: 700;
+            color: var(--text-color);
             margin-bottom: 1.5rem;
             text-align: center;
-            background: linear-gradient(to right, #1a3c34, var(--primary-color));
+            background: linear-gradient(to right, var(--primary-color), var(--secondary-color));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        body.dark-mode .dash-content h2 {
+            background: linear-gradient(to right, #60a5fa, #34d399);
             -webkit-background-clip: text;
             background-clip: text;
             color: transparent;
@@ -390,48 +418,63 @@ try {
         .overview {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
-            gap: 1rem;
+            gap: 1.5rem;
             margin-bottom: 2rem;
         }
 
         .overview .card {
-            background: #ffffff;
+            background: #fff;
             padding: 1.5rem;
-            border-radius: 10px;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
             text-align: center;
-            transition: transform 0.3s ease;
+            transition: all 0.3s ease;
+            border: 1px solid rgba(0, 0, 0, 0.05);
         }
 
         .overview .card:hover {
-            transform: translateY(-0.3rem);
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
         }
 
         .overview .card i {
-            font-size: 2rem;
+            font-size: 2.2rem;
             color: var(--primary-color);
-            margin-bottom: 0.5rem;
+            margin-bottom: 0.75rem;
+            transition: color 0.3s ease;
+        }
+
+        .overview .card:hover i {
+            color: var(--secondary-color);
         }
 
         .overview .card .text {
             font-size: 1rem;
-            color: #4a5568;
+            color: #6b7280;
             font-weight: 500;
         }
 
         .overview .card .number {
-            font-size: 1.5rem;
-            font-weight: 600;
-            color: #1a3c34;
-            margin-top: 0.3rem;
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: var(--text-color);
+            margin-top: 0.5rem;
         }
 
         h3 {
             font-size: 1.5rem;
-            color: #1a3c34;
+            font-weight: 600;
+            color: var(--text-color);
             margin-bottom: 1rem;
             text-align: center;
-            background: linear-gradient(to right, #1a3c34, var(--primary-color));
+            background: linear-gradient(to right, var(--primary-color), var(--secondary-color));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        body.dark-mode h3 {
+            background: linear-gradient(to right, #60a5fa, #34d399);
             -webkit-background-clip: text;
             background-clip: text;
             color: transparent;
@@ -443,10 +486,11 @@ try {
         .analytics-section,
         .audit-section,
         .fraud-section {
-            background: #f9f9f9;
+            background: #fff;
             padding: 1.5rem;
-            border-radius: 10px;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
         }
 
         .action-buttons {
@@ -461,21 +505,25 @@ try {
             color: #fff;
             border: none;
             padding: 0.75rem 1.5rem;
-            border-radius: 6px;
+            border-radius: 8px;
             font-size: 1rem;
+            font-weight: 500;
             cursor: pointer;
-            transition: background 0.3s ease;
+            transition: all 0.3s ease;
         }
 
         .action-buttons button:hover {
             background: var(--secondary-color);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
         }
 
         .upcoming-table,
         .audit-table,
         .fraud-table {
             width: 100%;
-            border-collapse: collapse;
+            border-collapse: separate;
+            border-spacing: 0;
             margin-top: 1rem;
         }
 
@@ -486,38 +534,52 @@ try {
         .fraud-table th,
         .fraud-table td {
             padding: 0.75rem 1rem;
-            border-bottom: 1px solid #e0e0e0;
             text-align: left;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
         }
 
         .upcoming-table th,
         .audit-table th,
         .fraud-table th {
-            background: #e0e0e0;
-            color: #1a3c34;
+            background: var(--primary-color);
+            color: #fff;
             font-weight: 600;
             text-transform: uppercase;
             font-size: 0.9rem;
         }
 
+        .upcoming-table th:first-child,
+        .audit-table th:first-child,
+        .fraud-table th:first-child {
+            border-top-left-radius: 8px;
+        }
+
+        .upcoming-table th:last-child,
+        .audit-table th:last-child,
+        .fraud-table th:last-child {
+            border-top-right-radius: 8px;
+        }
+
         .upcoming-table td,
         .audit-table td,
         .fraud-table td {
-            color: #4a5568;
+            color: #4b5563;
             font-size: 0.9rem;
-            background: #ffffff;
+            background: #fff;
+            transition: background 0.3s ease;
         }
 
-        .upcoming-table tr:hover,
-        .audit-table tr:hover,
-        .fraud-table tr:hover {
-            background: #f5f5f5;
+        .upcoming-table tr:hover td,
+        .audit-table tr:hover td,
+        .fraud-table tr:hover td {
+            background: #f1f5f9;
         }
 
         .upcoming-table td a {
             color: var(--primary-color);
             text-decoration: none;
             font-weight: 500;
+            transition: color 0.3s ease;
         }
 
         .upcoming-table td a:hover {
@@ -535,17 +597,24 @@ try {
 
         .analytics-filter label {
             font-size: 1rem;
-            color: #4a5568;
+            color: #6b7280;
+            font-weight: 500;
         }
 
         .analytics-filter select {
             padding: 0.5rem 1rem;
-            border-radius: 6px;
-            border: 1px solid #e0e0e0;
-            background: #ffffff;
+            border-radius: 8px;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            background: #fff;
             color: var(--text-color);
             font-size: 1rem;
             max-width: 18rem;
+            transition: border-color 0.3s ease;
+        }
+
+        .analytics-filter select:focus {
+            outline: none;
+            border-color: var(--primary-color);
         }
 
         .analytics-filter button {
@@ -553,18 +622,20 @@ try {
             border: none;
             color: #fff;
             padding: 0.5rem 1rem;
-            border-radius: 6px;
+            border-radius: 8px;
             font-size: 1rem;
+            font-weight: 500;
             cursor: pointer;
-            transition: background 0.3s ease;
+            transition: all 0.3s ease;
         }
 
         .analytics-filter button:hover {
             background: var(--secondary-color);
+            transform: translateY(-2px);
         }
 
         .analytics-filter button:disabled {
-            background: #e0e0e0;
+            background: #d1d5db;
             cursor: not-allowed;
         }
 
@@ -574,10 +645,11 @@ try {
 
         .vote-analytics h4 {
             font-size: 1.25rem;
-            color: #1a3c34;
+            font-weight: 600;
+            color: var(--text-color);
             margin-bottom: 1rem;
             text-align: center;
-            background: linear-gradient(to right, #1a3c34, var(--primary-color));
+            background: linear-gradient(to right, var(--primary-color), var(--secondary-color));
             -webkit-background-clip: text;
             background-clip: text;
             color: transparent;
@@ -592,7 +664,7 @@ try {
 
         .vote-analytics p {
             font-size: 0.9rem;
-            color: #4a5568;
+            color: #6b7280;
             text-align: center;
             margin-bottom: 0.5rem;
         }
@@ -600,28 +672,29 @@ try {
         .vote-analytics canvas {
             max-width: 100%;
             margin: 1rem auto;
-            background: #ffffff;
+            background: #fff;
             padding: 1rem;
-            border-radius: 10px;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
         }
 
         .error {
-            color: var(--secondary-color);
+            color: #ef4444;
             text-align: center;
             margin-bottom: 1rem;
             font-size: 0.9rem;
         }
 
         footer {
-            background: #1a3c34;
-            color: #e6e6e6;
+            background: rgba(15, 23, 42, 0.9);
+            color: #d1d5db;
             padding: 1rem;
             text-align: center;
             margin-top: 2rem;
             position: fixed;
             bottom: 0;
             width: 100%;
+            backdrop-filter: blur(12px);
         }
 
         footer p {
@@ -635,20 +708,22 @@ try {
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.5);
+            background: rgba(0, 0, 0, 0.6);
             z-index: 2000;
             justify-content: center;
             align-items: center;
         }
 
         .modal-content {
-            background: var(--bg-color);
+            background: var(--glass-bg);
+            backdrop-filter: blur(15px);
+            border: 1px solid var(--glass-border);
             padding: 1.5rem;
-            border-radius: 8px;
+            border-radius: 12px;
             text-align: center;
             max-width: 25rem;
             width: 90%;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
         }
 
         .modal-content p {
@@ -662,13 +737,15 @@ try {
             color: #fff;
             border: none;
             padding: 0.5rem 1rem;
-            border-radius: 6px;
+            border-radius: 8px;
             cursor: pointer;
-            transition: background 0.3s ease;
+            font-weight: 500;
+            transition: all 0.3s ease;
         }
 
         .modal-content button:hover {
             background: var(--secondary-color);
+            transform: translateY(-2px);
         }
 
         @media (max-width: 1024px) {
@@ -704,7 +781,7 @@ try {
             }
 
             .header .logo h1 {
-                font-size: 1.2rem;
+                font-size: 1.3rem;
             }
 
             .dash-content {
@@ -770,13 +847,13 @@ try {
 
     <aside class="sidebar">
         <div class="nav">
-            <a href="#" data-section="overview" class="active">Overview</a>
-            <a href="#" data-section="management">Election Management</a>
-            <a href="#" data-section="upcoming">Upcoming Elections</a>
-            <a href="#" data-section="users">User Management</a>
-            <a href="#" data-section="analytics">Analytics</a>
-            <a href="#" data-section="audit">Audit Logs</a>
-            <a href="#" data-section="fraud">Fraud Incidents</a>
+            <a href="#" data-section="overview" class="active"><i class="fas fa-home"></i> Overview</a>
+            <a href="#" data-section="management"><i class="fas fa-cog"></i> Election Management</a>
+            <a href="#" data-section="upcoming"><i class="fas fa-calendar-alt"></i> Upcoming Elections</a>
+            <a href="#" data-section="users"><i class="fas fa-users"></i> User Management</a>
+            <a href="#" data-section="analytics"><i class="fas fa-chart-bar"></i> Votes Analytics</a>
+            <a href="#" data-section="audit"><i class="fas fa-file-alt"></i> Audit Logs</a>
+            <a href="#" data-section="fraud"><i class="fas fa-exclamation-triangle"></i> Fraud Incidents</a>
         </div>
     </aside>
 
@@ -994,7 +1071,7 @@ try {
                                     }
                                 } catch (PDOException $e) {
                                     error_log("Fraud logs query error: " . $e->getMessage());
-                                    echo "<tr><td colspan='4'>Error loading fraud incidents. Please try again later.</td></tr>";
+                                    echo "<tr><td colspan='4'>Error loading fraud incidents...</td></tr>";
                                 }
                                 ?>
                             </tbody>
@@ -1102,8 +1179,8 @@ try {
                                     datasets: [{
                                         label: 'Votes',
                                         data: pos.candidates.map(c => c.votes),
-                                        backgroundColor: '#f4a261',
-                                        borderColor: '#e76f51',
+                                        backgroundColor: '#3b82f6',
+                                        borderColor: '#2563eb',
                                         borderWidth: 1
                                     }]
                                 },
@@ -1117,14 +1194,14 @@ try {
                                         title: {
                                             display: true,
                                             text: `${pos.name} Vote Distribution`,
-                                            color: '#2d3748',
+                                            color: '#1f2937',
                                             font: {
                                                 size: 14
                                             }
                                         },
                                         legend: {
                                             labels: {
-                                                color: '#4a5568'
+                                                color: '#4b5563'
                                             }
                                         },
                                         tooltip: {
@@ -1140,12 +1217,12 @@ try {
                                     scales: {
                                         x: {
                                             ticks: {
-                                                color: '#4a5568'
+                                                color: '#4b5563'
                                             }
                                         },
                                         y: {
                                             ticks: {
-                                                color: '#4a5568'
+                                                color: '#4b5563'
                                             }
                                         }
                                     }
@@ -1177,22 +1254,34 @@ try {
 
             // Export Audit Logs
             function exportAuditLogs() {
-                fetch('api/export-audit-logs.php')
-                    .then(response => response.blob())
-                    .then(blob => {
-                        const url = window.URL.createObjectURL(blob);
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = 'audit_logs.csv';
-                        document.body.appendChild(a);
-                        a.click();
-                        a.remove();
-                        window.URL.revokeObjectURL(url);
-                    })
-                    .catch(error => {
-                        console.error('Export error:', error);
-                        alert('Failed to export audit logs.');
-                    });
+                const table = document.querySelector('.audit-table');
+                const rows = table.querySelectorAll('tr');
+                let csv = [];
+
+                // Extract headers
+                const headers = Array.from(rows[0].querySelectorAll('th')).map(header => header.textContent.trim());
+                csv.push(headers.join(','));
+
+                // Extract data rows
+                for (let i = 1; i < rows.length; i++) {
+                    const cols = rows[i].querySelectorAll('td');
+                    const row = Array.from(cols).map(col => `"${col.textContent.trim().replace(/"/g, '""')}"`);
+                    csv.push(row.join(','));
+                }
+
+                // Create CSV file
+                const csvContent = csv.join('\n');
+                const blob = new Blob([csvContent], {
+                    type: 'text/csv;charset=utf-8;'
+                });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'audit_logs.csv';
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                window.URL.revokeObjectURL(url);
             }
 
             // Session Timeout

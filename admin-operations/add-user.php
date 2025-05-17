@@ -2,7 +2,7 @@
 session_start();
 date_default_timezone_set('Africa/Dar_es_Salaam');
 
-include '../db.php'; // Include MySQLi connection
+include '../db.php'; 
 
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
     header('Location: ../login.php?error=' . urlencode('Please log in as admin.'));
@@ -13,6 +13,7 @@ $errors = [];
 $success = '';
 $colleges = [];
 $hostels = [];
+$associations = ['UDOSO', 'UDOMASA']; 
 
 // Check if database connection is successful
 if (!isset($db) || $db->connect_error) {
@@ -67,6 +68,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $college_id = filter_var($_POST['college_id'], FILTER_VALIDATE_INT);
     $hostel_id = isset($_POST['hostel_id']) && $_POST['hostel_id'] !== '' ? filter_var($_POST['hostel_id'], FILTER_VALIDATE_INT) : null;
 
+    // Map form roles to ENUM values
+    $role_map = ['student' => 'voter', 'teacher' => 'observer'];
+    $role = isset($role_map[$role]) ? $role_map[$role] : 'voter';
+
     // Validation
     if (empty($fname)) {
         $errors[] = "First name is required.";
@@ -77,8 +82,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (empty($official_id)) {
         $errors[] = "Official ID is required.";
     }
-    if (empty($association)) {
-        $errors[] = "Association is required.";
+    if (!in_array($association, $associations)) {
+        $errors[] = "Invalid association selected.";
     }
     if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $errors[] = "Valid email is required.";
@@ -86,14 +91,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (empty($password) || strlen($password) < 8) {
         $errors[] = "Password must be at least 8 characters.";
     }
-    if (!in_array($role, ['student', 'teacher']) || empty($role)) {
-        $errors[] = "Role must be student or teacher.";
-    }
     if (!$college_id) {
         $errors[] = "College is required.";
     }
-    if ($role === 'teacher' && $hostel_id !== null) {
-        $errors[] = "Teachers cannot be assigned to hostels.";
+    if ($role === 'observer' && $hostel_id !== null) {
+        $errors[] = "Observers cannot be assigned to hostels.";
     }
 
     // Check if email already exists
@@ -137,12 +139,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($stmt->execute()) {
                 $success = "User added successfully.";
             } else {
-                error_log("Add user failed: " . $stmt->error);
-                $errors[] = "Failed to add user due to a server error.";
+                error_log("Add user failed: " . $db->error);
+                $errors[] = "Failed to add user due to a server error: " . $db->error;
             }
             $stmt->close();
         } catch (Exception $e) {
-            error_log("Add user failed: " . $e->getMessage());
+            error_log("Add user failed: " . $e->getMessage() . " - MySQL Error: " . $db->error);
             $errors[] = "Failed to add user due to a server error.";
         }
     }
@@ -160,80 +162,158 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <style>
         body {
             font-family: 'Poppins', sans-serif;
-            background: linear-gradient(rgba(26, 60, 52, 0.7), rgba(26, 60, 52, 0.7)), url('../images/cive.jpeg');
+            background: linear-gradient(135deg, rgba(26, 60, 52, 0.8), rgba(34, 78, 68, 0.8)), url('../images/cive.jpeg');
             background-size: cover;
+            background-attachment: fixed;
             color: #2d3748;
             min-height: 100vh;
             margin: 0;
             padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
         }
         .container {
-            max-width: 600px;
-            margin: 80px auto;
-            background: rgba(255, 255, 255, 0.9);
-            padding: 30px;
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            max-width: 650px;
+            width: 100%;
+            margin: 40px auto;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 35px;
+            border-radius: 15px;
+            box-shadow: 0 6px 25px rgba(0, 0, 0, 0.15);
+            transition: transform 0.3s ease;
+        }
+        .container:hover {
+            transform: translateY(-5px);
         }
         h2 {
             text-align: center;
             color: #1a3c34;
-            margin-bottom: 20px;
+            margin-bottom: 25px;
+            font-size: 26px;
+            font-weight: 600;
         }
         .form-group {
-            margin-bottom: 15px;
+            margin-bottom: 25px;
         }
         label {
             display: block;
             font-weight: 500;
-            margin-bottom: 5px;
+            margin-bottom: 8px;
+            color: #1a3c34;
+            font-size: 15px;
         }
-        input, select, textarea {
+        input, select {
             width: 100%;
-            padding: 10px;
-            border: 1px solid #e8ecef;
-            border-radius: 6px;
+            padding: 12px;
+            border: 1px solid #e0e7ea;
+            border-radius: 8px;
             font-size: 16px;
+            box-sizing: border-box;
+            background: #f9fafb;
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+        input:focus, select:focus {
+            outline: none;
+            border-color: #f4a261;
+            box-shadow: 0 0 8px rgba(244, 162, 97, 0.4);
+            background: #fff;
         }
         button {
             background: #f4a261;
             color: #fff;
             border: none;
-            padding: 10px 20px;
-            border-radius: 6px;
+            padding: 12px 25px;
+            border-radius: 8px;
             cursor: pointer;
             font-size: 16px;
+            font-weight: 500;
+            transition: background 0.3s ease, transform 0.2s ease;
+            width: 100%;
         }
         button:hover {
             background: #e76f51;
+            transform: translateY(-2px);
         }
         .error {
             color: #e76f51;
             margin-bottom: 15px;
+            font-size: 14px;
+            padding: 10px;
+            background: #fee2e2;
+            border-radius: 6px;
         }
         .success {
             color: #2a9d8f;
             margin-bottom: 15px;
+            font-size: 14px;
+            padding: 10px;
+            background: #d1fae5;
+            border-radius: 6px;
         }
         .breadcrumb {
             margin-bottom: 20px;
             font-size: 14px;
+            display: flex;
+            align-items: center;
         }
         .breadcrumb a {
             color: #f4a261;
             text-decoration: none;
-            margin-right: 5px;
+            margin-right: 8px;
+            transition: color 0.3s ease;
         }
         .breadcrumb a:hover {
+            color: #e76f51;
             text-decoration: underline;
         }
         .breadcrumb span {
             color: #2d3748;
-            margin-right: 5px;
+            margin-right: 8px;
         }
         .breadcrumb i {
-            margin: 0 5px;
+            margin: 0 8px;
             color: #2d3748;
+            font-size: 10px;
+        }
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+                margin: 20px;
+            }
+            h2 {
+                font-size: 22px;
+            }
+            label {
+                font-size: 14px;
+            }
+            input, select {
+                font-size: 14px;
+                padding: 10px;
+            }
+            button {
+                font-size: 14px;
+                padding: 10px 20px;
+            }
+            .error, .success {
+                font-size: 13px;
+                padding: 8px;
+            }
+        }
+        @media (max-width: 480px) {
+            .container {
+                margin: 10px;
+                padding: 15px;
+            }
+            h2 {
+                font-size: 20px;
+            }
+            .form-group {
+                margin-bottom: 20px;
+            }
+            button {
+                padding: 8px 15px;
+            }
         }
     </style>
 </head>
@@ -264,7 +344,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
             <div class="form-group">
                 <label for="association">Association</label>
-                <input type="text" name="association" id="association" placeholder="Enter association" value="<?php echo isset($_POST['association']) ? htmlspecialchars($_POST['association']) : ''; ?>" required>
+                <select name="association" id="association" required>
+                    <?php foreach ($associations as $assoc): ?>
+                        <option value="<?php echo htmlspecialchars($assoc); ?>" <?php echo isset($_POST['association']) && $_POST['association'] === $assoc ? 'selected' : ''; ?>>
+                            <?php echo htmlspecialchars($assoc); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
             </div>
             <div class="form-group">
                 <label for="fname">First Name</label>

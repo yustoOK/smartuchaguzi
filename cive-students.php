@@ -55,7 +55,7 @@ if (!isset($_SESSION['user_agent']) || $_SESSION['user_agent'] !== $_SERVER['HTT
     exit;
 }
 
-$inactivity_timeout = 5 * 60;
+$inactivity_timeout = 30 * 60;
 $max_session_duration = 30 * 60;
 $warning_time = 60;
 
