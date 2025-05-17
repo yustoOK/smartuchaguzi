@@ -163,15 +163,15 @@ try {
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
-            --primary-color: #3b82f6;
-            --secondary-color: #10b981;
-            --accent-color: #f97316;
-            --text-color: #1f2937;
-            --bg-color: #f8fafc;
-            --dark-bg-color: #1e293b;
-            --dark-text-color: #e2e8f0;
+            --primary-color: #2a9d8f;
+            --secondary-color: #207b6e;
+            --accent-color: #d00000;
+            --text-color: #1a3c34;
+            --bg-color: rgba(255, 255, 255, 0.95);
+            --dark-bg-color: rgba(26, 60, 52, 0.8);
+            --dark-text-color: #2d3748;
             --sidebar-width: 260px;
-            --glass-bg: rgba(255, 255, 255, 0.15);
+            --glass-bg: rgba(255, 255, 255, 0.95);
             --glass-border: rgba(255, 255, 255, 0.3);
         }
 
@@ -179,11 +179,12 @@ try {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            font-family: 'Inter', sans-serif;
+            font-family: 'Poppins', sans-serif;
         }
 
         body {
-            background: linear-gradient(135deg, #1e3a8a, #047857);
+            background: linear-gradient(135deg, rgba(26, 60, 52, 0.8), rgba(34, 78, 68, 0.8));
+            background-size: cover;
             background-attachment: fixed;
             color: var(--text-color);
             min-height: 100vh;
@@ -191,7 +192,7 @@ try {
         }
 
         body.dark-mode {
-            background: linear-gradient(135deg, #0f172a, #1e293b);
+            background: linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.95));
             color: var(--dark-text-color);
         }
 
@@ -221,7 +222,7 @@ try {
             top: 0;
             left: 0;
             width: 100%;
-            background: rgba(15, 23, 42, 0.9);
+            background: rgba(26, 60, 52, 0.9);
             backdrop-filter: blur(12px);
             padding: 1rem 2rem;
             display: flex;
@@ -320,7 +321,7 @@ try {
             left: 0;
             width: var(--sidebar-width);
             height: 100%;
-            background: linear-gradient(180deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.95));
+            background: linear-gradient(180deg, rgba(26, 60, 52, 0.95), rgba(34, 78, 68, 0.95));
             padding-top: 5rem;
             overflow-y: auto;
             transition: transform 0.3s ease;
@@ -336,7 +337,7 @@ try {
         }
 
         .sidebar .nav a {
-            color: #d1d5db;
+            color: #e0e7ea;
             text-decoration: none;
             font-size: 1rem;
             font-weight: 500;
@@ -374,14 +375,12 @@ try {
         .dash-content {
             max-width: 80rem;
             width: 95%;
-            background: var(--glass-bg);
-            backdrop-filter: blur(15px);
-            border: 1px solid var(--glass-border);
+            background: var(--bg-color);
             padding: 2rem;
-            border-radius: 16px;
-            box-shadow: 0 8px 40px rgba(0, 0, 0, 0.2);
+            border-radius: 15px;
+            box-shadow: 0 6px 25px rgba(0, 0, 0, 0.15);
             margin: 0 auto;
-            transition: all 0.3s ease;
+            transition: transform 0.3s ease;
         }
 
         .dash-content:hover {
@@ -390,7 +389,7 @@ try {
 
         .dash-content h2 {
             font-size: 2rem;
-            font-weight: 700;
+            font-weight: 600;
             color: var(--text-color);
             margin-bottom: 1.5rem;
             text-align: center;
@@ -401,7 +400,7 @@ try {
         }
 
         body.dark-mode .dash-content h2 {
-            background: linear-gradient(to right, #60a5fa, #34d399);
+            background: linear-gradient(to right, #2a9d8f, #207b6e);
             -webkit-background-clip: text;
             background-clip: text;
             color: transparent;
@@ -417,19 +416,19 @@ try {
 
         .overview {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
-            gap: 1.5rem;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1rem;
             margin-bottom: 2rem;
         }
 
         .overview .card {
-            background: #fff;
+            background: var(--bg-color);
             padding: 1.5rem;
             border-radius: 12px;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
             text-align: center;
             transition: all 0.3s ease;
-            border: 1px solid rgba(0, 0, 0, 0.05);
+            border: 1px solid #e0e7ea;
         }
 
         .overview .card:hover {
@@ -450,7 +449,7 @@ try {
 
         .overview .card .text {
             font-size: 1rem;
-            color: #6b7280;
+            color: #2d3748;
             font-weight: 500;
         }
 
@@ -474,7 +473,7 @@ try {
         }
 
         body.dark-mode h3 {
-            background: linear-gradient(to right, #60a5fa, #34d399);
+            background: linear-gradient(to right, #2a9d8f, #207b6e);
             -webkit-background-clip: text;
             background-clip: text;
             color: transparent;
@@ -486,7 +485,7 @@ try {
         .analytics-section,
         .audit-section,
         .fraud-section {
-            background: #fff;
+            background: var(--bg-color);
             padding: 1.5rem;
             border-radius: 12px;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
@@ -505,7 +504,7 @@ try {
             color: #fff;
             border: none;
             padding: 0.75rem 1.5rem;
-            border-radius: 8px;
+            border-radius: 6px;
             font-size: 1rem;
             font-weight: 500;
             cursor: pointer;
@@ -522,8 +521,7 @@ try {
         .audit-table,
         .fraud-table {
             width: 100%;
-            border-collapse: separate;
-            border-spacing: 0;
+            border-collapse: collapse;
             margin-top: 1rem;
         }
 
@@ -535,7 +533,7 @@ try {
         .fraud-table td {
             padding: 0.75rem 1rem;
             text-align: left;
-            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+            border-bottom: 1px solid #e0e7ea;
         }
 
         .upcoming-table th,
@@ -544,8 +542,6 @@ try {
             background: var(--primary-color);
             color: #fff;
             font-weight: 600;
-            text-transform: uppercase;
-            font-size: 0.9rem;
         }
 
         .upcoming-table th:first-child,
@@ -563,16 +559,16 @@ try {
         .upcoming-table td,
         .audit-table td,
         .fraud-table td {
-            color: #4b5563;
+            color: #2d3748;
             font-size: 0.9rem;
-            background: #fff;
+            background: var(--bg-color);
             transition: background 0.3s ease;
         }
 
         .upcoming-table tr:hover td,
         .audit-table tr:hover td,
         .fraud-table tr:hover td {
-            background: #f1f5f9;
+            background: rgba(42, 157, 143, 0.1);
         }
 
         .upcoming-table td a {
@@ -597,15 +593,15 @@ try {
 
         .analytics-filter label {
             font-size: 1rem;
-            color: #6b7280;
+            color: #2d3748;
             font-weight: 500;
         }
 
         .analytics-filter select {
             padding: 0.5rem 1rem;
             border-radius: 8px;
-            border: 1px solid rgba(0, 0, 0, 0.1);
-            background: #fff;
+            border: 1px solid #e0e7ea;
+            background: var(--bg-color);
             color: var(--text-color);
             font-size: 1rem;
             max-width: 18rem;
@@ -639,6 +635,10 @@ try {
             cursor: not-allowed;
         }
 
+        .analytics-filter button:disabled:hover {
+            transform: none;
+        }
+
         .vote-analytics {
             margin-top: 1rem;
         }
@@ -664,7 +664,7 @@ try {
 
         .vote-analytics p {
             font-size: 0.9rem;
-            color: #6b7280;
+            color: #2d3748;
             text-align: center;
             margin-bottom: 0.5rem;
         }
@@ -672,22 +672,22 @@ try {
         .vote-analytics canvas {
             max-width: 100%;
             margin: 1rem auto;
-            background: #fff;
+            background: var(--bg-color);
             padding: 1rem;
             border-radius: 12px;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
         }
 
         .error {
-            color: #ef4444;
+            color: var(--accent-color);
             text-align: center;
             margin-bottom: 1rem;
             font-size: 0.9rem;
         }
 
         footer {
-            background: rgba(15, 23, 42, 0.9);
-            color: #d1d5db;
+            background: rgba(26, 60, 52, 0.9);
+            color: #e0e7ea;
             padding: 1rem;
             text-align: center;
             margin-top: 2rem;
@@ -716,8 +716,6 @@ try {
 
         .modal-content {
             background: var(--glass-bg);
-            backdrop-filter: blur(15px);
-            border: 1px solid var(--glass-border);
             padding: 1.5rem;
             border-radius: 12px;
             text-align: center;
@@ -771,7 +769,7 @@ try {
             }
 
             .overview {
-                grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+                grid-template-columns: repeat(2, 1fr);
             }
         }
 
@@ -1126,7 +1124,7 @@ try {
                 sidebar.classList.toggle('active');
             });
 
-            // Analytics
+            // Vote Analytics
             electionSelect.addEventListener('change', () => {
                 const electionId = electionSelect.value;
                 voteAnalytics.innerHTML = '<p>Loading analytics...</p>';
@@ -1138,49 +1136,50 @@ try {
                     return;
                 }
 
-                fetch(`api/vote-analytics.php?election_id=${electionId}`)
+                fetch(`vote-analytics.php?election_id=${electionId}`)
                     .then(response => {
                         if (!response.ok) {
                             throw new Error('Network response was not ok');
                         }
-                        return response.json();
+                        return response.text(); // Get raw HTML with script
                     })
-                    .then(data => {
+                    .then(html => {
+                        voteAnalytics.innerHTML = html; // Inject script to execute Web3.js
+                        return new Promise(resolve => setTimeout(resolve, 100)); // Allow script to execute
+                    })
+                    .then(() => {
+                        // After script execution, fetch the rendered data (for now, assume JSON is in voteAnalytics)
+                        const data = JSON.parse(voteAnalytics.innerHTML);
                         if (data.error) {
                             voteAnalytics.innerHTML = `<p class="error">${data.error}</p>`;
                             return;
                         }
 
-                        const {
-                            positions,
-                            totalVotes
-                        } = data;
                         let html = '<h4>Vote Analytics</h4>';
-                        positions.forEach(pos => {
+                        data.positions.forEach(pos => {
                             html += `
-                                <div>
-                                    <h5>${pos.name}</h5>
-                                    <canvas id="chart-${pos.id}"></canvas>
-                                    <p>Total Votes: ${pos.totalVotes}</p>
-                                    <p>Winner: ${pos.winner || 'None'}</p>
-                                    <p>Blockchain Hash: ${pos.blockchain_hash || 'N/A'}</p>
-                                </div>
-                            `;
+                        <div>
+                            <h5>${pos.name}</h5>
+                            <canvas id="chart-${pos.id}" style="max-width: 100%;"></canvas>
+                            <p>Total Votes: ${pos.totalVotes}</p>
+                            <p>Winner: ${pos.winner}</p>
+                        </div>
+                    `;
                         });
-
                         voteAnalytics.innerHTML = html;
 
-                        positions.forEach(pos => {
+                        data.positions.forEach(pos => {
                             const ctx = document.getElementById(`chart-${pos.id}`).getContext('2d');
+                            const candidates = Object.values(pos.candidates);
                             new Chart(ctx, {
                                 type: 'bar',
                                 data: {
-                                    labels: pos.candidates.map(c => c.name),
+                                    labels: candidates.map(c => c.name),
                                     datasets: [{
                                         label: 'Votes',
-                                        data: pos.candidates.map(c => c.votes),
-                                        backgroundColor: '#3b82f6',
-                                        borderColor: '#2563eb',
+                                        data: candidates.map(c => c.votes),
+                                        backgroundColor: '#2a9d8f',
+                                        borderColor: '#207b6e',
                                         borderWidth: 1
                                     }]
                                 },
@@ -1194,35 +1193,14 @@ try {
                                         title: {
                                             display: true,
                                             text: `${pos.name} Vote Distribution`,
-                                            color: '#1f2937',
+                                            color: '#1a3c34',
                                             font: {
                                                 size: 14
                                             }
                                         },
                                         legend: {
                                             labels: {
-                                                color: '#4b5563'
-                                            }
-                                        },
-                                        tooltip: {
-                                            callbacks: {
-                                                label: context => {
-                                                    const votes = context.parsed.y;
-                                                    const percentage = totalVotes ? ((votes / totalVotes) * 100).toFixed(2) : 0;
-                                                    return `${votes} votes (${percentage}%)`;
-                                                }
-                                            }
-                                        }
-                                    },
-                                    scales: {
-                                        x: {
-                                            ticks: {
-                                                color: '#4b5563'
-                                            }
-                                        },
-                                        y: {
-                                            ticks: {
-                                                color: '#4b5563'
+                                                color: '#2d3748'
                                             }
                                         }
                                     }
@@ -1231,7 +1209,7 @@ try {
                         });
                     })
                     .catch(error => {
-                        voteAnalytics.innerHTML = '<p class="error">Failed to load analytics. Please try again later.</p>';
+                        voteAnalytics.innerHTML = '<p class="error">Failed to load analytics: ' + error.message + '</p>';
                         console.error('Fetch error:', error);
                     });
             });
@@ -1258,18 +1236,15 @@ try {
                 const rows = table.querySelectorAll('tr');
                 let csv = [];
 
-                // Extract headers
                 const headers = Array.from(rows[0].querySelectorAll('th')).map(header => header.textContent.trim());
                 csv.push(headers.join(','));
 
-                // Extract data rows
                 for (let i = 1; i < rows.length; i++) {
                     const cols = rows[i].querySelectorAll('td');
                     const row = Array.from(cols).map(col => `"${col.textContent.trim().replace(/"/g, '""')}"`);
                     csv.push(row.join(','));
                 }
 
-                // Create CSV file
                 const csvContent = csv.join('\n');
                 const blob = new Blob([csvContent], {
                     type: 'text/csv;charset=utf-8;'

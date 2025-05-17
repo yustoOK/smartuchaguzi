@@ -22,29 +22,13 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
 
 $errors = [];
 $success = '';
-$elections = [];
 $candidates = [];
-
-// Fetch all elections for the dropdown
-try {
-    $elections = $pdo->query(
-        "SELECT e.election_id, e.association, c.name AS college
-         FROM elections e
-         LEFT JOIN electionpositions ep ON ep.election_id = e.election_id
-         LEFT JOIN colleges c ON ep.college_id = c.college_id
-         GROUP BY e.election_id, e.association, c.name
-         ORDER BY e.created_at DESC"
-    )->fetchAll(PDO::FETCH_ASSOC);
-} catch (PDOException $e) {
-    error_log("Fetch elections failed: " . $e->getMessage());
-    $errors[] = "Failed to load elections.";
-}
 
 // Fetch all candidates with associated details
 try {
     $stmt = $pdo->prepare(
         "SELECT c.id, c.official_id, c.election_id, c.firstname, c.midname, c.lastname, c.association, c.college, c.position_id,
-                c.passport, e.association AS election_association, cl.name AS college_name, ep.name AS position_name, h.name AS hostel_name
+                c.passport, c.hostel_id, e.association AS election_association, cl.name AS college_name, ep.name AS position_name, h.name AS hostel_name
          FROM candidates c
          LEFT JOIN elections e ON c.election_id = e.election_id
          LEFT JOIN electionpositions ep ON c.position_id = ep.position_id
@@ -60,47 +44,43 @@ try {
 
 // Add candidate
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_candidate'])) {
-    $election_id = filter_var($_POST['election_id'], FILTER_VALIDATE_INT);
-    $position_id = filter_var($_POST['position_id'], FILTER_VALIDATE_INT);
     $official_id = filter_var($_POST['official_id'], FILTER_SANITIZE_STRING);
+    $election_id = filter_var($_POST['election_id'], FILTER_VALIDATE_INT);
     $firstname = filter_input(INPUT_POST, 'firstname', FILTER_SANITIZE_FULL_SPECIAL_CHARS);
     $midname = filter_input(INPUT_POST, 'midname', FILTER_SANITIZE_FULL_SPECIAL_CHARS);
     $lastname = filter_input(INPUT_POST, 'lastname', FILTER_SANITIZE_FULL_SPECIAL_CHARS);
     $association = filter_var($_POST['association'], FILTER_SANITIZE_STRING);
     $college = filter_var($_POST['college'], FILTER_SANITIZE_STRING);
+    $position_id = filter_var($_POST['position_id'], FILTER_VALIDATE_INT);
     $passport = filter_var($_POST['passport'], FILTER_SANITIZE_STRING);
+    $hostel_id = filter_var($_POST['hostel_id'], FILTER_VALIDATE_INT);
 
     if (empty($firstname) || empty($lastname)) {
         $errors[] = "First name and last name are required.";
     }
-    if ($election_id <= 0) {
-        $errors[] = "Please select a valid election.";
+    if ($election_id === false || $election_id <= 0) {
+        $errors[] = "Please enter a valid election ID.";
     }
-    if ($position_id <= 0) {
-        $errors[] = "Please select a valid position.";
+    if ($position_id === false || $position_id <= 0) {
+        $errors[] = "Please enter a valid position ID.";
+    }
+    if ($hostel_id === false) {
+        $hostel_id = null; // Allow NULL for hostel_id
     }
 
-    try {
-        $stmt = $pdo->prepare("SELECT hostel_id, election_id FROM electionpositions WHERE position_id = ?");
-        $stmt->execute([$position_id]);
-        $position = $stmt->fetch(PDO::FETCH_ASSOC);
-
-        if (!$position || $position['election_id'] != $election_id) {
-            $errors[] = "Invalid position selected for the chosen election.";
-        }
-
-        if (empty($errors)) {
+    if (empty($errors)) {
+        try {
             $stmt = $pdo->prepare(
-                "INSERT INTO candidates (election_id, position_id, official_id, firstname, midname, lastname, association, college, passport) 
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+                "INSERT INTO candidates (official_id, election_id, firstname, midname, lastname, association, college, position_id, passport, hostel_id) 
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
             );
-            $stmt->execute([$election_id, $position_id, $official_id, $firstname, $midname, $lastname, $association, $college, $passport ?: 'images/general.png']);
+            $stmt->execute([$official_id, $election_id, $firstname, $midname, $lastname, $association, $college, $position_id, $passport ?: 'images/general.png', $hostel_id]);
             header('Location: manage-candidates.php?success=' . urlencode('Candidate added successfully.'));
             exit;
+        } catch (PDOException $e) {
+            error_log("Add candidate failed: " . $e->getMessage());
+            $errors[] = "Failed to add candidate due to a server error. Ensure IDs are valid.";
         }
-    } catch (PDOException $e) {
-        error_log("Add candidate failed: " . $e->getMessage());
-        $errors[] = "Failed to add candidate due to a server error.";
     }
 }
 
@@ -108,27 +88,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_candidate'])) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_candidate'])) {
     $candidate_id = filter_var($_POST['candidate_id'], FILTER_VALIDATE_INT);
     $official_id = filter_var($_POST['official_id'], FILTER_SANITIZE_STRING);
+    $election_id = filter_var($_POST['election_id'], FILTER_VALIDATE_INT);
+    $firstname = filter_input(INPUT_POST, 'firstname', FILTER_SANITIZE_FULL_SPECIAL_CHARS);
+    $midname = filter_input(INPUT_POST, 'midname', FILTER_SANITIZE_FULL_SPECIAL_CHARS);
+    $lastname = filter_input(INPUT_POST, 'lastname', FILTER_SANITIZE_FULL_SPECIAL_CHARS);
     $association = filter_var($_POST['association'], FILTER_SANITIZE_STRING);
     $college = filter_var($_POST['college'], FILTER_SANITIZE_STRING);
     $position_id = filter_var($_POST['position_id'], FILTER_VALIDATE_INT);
     $passport = filter_var($_POST['passport'], FILTER_SANITIZE_STRING);
+    $hostel_id = filter_var($_POST['hostel_id'], FILTER_VALIDATE_INT);
 
-    if ($position_id <= 0) {
-        $errors[] = "Please select a valid position.";
+    if (empty($firstname) || empty($lastname)) {
+        $errors[] = "First name and last name are required.";
+    }
+    if ($election_id === false || $election_id <= 0) {
+        $errors[] = "Please enter a valid election ID.";
+    }
+    if ($position_id === false || $position_id <= 0) {
+        $errors[] = "Please enter a valid position ID.";
+    }
+    if ($hostel_id === false) {
+        $hostel_id = null; // Allow NULL for hostel_id
     }
 
-    try {
-        if (empty($errors)) {
+    if (empty($errors)) {
+        try {
             $stmt = $pdo->prepare(
-                "UPDATE candidates SET official_id = ?, association = ?, college = ?, position_id = ?, passport = ? WHERE id = ?"
+                "UPDATE candidates SET official_id = ?, election_id = ?, firstname = ?, midname = ?, lastname = ?, association = ?, college = ?, position_id = ?, passport = ?, hostel_id = ? WHERE id = ?"
             );
-            $stmt->execute([$official_id, $association, $college, $position_id, $passport ?: 'images/general.png', $candidate_id]);
+            $stmt->execute([$official_id, $election_id, $firstname, $midname, $lastname, $association, $college, $position_id, $passport ?: 'images/general.png', $hostel_id, $candidate_id]);
             header('Location: manage-candidates.php?success=' . urlencode('Candidate updated successfully.'));
             exit;
+        } catch (PDOException $e) {
+            error_log("Edit candidate failed: " . $e->getMessage());
+            $errors[] = "Failed to update candidate due to a server error. Ensure IDs are valid.";
         }
-    } catch (PDOException $e) {
-        error_log("Edit candidate failed: " . $e->getMessage());
-        $errors[] = "Failed to update candidate due to a server error.";
     }
 }
 
@@ -228,7 +222,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_candidate'])) 
             color: #1a3c34;
             font-size: 15px;
         }
-        input, select {
+        input {
             width: 100%;
             padding: 10px;
             border: 1px solid #e0e7ea;
@@ -238,7 +232,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_candidate'])) 
             background: #f9fafb;
             transition: border-color 0.3s ease, box-shadow 0.3s ease;
         }
-        input:focus, select:focus {
+        input:focus {
             outline: none;
             border-color: #2a9d8f;
             box-shadow: 0 0 6px rgba(42, 157, 143, 0.4);
@@ -456,24 +450,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_candidate'])) 
                 <tr>
                     <th>Name</th>
                     <th>Official ID</th>
-                    <th>Election Association</th>
+                    <th>Election ID</th>
                     <th>College</th>
-                    <th>Position</th>
-                    <th>Hostel</th>
+                    <th>Position ID</th>
                     <th>Passport</th>
+                    <th>Hostel ID</th>
                     <th>Actions</th>
                 </tr>
                 <?php foreach ($candidates as $candidate): ?>
                     <tr>
                         <td><?php echo htmlspecialchars(($candidate['midname'] ? $candidate['firstname'] . ' ' . $candidate['midname'] . ' ' : $candidate['firstname'] . ' ') . $candidate['lastname']); ?></td>
                         <td><?php echo htmlspecialchars($candidate['official_id'] ?? 'N/A'); ?></td>
-                        <td><?php echo htmlspecialchars($candidate['election_association'] ?? 'N/A'); ?></td>
-                        <td><?php echo htmlspecialchars($candidate['college_name'] ?? 'N/A'); ?></td>
-                        <td><?php echo htmlspecialchars($candidate['position_name'] ?? 'N/A'); ?></td>
-                        <td><?php echo htmlspecialchars($candidate['hostel_name'] ?? 'N/A'); ?></td>
+                        <td><?php echo htmlspecialchars($candidate['election_id'] ?? 'N/A'); ?></td>
+                        <td><?php echo htmlspecialchars($candidate['college'] ?? 'N/A'); ?></td>
+                        <td><?php echo htmlspecialchars($candidate['position_id'] ?? 'N/A'); ?></td>
                         <td><?php echo htmlspecialchars($candidate['passport'] ?? 'images/general.png'); ?></td>
+                        <td><?php echo htmlspecialchars($candidate['hostel_id'] ?? 'N/A'); ?></td>
                         <td>
-                            <button class="edit-btn" onclick="editCandidate(<?php echo $candidate['id']; ?>, '<?php echo addslashes($candidate['official_id'] ?? ''); ?>', '<?php echo addslashes($candidate['association'] ?? ''); ?>', '<?php echo addslashes($candidate['college'] ?? ''); ?>', '<?php echo $candidate['position_id']; ?>', '<?php echo addslashes($candidate['passport'] ?? 'images/general.png'); ?>')">Edit</button>
+                            <button class="edit-btn" onclick="editCandidate(<?php echo $candidate['id']; ?>, '<?php echo addslashes($candidate['official_id'] ?? ''); ?>', '<?php echo addslashes($candidate['election_id'] ?? ''); ?>', '<?php echo addslashes($candidate['firstname'] ?? ''); ?>', '<?php echo addslashes($candidate['midname'] ?? ''); ?>', '<?php echo addslashes($candidate['lastname'] ?? ''); ?>', '<?php echo addslashes($candidate['association'] ?? ''); ?>', '<?php echo addslashes($candidate['college'] ?? ''); ?>', '<?php echo addslashes($candidate['position_id'] ?? ''); ?>', '<?php echo addslashes($candidate['passport'] ?? 'images/general.png'); ?>', '<?php echo addslashes($candidate['hostel_id'] ?? ''); ?>')">Edit</button>
                             <form method="POST" action="" style="display:inline;">
                                 <input type="hidden" name="candidate_id" value="<?php echo $candidate['id']; ?>">
                                 <button type="submit" class="delete-btn" name="delete_candidate" onclick="return confirm('Are you sure you want to delete this candidate? This action cannot be undone.');">Delete</button>
@@ -491,49 +485,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_candidate'])) 
             <h3>Add New Candidate</h3>
             <form method="POST" action="">
                 <div class="form-group">
-                    <label for="election_id">Select Election</label>
-                    <select name="election_id" id="election_id" onchange="fetchPositions()" required>
-                        <option value="">Select an Election</option>
-                        <?php foreach ($elections as $e): ?>
-                            <option value="<?php echo $e['election_id']; ?>">
-                                <?php echo htmlspecialchars($e['association'] . ' - ' . $e['college']); ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="position_id">Position</label>
-                    <select name="position_id" id="position_id" required>
-                        <option value="">Select Position</option>
-                    </select>
-                </div>
-                <div class="form-group">
                     <label for="official_id">Official ID</label>
-                    <input type="text" name="official_id" id="official_id">
+                    <input type="text" name="official_id" id="official_id" maxlength="30">
+                </div>
+                <div class="form-group">
+                    <label for="election_id">Election ID</label>
+                    <input type="number" name="election_id" id="election_id" required>
                 </div>
                 <div class="form-group">
                     <label for="firstname">First Name</label>
-                    <input type="text" name="firstname" id="firstname" required>
+                    <input type="text" name="firstname" id="firstname" required maxlength="30">
                 </div>
                 <div class="form-group">
                     <label for="midname">Middle Name</label>
-                    <input type="text" name="midname" id="midname">
+                    <input type="text" name="midname" id="midname" maxlength="30">
                 </div>
                 <div class="form-group">
                     <label for="lastname">Last Name</label>
-                    <input type="text" name="lastname" id="lastname" required>
+                    <input type="text" name="lastname" id="lastname" required maxlength="30">
                 </div>
                 <div class="form-group">
                     <label for="association">Association</label>
-                    <input type="text" name="association" id="association">
+                    <input type="text" name="association" id="association" maxlength="40">
                 </div>
                 <div class="form-group">
                     <label for="college">College</label>
-                    <input type="text" name="college" id="college">
+                    <input type="text" name="college" id="college" maxlength="50">
+                </div>
+                <div class="form-group">
+                    <label for="position_id">Position ID</label>
+                    <input type="number" name="position_id" id="position_id" required>
                 </div>
                 <div class="form-group">
                     <label for="passport">Passport Image Path</label>
-                    <input type="text" name="passport" id="passport" placeholder="e.g., images/candidate1.png">
+                    <input type="text" name="passport" id="passport" maxlength="400" placeholder="e.g., images/candidate1.png">
+                </div>
+                <div class="form-group">
+                    <label for="hostel_id">Hostel ID</label>
+                    <input type="number" name="hostel_id" id="hostel_id">
                 </div>
                 <button type="submit" name="add_candidate">Add Candidate</button>
                 <button type="button" onclick="closeNewModal()">Cancel</button>
@@ -549,36 +538,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_candidate'])) 
                 <input type="hidden" name="candidate_id" id="edit-candidate-id">
                 <div class="form-group">
                     <label for="edit-official_id">Official ID</label>
-                    <input type="text" name="official_id" id="edit-official_id">
+                    <input type="text" name="official_id" id="edit-official_id" maxlength="30">
+                </div>
+                <div class="form-group">
+                    <label for="edit-election_id">Election ID</label>
+                    <input type="number" name="election_id" id="edit-election_id" required>
+                </div>
+                <div class="form-group">
+                    <label for="edit-firstname">First Name</label>
+                    <input type="text" name="firstname" id="edit-firstname" required maxlength="30">
+                </div>
+                <div class="form-group">
+                    <label for="edit-midname">Middle Name</label>
+                    <input type="text" name="midname" id="edit-midname" maxlength="30">
+                </div>
+                <div class="form-group">
+                    <label for="edit-lastname">Last Name</label>
+                    <input type="text" name="lastname" id="edit-lastname" required maxlength="30">
                 </div>
                 <div class="form-group">
                     <label for="edit-association">Association</label>
-                    <input type="text" name="association" id="edit-association">
+                    <input type="text" name="association" id="edit-association" maxlength="40">
                 </div>
                 <div class="form-group">
                     <label for="edit-college">College</label>
-                    <input type="text" name="college" id="edit-college">
+                    <input type="text" name="college" id="edit-college" maxlength="50">
                 </div>
                 <div class="form-group">
-                    <label for="edit-position_id">Position</label>
-                    <select name="position_id" id="edit-position_id" required>
-                        <option value="">Select Position</option>
-                        <?php
-                        $all_positions = $pdo->query("SELECT ep.position_id, ep.name, ep.election_id, e.association, h.name AS hostel_name
-                                                      FROM electionpositions ep
-                                                      LEFT JOIN elections e ON ep.election_id = e.election_id
-                                                      LEFT JOIN hostels h ON ep.hostel_id = h.hostel_id")->fetchAll(PDO::FETCH_ASSOC);
-                        foreach ($all_positions as $position):
-                        ?>
-                            <option value="<?php echo $position['position_id']; ?>">
-                                <?php echo htmlspecialchars($position['name'] . ' (' . $position['association'] . ($position['hostel_name'] ? ' - ' . $position['hostel_name'] : '') . ')'); ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
+                    <label for="edit-position_id">Position ID</label>
+                    <input type="number" name="position_id" id="edit-position_id" required>
                 </div>
                 <div class="form-group">
                     <label for="edit-passport">Passport Image Path</label>
-                    <input type="text" name="passport" id="edit-passport" placeholder="e.g., images/candidate1.png">
+                    <input type="text" name="passport" id="edit-passport" maxlength="400" placeholder="e.g., images/candidate1.png">
+                </div>
+                <div class="form-group">
+                    <label for="edit-hostel_id">Hostel ID</label>
+                    <input type="number" name="hostel_id" id="edit-hostel_id">
                 </div>
                 <button type="submit" name="edit_candidate">Update Candidate</button>
                 <button type="button" onclick="closeEditModal()">Cancel</button>
@@ -589,48 +585,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_candidate'])) 
     <script>
         function openNewModal() {
             document.getElementById('new-modal').style.display = 'block';
-            document.getElementById('election_id').value = '';
-            document.getElementById('position_id').innerHTML = '<option value="">Select Position</option>';
             document.getElementById('official_id').value = '';
+            document.getElementById('election_id').value = '';
             document.getElementById('firstname').value = '';
             document.getElementById('midname').value = '';
             document.getElementById('lastname').value = '';
             document.getElementById('association').value = '';
             document.getElementById('college').value = '';
+            document.getElementById('position_id').value = '';
             document.getElementById('passport').value = '';
+            document.getElementById('hostel_id').value = '';
         }
 
         function closeNewModal() {
             document.getElementById('new-modal').style.display = 'none';
         }
 
-        function fetchPositions() {
-            const electionId = document.getElementById('election_id').value;
-            const positionSelect = document.getElementById('position_id');
-            positionSelect.innerHTML = '<option value="">Select Position</option>';
-
-            if (electionId) {
-                fetch(`fetch-positions.php?election_id=${electionId}`)
-                    .then(response => response.json())
-                    .then(data => {
-                        data.forEach(position => {
-                            const option = document.createElement('option');
-                            option.value = position.position_id;
-                            option.textContent = position.name + (position.hostel_id ? ' (Hostel-specific)' : '');
-                            positionSelect.appendChild(option);
-                        });
-                    })
-                    .catch(error => console.error('Error fetching positions:', error));
-            }
-        }
-
-        function editCandidate(id, official_id, association, college, position_id, passport) {
+        function editCandidate(id, official_id, election_id, firstname, midname, lastname, association, college, position_id, passport, hostel_id) {
             document.getElementById('edit-candidate-id').value = id;
             document.getElementById('edit-official_id').value = official_id;
+            document.getElementById('edit-election_id').value = election_id;
+            document.getElementById('edit-firstname').value = firstname;
+            document.getElementById('edit-midname').value = midname;
+            document.getElementById('edit-lastname').value = lastname;
             document.getElementById('edit-association').value = association;
             document.getElementById('edit-college').value = college;
             document.getElementById('edit-position_id').value = position_id;
             document.getElementById('edit-passport').value = passport;
+            document.getElementById('edit-hostel_id').value = hostel_id;
             document.getElementById('edit-modal').style.display = 'block';
         }
 
