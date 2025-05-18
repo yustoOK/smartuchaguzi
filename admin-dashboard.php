@@ -683,7 +683,7 @@ try {
             <img src="images/default.png" alt="Profile" onerror="this.src='images/general.png';">
             <div class="dropdown" id="user-dropdown">
                 <span><?php echo htmlspecialchars($admin_name); ?></span>
-                <a href="profile.php">My Profile</a>
+                <a href="#">My Profile</a>
                 <a href="logout.php">Logout</a>
             </div>
             <a href="logout.php" class="logout-link">Logout</a>

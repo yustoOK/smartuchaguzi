@@ -55,9 +55,9 @@ if (!isset($_SESSION['user_agent']) || $_SESSION['user_agent'] !== $_SERVER['HTT
     exit;
 }
 
-$inactivity_timeout = 30 * 60;
-$max_session_duration = 30 * 60;
-$warning_time = 60; 
+$inactivity_timeout = 5 * 60 * 60;
+$max_session_duration = 12 * 60 * 60;
+$warning_time = 60;
 
 if (!isset($_SESSION['start_time'])) {
     $_SESSION['start_time'] = time();
@@ -148,7 +148,7 @@ try {
             $positions = [];
 
             $query = "
-                SELECT ep.position_id, ep.name AS position_name, ep.scope, ep.college_id AS position_college_id, ep.hostel_id
+                SELECT ep.position_id, ep.name AS position_name, ep.scope, ep.college_id AS position_college_id, ep.hostel_id, ep.is_vice
                 FROM electionpositions ep
                 WHERE ep.election_id = ?
                 AND (
@@ -170,17 +170,77 @@ try {
             $result = $stmt->get_result();
             while ($position = $result->fetch_assoc()) {
                 $position_id = $position['position_id'];
+                $scope = $position['scope'];
+                $is_vice = $position['is_vice'];
 
-                $cand_stmt = $conn->prepare(
-                    "SELECT id, official_id, firstname, lastname, passport 
-     FROM candidates 
-     WHERE election_id = ? AND position_id = ?"
-                );
-                $cand_stmt->bind_param('ii', $election_id, $position_id);
-                $cand_stmt->execute();
-                $cand_result = $cand_stmt->get_result();
-                $candidates = $cand_result->fetch_all(MYSQLI_ASSOC);
-                $cand_stmt->close();
+                $candidates = [];
+
+                if ($scope === 'hostel') {
+                    // Hostel positions: Fetch solo candidates (pair_id IS NULL)
+                    $cand_stmt = $conn->prepare(
+                        "SELECT c.id, c.official_id, c.firstname, c.lastname, c.passport, c.pair_id, c.position_id, ep.is_vice
+                         FROM candidates c
+                         JOIN electionpositions ep ON c.position_id = ep.position_id
+                         WHERE c.election_id = ? AND c.position_id = ? AND c.pair_id IS NULL"
+                    );
+                    $cand_stmt->bind_param('ii', $election_id, $position_id);
+                    $cand_stmt->execute();
+                    $cand_result = $cand_stmt->get_result();
+                    while ($row = $cand_result->fetch_assoc()) {
+                        $candidates[$row['id']] = [$row];
+                    }
+                    $cand_stmt->close();
+                } else {
+                    if ($is_vice == 0) {
+                        // Find the corresponding vice position for this main position
+                        $vice_position_id = null;
+                        $vice_position_name = '';
+                        $vice_stmt = $conn->prepare(
+                            "SELECT position_id, name
+                             FROM electionpositions
+                             WHERE election_id = ? AND is_vice = 1
+                             AND (
+                                 (scope = 'university' AND scope = ?)
+                                 OR (scope = 'college' AND scope = ? AND college_id = ?)
+                             )"
+                        );
+                        $vice_stmt->bind_param('issi', $election_id, $scope, $scope, $position['position_college_id']);
+                        $vice_stmt->execute();
+                        $vice_result = $vice_stmt->get_result();
+                        if ($vice_row = $vice_result->fetch_assoc()) {
+                            $vice_position_id = $vice_row['position_id'];
+                            $vice_position_name = $vice_row['name'];
+                        }
+                        $vice_stmt->close();
+
+                        if ($vice_position_id) {
+                            // Fetch paired candidates (main and vice)
+                            $cand_stmt = $conn->prepare(
+                                "SELECT c.id, c.official_id, c.firstname, c.lastname, c.passport, c.pair_id, c.position_id, ep.is_vice
+                                 FROM candidates c
+                                 JOIN electionpositions ep ON c.position_id = ep.position_id
+                                 WHERE c.election_id = ? AND c.position_id IN (?, ?)
+                                 AND c.pair_id IS NOT NULL
+                                 ORDER BY c.pair_id, ep.is_vice ASC"
+                            );
+                            $cand_stmt->bind_param('iii', $election_id, $position_id, $vice_position_id);
+                            $cand_stmt->execute();
+                            $cand_result = $cand_stmt->get_result();
+                            while ($row = $cand_result->fetch_assoc()) {
+                                $pair_id = $row['pair_id'];
+                                if (!isset($candidates[$pair_id])) {
+                                    $candidates[$pair_id] = [];
+                                }
+                                $candidates[$pair_id][] = $row;
+                            }
+                            $cand_stmt->close();
+                        }
+
+                        $position['vice_position_name'] = $vice_position_name;
+                    } else {
+                        continue;
+                    }
+                }
 
                 $position['candidates'] = $candidates;
                 $positions[] = $position;
@@ -198,7 +258,6 @@ try {
 
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -207,344 +266,69 @@ try {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        * {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-    font-family: 'Poppins', sans-serif;
-}
-
-body {
-    background: linear-gradient(rgba(26, 60, 52, 0.7), rgba(26, 60, 52, 0.7)), url('images/cive.jpeg');
-    background-size: cover;
-    color: #2d3748;
-    min-height: 100vh;
-}
-
-.header {
-    background: #1a3c34;
-    color: #e6e6e6;
-    padding: 15px 30px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-    position: fixed;
-    width: 100%;
-    top: 0;
-    z-index: 1000;
-}
-
-.logo {
-    display: flex;
-    align-items: center;
-}
-
-.logo img {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    margin-right: 10px;
-}
-
-.logo h1 {
-    font-size: 24px;
-    font-weight: 600;
-}
-
-.nav a {
-    color: #e6e6e6;
-    text-decoration: none;
-    margin: 0 15px;
-    font-size: 16px;
-    transition: color 0.3s ease;
-}
-
-.nav a:hover {
-    color: #f4a261;
-}
-
-.user {
-    display: flex;
-    align-items: center;
-}
-
-.user img {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    margin-right: 10px;
-    cursor: pointer;
-}
-
-.dropdown {
-    display: none;
-    position: absolute;
-    top: 60px;
-    right: 20px;
-    background: #fff;
-    border-radius: 8px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-    overflow: hidden;
-}
-
-.dropdown a,
-.dropdown span {
-    display: block;
-    padding: 10px 20px;
-    color: #2d3748;
-    text-decoration: none;
-    font-size: 16px;
-}
-
-.dropdown a:hover {
-    background: #f4a261;
-    color: #fff;
-}
-
-.logout-link {
-    display: none;
-    color: #e6e6e6;
-    text-decoration: none;
-    font-size: 16px;
-}
-
-.dashboard {
-    margin-top: 80px;
-    padding: 30px;
-    display: flex;
-    justify-content: center;
-}
-
-.dash-content {
-    background: rgba(255, 255, 255, 0.95);
-    padding: 30px;
-    border-radius: 12px;
-    width: 100%;
-    max-width: 1200px;
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
-}
-
-.dash-content h2 {
-    font-size: 28px;
-    color: #1a3c34;
-    margin-bottom: 20px;
-    text-align: center;
-}
-
-.election-section {
-    margin-bottom: 30px;
-}
-
-.election-section h3 {
-    font-size: 22px;
-    color: #2d3748;
-    margin-bottom: 15px;
-}
-
-.position-section {
-    margin-bottom: 20px;
-}
-
-.position-section h4 {
-    font-size: 18px;
-    color: #2d3748;
-    margin-bottom: 10px;
-}
-
-.candidate-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 20px;
-    margin-bottom: 20px;
-}
-
-.candidate-card {
-    background: #fff;
-    border-radius: 10px;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-    padding: 15px;
-    text-align: center;
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
-    position: relative;
-    overflow: hidden;
-}
-
-.candidate-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
-}
-
-.candidate-img {
-    width: 100px;
-    height: 100px;
-    object-fit: cover;
-    border-radius: 50%;
-    margin-bottom: 10px;
-    border: 2px solid #1a3c34;
-    transition: border-color 0.3s ease;
-}
-
-.candidate-card:hover .candidate-img {
-    border-color: #f4a261;
-}
-
-.candidate-info {
-    margin-bottom: 15px;
-}
-
-.candidate-info p {
-    margin: 5px 0;
-    font-size: 14px;
-    color: #2d3748;
-}
-
-.error,
-.success {
-    padding: 15px;
-    border-radius: 6px;
-    margin-bottom: 20px;
-    font-size: 16px;
-}
-
-.error {
-    background: #ffe6e6;
-    color: #e76f51;
-    border: 1px solid #e76f51;
-}
-
-.success {
-    background: #e6fff5;
-    color: #2a9d8f;
-    border: 1px solid #2a9d8f;
-}
-
-.modal {
-    display: none;
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.5);
-    z-index: 1001;
-    justify-content: center;
-    align-items: center;
-}
-
-.modal-content {
-    background: #fff;
-    padding: 20px;
-    border-radius: 8px;
-    text-align: center;
-    max-width: 400px;
-    width: 90%;
-}
-
-.modal-content p {
-    font-size: 16px;
-    color: #2d3748;
-    margin-bottom: 20px;
-}
-
-.modal-content button {
-    background: #f4a261;
-    color: #fff;
-    border: none;
-    padding: 10px 20px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 16px;
-}
-
-.modal-content button:hover {
-    background: #e76f51;
-}
-
-@media (max-width: 768px) {
-    .header {
-        flex-direction: column;
-        padding: 10px 20px;
-    }
-
-    .logo h1 {
-        font-size: 20px;
-    }
-
-    .nav {
-        margin: 10px 0;
-        text-align: center;
-    }
-
-    .nav a {
-        margin: 0 10px;
-        font-size: 14px;
-    }
-
-    .user img {
-        display: none;
-    }
-
-    .dropdown {
-        display: block;
-        position: static;
-        box-shadow: none;
-        background: none;
-        text-align: center;
-    }
-
-    .dropdown a,
-    .dropdown span {
-        color: #e6e6e6;
-        padding: 5px 10px;
-    }
-
-    .dropdown a:hover {
-        background: none;
-        color: #f4a261;
-    }
-
-    .logout-link {
-        display: block;
-        margin-top: 10px;
-    }
-
-    .dash-content {
-        padding: 20px;
-    }
-
-    .dash-content h2 {
-        font-size: 24px;
-    }
-
-    .election-section h3 {
-        font-size: 18px;
-    }
-
-    .position-section h4 {
-        font-size: 16px;
-    }
-
-    .candidate-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .candidate-card {
-        padding: 10px;
-    }
-
-    .candidate-img {
-        width: 80px;
-        height: 80px;
-    }
-
-    .candidate-info p {
-        font-size: 12px;
-    }
-}
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', sans-serif; }
+        body { background: linear-gradient(rgba(26, 60, 52, 0.7), rgba(26, 60, 52, 0.7)), url('images/cive.jpeg'); background-size: cover; color: #2d3748; min-height: 100vh; }
+        .header { background: #1a3c34; color: #e6e6e6; padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1); position: fixed; width: 100%; top: 0; z-index: 1000; }
+        .logo { display: flex; align-items: center; }
+        .logo img { width: 40px; height: 40px; border-radius: 50%; margin-right: 10px; }
+        .logo h1 { font-size: 24px; font-weight: 600; }
+        .nav a { color: #e6e6e6; text-decoration: none; margin: 0 15px; font-size: 16px; transition: color 0.3s ease; }
+        .nav a:hover { color: #f4a261; }
+        .user { display: flex; align-items: center; }
+        .user img { width: 40px; height: 40px; border-radius: 50%; margin-right: 10px; cursor: pointer; }
+        .dropdown { display: none; position: absolute; top: 60px; right: 20px; background: #fff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1); overflow: hidden; }
+        .dropdown a, .dropdown span { display: block; padding: 10px 20px; color: #2d3748; text-decoration: none; font-size: 16px; }
+        .dropdown a:hover { background: #f4a261; color: #fff; }
+        .logout-link { display: none; color: #e6e6e6; text-decoration: none; font-size: 16px; }
+        .dashboard { margin-top: 80px; padding: 30px; display: flex; justify-content: center; }
+        .dash-content { background: rgba(255, 255, 255, 0.95); padding: 30px; border-radius: 12px; width: 100%; max-width: 1200px; box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15); }
+        .dash-content h2 { font-size: 28px; color: #1a3c34; margin-bottom: 20px; text-align: center; }
+        .election-section { margin-bottom: 30px; }
+        .election-section h3 { font-size: 22px; color: #2d3748; margin-bottom: 15px; }
+        .position-section { margin-bottom: 20px; }
+        .position-section h4 { font-size: 18px; color: #2d3748; margin-bottom: 15px; border-bottom: 2px solid #1a3c34; padding-bottom: 5px; }
+        .candidate-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 20px; }
+        .candidate-card { background: #fff; border: 1px solid #e0e0e0; border-radius: 12px; padding: 20px; display: flex; align-items: center; justify-content: space-between; transition: transform 0.3s ease, box-shadow 0.3s ease; position: relative; overflow: hidden; }
+        .candidate-card:hover { transform: translateY(-5px); box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15); }
+        .candidate-img { width: 80px; height: 80px; object-fit: cover; border-radius: 50%; border: 3px solid #1a3c34; margin-right: 15px; transition: border-color 0.3s ease; }
+        .candidate-card:hover .candidate-img { border-color: #f4a261; }
+        .candidate-details { flex: 1; display: flex; flex-direction: column; gap: 5px; }
+        .candidate-details h5 { font-size: 16px; font-weight: 600; color: #2d3748; margin: 0; }
+        .candidate-details p { font-size: 14px; color: #666; margin: 0; }
+        .error, .success { padding: 15px; border-radius: 6px; margin-bottom: 20px; font-size: 16px; }
+        .error { background: #ffe6e6; color: #e76f51; border: 1px solid #e76f51; }
+        .success { background: #e6fff5; color: #2a9d8f; border: 1px solid #2a9d8f; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 1001; justify-content: center; align-items: center; }
+        .modal-content { background: #fff; padding: 20px; border-radius: 8px; text-align: center; max-width: 400px; width: 90%; }
+        .modal-content p { font-size: 16px; color: #2d3748; margin-bottom: 20px; }
+        .modal-content button { background: #f4a261; color: #fff; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-size: 16px; margin: 0 10px; }
+        .modal-content button:hover { background: #e76f51; }
+        @media (max-width: 768px) {
+            .header { flex-direction: column; padding: 10px 20px; }
+            .logo h1 { font-size: 20px; }
+            .nav { margin: 10px 0; text-align: center; }
+            .nav a { margin: 0 10px; font-size: 14px; }
+            .user img { display: none; }
+            .dropdown { display: block; position: static; box-shadow: none; background: none; text-align: center; }
+            .dropdown a, .dropdown span { color: #e6e6e6; padding: 5px 10px; }
+            .dropdown a:hover { background: none; color: #f4a261; }
+            .logout-link { display: block; margin-top: 10px; }
+            .dash-content { padding: 20px; }
+            .dash-content h2 { font-size: 24px; }
+            .election-section h3 { font-size: 18px; }
+            .position-section h4 { font-size: 16px; }
+            .candidate-grid { grid-template-columns: 1fr; }
+            .candidate-card { flex-direction: column; align-items: flex-start; padding: 15px; }
+            .candidate-img { width: 60px; height: 60px; margin-bottom: 10px; margin-right: 0; }
+            .candidate-details h5 { font-size: 14px; }
+            .candidate-details p { font-size: 12px; }
+        }
+        @media (min-width: 600px) {
+            .candidate-card { flex-direction: row; align-items: center; }
+            .candidate-img { margin-bottom: 0; }
+        }
     </style>
 </head>
-
 <body>
     <header class="header">
         <div class="logo">
@@ -598,20 +382,54 @@ body {
                                             <p>No candidates available for this position.</p>
                                         </div>
                                     <?php else: ?>
-                                        <form class="vote-form" data-election-id="<?php echo $election['election_id']; ?>" data-position-id="<?php echo $position['position_id']; ?>">
-    <div class="candidate-grid">
-        <?php foreach ($position['candidates'] as $candidate): ?>
-            <div class="candidate-card">
-                <img src="<?php echo htmlspecialchars($candidate['passport'] ?: 'images/general.png'); ?>" alt="Candidate Passport" class="candidate-img">
-                <div class="candidate-info">
-                    <p><strong>Official ID:</strong> <?php echo htmlspecialchars($candidate['official_id']); ?></p>
-                    <p><strong>Name:</strong> <?php echo htmlspecialchars($candidate['firstname'] . ' ' . $candidate['lastname']); ?></p>
-                    <p><strong>Association:</strong> <?php echo htmlspecialchars($association); ?></p>
-                </div>
-            </div>
-        <?php endforeach; ?>
-    </div>
-</form>
+                                        <div class="candidate-grid">
+                                            <?php
+                                            foreach ($position['candidates'] as $key => $candidateGroup) {
+                                                if ($position['scope'] !== 'hostel' && count($candidateGroup) == 2) {
+                                                    // Paired candidates (main and vice)
+                                                    $mainCandidate = $candidateGroup[0]['is_vice'] == 0 ? $candidateGroup[0] : $candidateGroup[1];
+                                                    $viceCandidate = $candidateGroup[0]['is_vice'] == 1 ? $candidateGroup[0] : $candidateGroup[1];
+                                                    $pair_id = $mainCandidate['pair_id'];
+                                                    ?>
+                                                    <div class="candidate-card">
+                                                        <div style="display: flex; align-items: center;">
+                                                            <img src="<?php echo htmlspecialchars($mainCandidate['passport'] ?: 'images/general.png'); ?>" alt="Candidate <?php echo htmlspecialchars($mainCandidate['firstname'] . ' ' . $mainCandidate['lastname']); ?>" class="candidate-img">
+                                                            <div class="candidate-details">
+                                                                <h5><?php echo htmlspecialchars($mainCandidate['firstname'] . ' ' . $mainCandidate['lastname']); ?></h5>
+                                                                <p>Official ID: <?php echo htmlspecialchars($mainCandidate['official_id']); ?></p>
+                                                                <p>Association: <?php echo htmlspecialchars($association); ?></p>
+                                                            </div>
+                                                        </div>
+                                                        <div style="display: flex; align-items: center;">
+                                                            <img src="<?php echo htmlspecialchars($viceCandidate['passport'] ?: 'images/general.png'); ?>" alt="Running Mate <?php echo htmlspecialchars($viceCandidate['firstname'] . ' ' . $viceCandidate['lastname']); ?>" class="candidate-img">
+                                                            <div class="candidate-details">
+                                                                <h5><?php echo htmlspecialchars($viceCandidate['firstname'] . ' ' . $viceCandidate['lastname']); ?></h5>
+                                                                <p>Official ID: <?php echo htmlspecialchars($viceCandidate['official_id']); ?></p>
+                                                                <p>Role: <?php echo htmlspecialchars($position['vice_position_name']); ?></p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <?php
+                                                } else {
+                                                    // Solo candidate (hostel positions)
+                                                    $candidate = $candidateGroup[0];
+                                                    $candidate_id = $candidate['id'];
+                                                    ?>
+                                                    <div class="candidate-card">
+                                                        <div style="display: flex; align-items: center;">
+                                                            <img src="<?php echo htmlspecialchars($candidate['passport'] ?: 'images/general.png'); ?>" alt="Candidate <?php echo htmlspecialchars($candidate['firstname'] . ' ' . $candidate['lastname']); ?>" class="candidate-img">
+                                                            <div class="candidate-details">
+                                                                <h5><?php echo htmlspecialchars($candidate['firstname'] . ' ' . $candidate['lastname']); ?></h5>
+                                                                <p>Official ID: <?php echo htmlspecialchars($candidate['official_id']); ?></p>
+                                                                <p>Association: <?php echo htmlspecialchars($association); ?></p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <?php
+                                                }
+                                            }
+                                            ?>
+                                        </div>
                                     <?php endif; ?>
                                 </div>
                             <?php endforeach; ?>
@@ -678,7 +496,6 @@ body {
         });
     </script>
 </body>
-
 </html>
 <?php
 $conn->close();

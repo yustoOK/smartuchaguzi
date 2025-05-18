@@ -35,9 +35,8 @@ function checkMultipleLogins($conn, $user_id) {
 }
 
 function getGeoLocation($ip) {
-    // Mock IP-to-country mapping (replace with GeoIP database if available)
     $rand = random_int(1, 100);
-    if ($rand <= 85) return 0; // TZ (85%)
+    if ($rand <= 85) return 0; // TZ
     if ($rand <= 90) return 1; // KE
     if ($rand <= 95) return 2; // UG
     if ($rand <= 98) return 3; // RW
@@ -45,7 +44,6 @@ function getGeoLocation($ip) {
 }
 
 function detectVPN($geo_location) {
-    // Simplified heuristic: non-TZ locations more likely VPN
     return $geo_location > 0 ? (random_int(0, 100) < 60 ? 1 : 0) : (random_int(0, 100) < 5 ? 1 : 0);
 }
 
@@ -53,10 +51,10 @@ function logFraud($conn, $user_id, $voter_id, $ip_address, $election_id, $is_fra
     $description = $is_fraudulent ? "Fraud detected with confidence $confidence" : "No fraud detected";
     $details = json_encode(array_merge(json_decode($details, true), ['voter_id' => $voter_id, 'ip_address' => $ip_address]));
     $stmt = $conn->prepare(
-        "INSERT INTO frauddetectionlogs (user_id, election_id, is_fraudulent, confidence, details, description, action, created_at) 
-         VALUES (?, ?, ?, ?, ?, ?, ?, NOW())"
+        "INSERT INTO frauddetectionlogs (user_id, election_id, is_fraudulent, confidence, details, ip_history, vote_pattern, user_behavior, api_response, description, action, created_at) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())"
     );
-    $stmt->bind_param("iiidsss", $user_id, $election_id, $is_fraudulent, $confidence, $details, $description, $action);
+    $stmt->bind_param("iiidssdsss", $user_id, $election_id, $is_fraudulent, $confidence, $details, $details['ip_history'], $details['vote_pattern'], $details['user_behavior'], $details['api_response'], $description, $action);
     $stmt->execute();
     $stmt->close();
 }
@@ -74,7 +72,7 @@ function checkRateLimit($conn, $user_id) {
     $stmt->execute();
     $result = $stmt->get_result()->fetch_assoc();
     $stmt->close();
-    return $result['attempts'] < 5; // Max 5 attempts per hour
+    return $result['attempts'] < 5;
 }
 
 function getFraudHistory($conn, $user_id) {
@@ -84,6 +82,24 @@ function getFraudHistory($conn, $user_id) {
     $result = $stmt->get_result()->fetch_assoc();
     $stmt->close();
     return $result['fraud_count'];
+}
+
+function getVotePattern($conn, $user_id) {
+    $stmt = $conn->prepare("SELECT AVG(UNIX_TIMESTAMP(timestamp) - UNIX_TIMESTAMP(LAG(timestamp) OVER (ORDER BY timestamp))) as avg_interval FROM blockchainrecords WHERE voter = ? AND timestamp >= NOW() - INTERVAL 24 HOUR");
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    $result = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+    return $result['avg_interval'] ?: 0;
+}
+
+function getIpHistory($conn, $user_id) {
+    $stmt = $conn->prepare("SELECT DISTINCT ip_address FROM frauddetectionlogs WHERE user_id = ? AND created_at >= NOW() - INTERVAL 24 HOUR");
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    $result = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    $stmt->close();
+    return json_encode(array_column($result, 'ip_address'));
 }
 
 function generateCsrfToken() {
@@ -209,7 +225,7 @@ try {
             $positions = [];
 
             $query = "
-                SELECT ep.position_id, ep.name AS position_name, ep.scope, ep.college_id AS position_college_id, ep.hostel_id
+                SELECT ep.position_id, ep.name AS position_name, ep.scope, ep.college_id AS position_college_id, ep.hostel_id, ep.is_vice
                 FROM electionpositions ep
                 WHERE ep.election_id = ?
                 AND (
@@ -231,17 +247,80 @@ try {
             $result = $stmt->get_result();
             while ($position = $result->fetch_assoc()) {
                 $position_id = $position['position_id'];
+                $scope = $position['scope'];
+                $is_vice = $position['is_vice'];
 
-                $cand_stmt = $conn->prepare(
-                    "SELECT id, official_id, firstname, lastname, passport 
-                     FROM candidates 
-                     WHERE election_id = ? AND position_id = ?"
-                );
-                $cand_stmt->bind_param('ii', $election_id, $position_id);
-                $cand_stmt->execute();
-                $cand_result = $cand_stmt->get_result();
-                $candidates = $cand_result->fetch_all(MYSQLI_ASSOC);
-                $cand_stmt->close();
+                $candidates = [];
+
+                if ($scope === 'hostel') {
+                    // Hostel positions: Fetch solo candidates (pair_id IS NULL)
+                    $cand_stmt = $conn->prepare(
+                        "SELECT c.id, c.official_id, c.firstname, c.lastname, c.passport, c.pair_id, c.position_id, ep.is_vice
+                         FROM candidates c
+                         JOIN electionpositions ep ON c.position_id = ep.position_id
+                         WHERE c.election_id = ? AND c.position_id = ? AND c.pair_id IS NULL"
+                    );
+                    $cand_stmt->bind_param('ii', $election_id, $position_id);
+                    $cand_stmt->execute();
+                    $cand_result = $cand_stmt->get_result();
+                    while ($row = $cand_result->fetch_assoc()) {
+                        // Store each solo candidate with a unique key (e.g., their candidate ID)
+                        $candidates[$row['id']] = [$row];
+                    }
+                    $cand_stmt->close();
+                } else {
+                    // University or College positions: Fetch paired candidates (main and vice)
+                    if ($is_vice == 0) {
+                        // Find the corresponding vice position for this main position
+                        $vice_position_id = null;
+                        $vice_position_name = '';
+                        $vice_stmt = $conn->prepare(
+                            "SELECT position_id, name
+                             FROM electionpositions
+                             WHERE election_id = ? AND is_vice = 1
+                             AND (
+                                 (scope = 'university' AND scope = ?)
+                                 OR (scope = 'college' AND scope = ? AND college_id = ?)
+                             )"
+                        );
+                        $vice_stmt->bind_param('issi', $election_id, $scope, $scope, $position['position_college_id']);
+                        $vice_stmt->execute();
+                        $vice_result = $vice_stmt->get_result();
+                        if ($vice_row = $vice_result->fetch_assoc()) {
+                            $vice_position_id = $vice_row['position_id'];
+                            $vice_position_name = $vice_row['name'];
+                        }
+                        $vice_stmt->close();
+
+                        if ($vice_position_id) {
+                            // Fetch paired candidates (main and vice)
+                            $cand_stmt = $conn->prepare(
+                                "SELECT c.id, c.official_id, c.firstname, c.lastname, c.passport, c.pair_id, c.position_id, ep.is_vice
+                                 FROM candidates c
+                                 JOIN electionpositions ep ON c.position_id = ep.position_id
+                                 WHERE c.election_id = ? AND c.position_id IN (?, ?)
+                                 AND c.pair_id IS NOT NULL
+                                 ORDER BY c.pair_id, ep.is_vice ASC"
+                            );
+                            $cand_stmt->bind_param('iii', $election_id, $position_id, $vice_position_id);
+                            $cand_stmt->execute();
+                            $cand_result = $cand_stmt->get_result();
+                            while ($row = $cand_result->fetch_assoc()) {
+                                $pair_id = $row['pair_id'];
+                                if (!isset($candidates[$pair_id])) {
+                                    $candidates[$pair_id] = [];
+                                }
+                                $candidates[$pair_id][] = $row;
+                            }
+                            $cand_stmt->close();
+                        }
+
+                        $position['vice_position_name'] = $vice_position_name;
+                    } else {
+                        // Skip vice positions since they are handled with their main position
+                        continue;
+                    }
+                }
 
                 $position['candidates'] = $candidates;
                 $positions[] = $position;
@@ -287,30 +366,143 @@ try {
         .election-section { margin-bottom: 30px; }
         .election-section h3 { font-size: 22px; color: #2d3748; margin-bottom: 15px; }
         .position-section { margin-bottom: 20px; }
-        .position-section h4 { font-size: 18px; color: #2d3748; margin-bottom: 10px; }
-        .candidate-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 20px; }
-        .candidate-card { background: #fff; border-radius: 10px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1); padding: 15px; text-align: center; transition: transform 0.3s ease, box-shadow 0.3s ease; position: relative; overflow: hidden; }
-        .candidate-card:hover { transform: translateY(-5px); box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15); }
-        .candidate-card.selected { border: 2px solid #f4a261; }
-        .candidate-img { width: 100px; height: 100px; object-fit: cover; border-radius: 50%; margin-bottom: 10px; border: 2px solid #1a3c34; transition: border-color 0.3s ease; }
-        .candidate-card:hover .candidate-img { border-color: #f4a261; }
-        .candidate-info { margin-bottom: 15px; }
-        .candidate-info p { margin: 5px 0; font-size: 14px; color: #2d3748; }
-        .vote-label { display: inline-block; cursor: pointer; }
-        .vote-checkmark { display: inline-block; padding: 8px 16px; background: #1a3c34; color: #fff; border-radius: 5px; font-size: 14px; transition: background 0.3s ease; }
-        .vote-label input:checked + .vote-checkmark { background: #f4a261; }
-        .vote-label input { display: none; }
-        .vote-form button { background: #f4a261; color: #fff; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-size: 16px; transition: background 0.3s ease; margin-top: 10px; }
-        .vote-form button:hover { background: #e76f51; }
-        .vote-form button:disabled { background: #cccccc; cursor: not-allowed; }
-        .error, .success { padding: 15px; border-radius: 6px; margin-bottom: 20px; font-size: 16px; }
-        .error { background: #ffe6e6; color: #e76f51; border: 1px solid #e76f51; }
-        .success { background: #e6fff5; color: #2a9d8f; border: 1px solid #2a9d8f; }
-        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 1001; justify-content: center; align-items: center; }
-        .modal-content { background: #fff; padding: 20px; border-radius: 8px; text-align: center; max-width: 400px; width: 90%; }
-        .modal-content p { font-size: 16px; color: #2d3748; margin-bottom: 20px; }
-        .modal-content button { background: #f4a261; color: #fff; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-size: 16px; margin: 0 10px; }
-        .modal-content button:hover { background: #e76f51; }
+        .position-section h4 { font-size: 18px; color: #2d3748; margin-bottom: 15px; border-bottom: 2px solid #1a3c34; padding-bottom: 5px; }
+        .candidate-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 20px; }
+        .candidate-card { 
+            background: #fff; 
+            border: 1px solid #e0e0e0; 
+            border-radius: 12px; 
+            padding: 20px; 
+            display: flex; 
+            align-items: center; 
+            justify-content: space-between; 
+            transition: transform 0.3s ease, box-shadow 0.3s ease; 
+            position: relative; 
+            overflow: hidden; 
+        }
+        .candidate-card:hover { 
+            transform: translateY(-5px); 
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15); 
+        }
+        .candidate-card.selected { 
+            border: 2px solid #f4a261; 
+            background: #fff5e6; 
+        }
+        .candidate-img { 
+            width: 80px; 
+            height: 80px; 
+            object-fit: cover; 
+            border-radius: 50%; 
+            border: 3px solid #1a3c34; 
+            margin-right: 15px; 
+            transition: border-color 0.3s ease; 
+        }
+        .candidate-card:hover .candidate-img { 
+            border-color: #f4a261; 
+        }
+        .candidate-details { 
+            flex: 1; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 5px; 
+        }
+        .candidate-details h5 { 
+            font-size: 16px; 
+            font-weight: 600; 
+            color: #2d3748; 
+            margin: 0; 
+        }
+        .candidate-details p { 
+            font-size: 14px; 
+            color: #666; 
+            margin: 0; 
+        }
+        .vote-label { 
+            display: flex; 
+            align-items: center; 
+            cursor: pointer; 
+        }
+        .vote-checkbox { 
+            width: 20px; 
+            height: 20px; 
+            margin-right: 10px; 
+            accent-color: #f4a261; 
+        }
+        .vote-form button { 
+            background: #f4a261; 
+            color: #fff; 
+            border: none; 
+            padding: 12px 24px; 
+            border-radius: 6px; 
+            cursor: pointer; 
+            font-size: 16px; 
+            transition: background 0.3s ease; 
+            margin-top: 20px; 
+            display: block; 
+            margin-left: auto; 
+            margin-right: auto; 
+        }
+        .vote-form button:hover { 
+            background: #e76f51; 
+        }
+        .vote-form button:disabled { 
+            background: #cccccc; 
+            cursor: not-allowed; 
+        }
+        .error, .success { 
+            padding: 15px; 
+            border-radius: 6px; 
+            margin-bottom: 20px; 
+            font-size: 16px; 
+        }
+        .error { 
+            background: #ffe6e6; 
+            color: #e76f51; 
+            border: 1px solid #e76f51; 
+        }
+        .success { 
+            background: #e6fff5; 
+            color: #2a9d8f; 
+            border: 1px solid #2a9d8f; 
+        }
+        .modal { 
+            display: none; 
+            position: fixed; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%; 
+            background: rgba(0, 0, 0, 0.5); 
+            z-index: 1001; 
+            justify-content: center; 
+            align-items: center; 
+        }
+        .modal-content { 
+            background: #fff; 
+            padding: 20px; 
+            border-radius: 8px; 
+            text-align: center; 
+            max-width: 400px; 
+            width: 90%; 
+        }
+        .modal-content p { 
+            font-size: 16px; 
+            color: #2d3748; 
+            margin-bottom: 20px; 
+        }
+        .modal-content button { 
+            background: #f4a261; 
+            color: #fff; 
+            border: none; 
+            padding: 10px 20px; 
+            border-radius: 6px; 
+            cursor: pointer; 
+            font-size: 16px; 
+            margin: 0 10px; 
+        }
+        .modal-content button:hover { 
+            background: #e76f51; 
+        }
         @media (max-width: 768px) {
             .header { flex-direction: column; padding: 10px 20px; }
             .logo h1 { font-size: 20px; }
@@ -326,10 +518,24 @@ try {
             .election-section h3 { font-size: 18px; }
             .position-section h4 { font-size: 16px; }
             .candidate-grid { grid-template-columns: 1fr; }
-            .candidate-card { padding: 10px; }
-            .candidate-img { width: 80px; height: 80px; }
-            .candidate-info p { font-size: 12px; }
-            .vote-checkmark { padding: 6px 12px; font-size: 12px; }
+            .candidate-card { 
+                flex-direction: column; 
+                align-items: flex-start; 
+                padding: 15px; 
+            }
+            .candidate-img { 
+                width: 60px; 
+                height: 60px; 
+                margin-bottom: 10px; 
+                margin-right: 0; 
+            }
+            .candidate-details h5 { font-size: 14px; }
+            .candidate-details p { font-size: 12px; }
+            .vote-form button { font-size: 14px; padding: 10px 20px; }
+        }
+        @media (min-width: 600px) {
+            .candidate-card { flex-direction: row; align-items: center; }
+            .candidate-img { margin-bottom: 0; }
         }
     </style>
 </head>
@@ -390,20 +596,60 @@ try {
                                         <form class="vote-form" data-election-id="<?php echo $election['election_id']; ?>" data-position-id="<?php echo $position['position_id']; ?>" aria-label="Vote for <?php echo htmlspecialchars($position['position_name']); ?>">
                                             <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
                                             <div class="candidate-grid">
-                                                <?php foreach ($position['candidates'] as $candidate): ?>
-                                                    <div class="candidate-card" data-candidate-id="<?php echo $candidate['id']; ?>">
-                                                        <img src="<?php echo htmlspecialchars($candidate['passport'] ?: 'images/general.png'); ?>" alt="Candidate <?php echo htmlspecialchars($candidate['firstname'] . ' ' . $candidate['lastname']); ?>" class="candidate-img">
-                                                        <div class="candidate-info">
-                                                            <p><strong>Official ID:</strong> <?php echo htmlspecialchars($candidate['official_id']); ?></p>
-                                                            <p><strong>Name:</strong> <?php echo htmlspecialchars($candidate['firstname'] . ' ' . $candidate['lastname']); ?></p>
-                                                            <p><strong>Association:</strong> <?php echo htmlspecialchars($association); ?></p>
+                                                <?php
+                                                foreach ($position['candidates'] as $key => $candidateGroup) {
+                                                    if ($position['scope'] !== 'hostel' && count($candidateGroup) == 2) {
+                                                        // Paired candidates (main and vice)
+                                                        $mainCandidate = $candidateGroup[0]['is_vice'] == 0 ? $candidateGroup[0] : $candidateGroup[1];
+                                                        $viceCandidate = $candidateGroup[0]['is_vice'] == 1 ? $candidateGroup[0] : $candidateGroup[1];
+                                                        $pair_id = $mainCandidate['pair_id'];
+                                                        ?>
+                                                        <div class="candidate-card" data-candidate-id="<?php echo $mainCandidate['id']; ?>">
+                                                            <div style="display: flex; align-items: center;">
+                                                                <img src="<?php echo htmlspecialchars($mainCandidate['passport'] ?: 'images/general.png'); ?>" alt="Candidate <?php echo htmlspecialchars($mainCandidate['firstname'] . ' ' . $mainCandidate['lastname']); ?>" class="candidate-img">
+                                                                <div class="candidate-details">
+                                                                    <h5><?php echo htmlspecialchars($mainCandidate['firstname'] . ' ' . $mainCandidate['lastname']); ?></h5>
+                                                                    <p>Official ID: <?php echo htmlspecialchars($mainCandidate['official_id']); ?></p>
+                                                                    <p>Association: <?php echo htmlspecialchars($association); ?></p>
+                                                                </div>
+                                                            </div>
+                                                            <div style="display: flex; align-items: center;">
+                                                                <img src="<?php echo htmlspecialchars($viceCandidate['passport'] ?: 'images/general.png'); ?>" alt="Running Mate <?php echo htmlspecialchars($viceCandidate['firstname'] . ' ' . $viceCandidate['lastname']); ?>" class="candidate-img">
+                                                                <div class="candidate-details">
+                                                                    <h5><?php echo htmlspecialchars($viceCandidate['firstname'] . ' ' . $viceCandidate['lastname']); ?></h5>
+                                                                    <p>Official ID: <?php echo htmlspecialchars($viceCandidate['official_id']); ?></p>
+                                                                    <p>Role: <?php echo htmlspecialchars($position['vice_position_name']); ?></p>
+                                                                </div>
+                                                            </div>
+                                                            <label class="vote-label">
+                                                                <input type="radio" name="candidate_id" value="<?php echo $pair_id; ?>" id="candidate_<?php echo $mainCandidate['id']; ?>" required aria-label="Vote for <?php echo htmlspecialchars($mainCandidate['firstname'] . ' ' . $mainCandidate['lastname'] . ' and ' . $viceCandidate['firstname'] . ' ' . $viceCandidate['lastname']); ?>">
+                                                                <span class="vote-checkmark"></span>
+                                                            </label>
                                                         </div>
-                                                        <label class="vote-label">
-                                                            <input type="radio" name="candidate_id" value="<?php echo $candidate['id']; ?>" id="candidate_<?php echo $candidate['id']; ?>" required aria-label="Vote for <?php echo htmlspecialchars($candidate['firstname'] . ' ' . $candidate['lastname']); ?>">
-                                                            <span class="vote-checkmark">Vote</span>
-                                                        </label>
-                                                    </div>
-                                                <?php endforeach; ?>
+                                                        <?php
+                                                    } else {
+                                                        // Solo candidate (hostel positions)
+                                                        $candidate = $candidateGroup[0];
+                                                        $candidate_id = $candidate['id'];
+                                                        ?>
+                                                        <div class="candidate-card" data-candidate-id="<?php echo $candidate_id; ?>">
+                                                            <div style="display: flex; align-items: center;">
+                                                                <img src="<?php echo htmlspecialchars($candidate['passport'] ?: 'images/general.png'); ?>" alt="Candidate <?php echo htmlspecialchars($candidate['firstname'] . ' ' . $candidate['lastname']); ?>" class="candidate-img">
+                                                                <div class="candidate-details">
+                                                                    <h5><?php echo htmlspecialchars($candidate['firstname'] . ' ' . $candidate['lastname']); ?></h5>
+                                                                    <p>Official ID: <?php echo htmlspecialchars($candidate['official_id']); ?></p>
+                                                                    <p>Association: <?php echo htmlspecialchars($association); ?></p>
+                                                                </div>
+                                                            </div>
+                                                            <label class="vote-label">
+                                                                <input type="radio" name="candidate_id" value="<?php echo $candidate_id; ?>" id="candidate_<?php echo $candidate_id; ?>" required aria-label="Vote for <?php echo htmlspecialchars($candidate['firstname'] . ' ' . $candidate['lastname']); ?>">
+                                                                <span class="vote-checkmark"></span>
+                                                            </label>
+                                                        </div>
+                                                        <?php
+                                                    }
+                                                }
+                                                ?>
                                             </div>
                                             <button type="submit">Cast Vote</button>
                                         </form>
@@ -453,17 +699,25 @@ try {
             setTimeout(() => errorMessage.style.display = 'none', 5000);
         }
 
-        async function retryOperation(operation, maxAttempts = 3, delay = 1000) {
+        async function retryOperation(operation, maxAttempts = 3, delay = 1000, timeout = 5000) {
             for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), timeout);
                 try {
                     return await operation();
                 } catch (error) {
                     if (attempt === maxAttempts) throw error;
                     console.warn(`Attempt ${attempt} failed: ${error.message}. Retrying...`);
                     await new Promise(resolve => setTimeout(resolve, delay));
+                } finally {
+                    clearTimeout(timeoutId);
                 }
             }
         }
+
+        let userActivityScore = 0;
+        document.addEventListener('mousemove', () => userActivityScore = Math.min(userActivityScore + 1, 100));
+        document.addEventListener('keypress', () => userActivityScore = Math.min(userActivityScore + 1, 100));
 
         document.querySelectorAll('.vote-form').forEach(form => {
             const confirmModal = document.getElementById('confirm-vote-modal');
@@ -487,7 +741,7 @@ try {
                 const electionId = form.getAttribute('data-election-id');
                 const positionId = form.getAttribute('data-position-id');
                 const candidateId = form.querySelector('input[name="candidate_id"]:checked')?.value;
-                const candidateName = form.querySelector('input[name="candidate_id"]:checked')?.closest('.candidate-card')?.querySelector('.candidate-info p:nth-child(2)').textContent.replace('Name: ', '');
+                const candidateName = form.querySelector('input[name="candidate_id"]:checked')?.closest('.candidate-card')?.querySelector('.candidate-details h5').textContent;
                 const positionName = form.querySelector('h4').textContent.replace('Position: ', '');
                 const csrfToken = form.querySelector('input[name="csrf_token"]').value;
 
@@ -495,7 +749,6 @@ try {
                     showError('Please select a candidate to vote for.');
                     return;
                 }
-
                 if (csrfToken !== '<?php echo $csrf_token; ?>') {
                     showError('Invalid CSRF token. Please try again.');
                     return;
@@ -523,20 +776,26 @@ try {
                         const ipAddress = '<?php echo $_SERVER['REMOTE_ADDR']; ?>';
                         const voterId = '<?php echo htmlspecialchars($user['fname'] . '/' . $user_id); ?>';
                         const geoLocation = <?php echo getGeoLocation($_SERVER['REMOTE_ADDR']); ?>;
+                        const ipHistory = '<?php echo getIpHistory($conn, $user_id); ?>';
+                        const votePattern = <?php echo getVotePattern($conn, $user_id); ?>;
                         const fraudData = {
                             time_diff: <?php echo time() - $_SESSION['last_activity']; ?>,
                             votes_per_user: <?php echo getUserVoteCount($conn, $user_id); ?>,
                             vpn_usage: <?php echo detectVPN(getGeoLocation($_SERVER['REMOTE_ADDR'])); ?>,
                             multiple_logins: <?php echo checkMultipleLogins($conn, $user_id); ?>,
                             session_duration: <?php echo time() - $_SESSION['start_time']; ?>,
-                            geo_location: geoLocation
+                            geo_location: geoLocation,
+                            device_fingerprint: navigator.userAgent,
+                            ip_history: JSON.parse(ipHistory),
+                            vote_pattern: votePattern,
+                            user_behavior: userActivityScore
                         };
 
                         const fraudResponse = await retryOperation(() => fetch('http://localhost:800/predict', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify(fraudData)
-                        }));
+                        }), 3, 1000, 5000);
                         const fraudResult = await fraudResponse.json();
 
                         if (fraudResult.error || !('fraud_label' in fraudResult) || !('fraud_probability' in fraudResult)) {
@@ -546,11 +805,14 @@ try {
                         const isFraudulent = fraudResult.fraud_label;
                         const confidence = fraudResult.fraud_probability;
                         let action = 'none';
-                        const details = JSON.stringify(fraudData);
+                        const details = {
+                            ...fraudData,
+                            api_response: fraudResult
+                        };
 
                         if (isFraudulent) {
                             const fraudCount = <?php echo getFraudHistory($conn, $user_id); ?>;
-                            action = (confidence > 0.9 && fraudCount >= 1) ? 'block_user' : 'logout';
+                            action = (confidence > (fraudCount > 0 ? 0.7 : 0.9)) ? 'block_user' : 'logout';
                             await fetch('log-fraud.php', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
@@ -561,7 +823,7 @@ try {
                                     election_id: electionId,
                                     is_fraudulent: isFraudulent,
                                     confidence: confidence,
-                                    details: details,
+                                    details: JSON.stringify(details),
                                     action: action
                                 })
                             });
@@ -590,7 +852,7 @@ try {
                                     election_id: electionId,
                                     is_fraudulent: isFraudulent,
                                     confidence: confidence,
-                                    details: details,
+                                    details: JSON.stringify(details),
                                     action: action
                                 })
                             });
