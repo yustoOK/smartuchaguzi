@@ -1,84 +1,97 @@
 <?php
+session_start();
 require_once '../tcpdf/tcpdf.php';
-include '../db.php';
+require_once '../config.php';
 
-$election_id = isset($_GET['election_id']) ? (int)$_GET['election_id'] : 0;
-
-if (!$election_id) {
-    die('Please select an election.');
+if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_token']) {
+    die('CSRF token validation failed');
 }
 
 try {
-    // Fetching election details
-    $stmt = $db->prepare("SELECT association, start_time, end_time FROM elections WHERE id = ?");
-    $stmt->bind_param('i', $election_id);
-    $stmt->execute();
-    $stmt->bind_result($association, $start_time, $end_time);
-    $stmt->fetch();
-    $election = [
-        'association' => $association,
-        'start_time' => $start_time,
-        'end_time' => $end_time
-    ];
-    $stmt->close();
+    $conn = new PDO("mysql:host=$host;dbname=$dbname", $username, $password);
+    $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
+    $election_id = isset($_POST['election_id']) ? (int)$_POST['election_id'] : 0;
+    if (!$election_id) {
+        die('Invalid election ID');
+    }
+
+    // Fetch election details
+    $stmt = $conn->prepare("SELECT association, start_time FROM elections WHERE id = ?");
+    $stmt->execute([$election_id]);
+    $election = $stmt->fetch(PDO::FETCH_ASSOC);
     if (!$election) {
-        die('Election not found.');
+        die('Election not found');
     }
 
-    // Fetching analytics
-    $analytics_response = file_get_contents("http://localhost/smartuchaguzi/api/vote-analytics.php?election_id=$election_id");
-    $analytics_data = json_decode($analytics_response, true);
-    if (isset($analytics_data['error'])) {
-        die($analytics_data['error']);
-    }
-    $positions = $analytics_data['positions'];
-    $total_votes = $analytics_data['totalVotes'];
+    // Fetch vote data (assuming blockchain data is mirrored in blockchainrecords)
+    $stmt = $conn->prepare("SELECT data FROM blockchainrecords WHERE election_id = ?");
+    $stmt->execute([$election_id]);
+    $votes = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // Initializing TCPDF 
+    $positionsMap = [];
+    foreach ($votes as $vote) {
+        $data = json_decode($vote['data'], true);
+        $positionId = $data['position_id'];
+        $candidateId = $data['candidate_id'];
+        $candidateName = $data['candidateName'];
+        $positionName = $data['positionName'];
+
+        if (!isset($positionsMap[$positionId])) {
+            $positionsMap[$positionId] = [
+                'name' => $positionName,
+                'candidates' => []
+            ];
+        }
+        if (!isset($positionsMap[$positionId]['candidates'][$candidateId])) {
+            $positionsMap[$positionId]['candidates'][$candidateId] = [
+                'name' => $candidateName,
+                'votes' => 0
+            ];
+        }
+        $positionsMap[$positionId]['candidates'][$candidateId]['votes']++;
+    }
+
+    // Create PDF
     $pdf = new TCPDF();
     $pdf->SetCreator(PDF_CREATOR);
     $pdf->SetAuthor('SmartUchaguzi');
     $pdf->SetTitle('Election Analytics Report');
-    $pdf->SetSubject('Election Results');
-    $pdf->SetKeywords('Election, Analytics, Votes');
+    $pdf->SetSubject('Vote Analytics');
+    $pdf->SetMargins(15, 15, 15);
     $pdf->AddPage();
+    $pdf->SetFont('helvetica', 'B', 16);
+    $pdf->Cell(0, 10, 'Election Analytics Report', 0, 1, 'C');
     $pdf->SetFont('helvetica', '', 12);
-
-    // Header
-    $pdf->SetFillColor(244, 162, 97);
-    $pdf->Cell(0, 10, 'Election Analytics Report', 0, 1, 'C', 1);
-    $pdf->Ln(5);
-    $pdf->Cell(0, 8, "Election: {$election['association']}", 0, 1);
-    $pdf->Cell(0, 8, "Period: {$election['start_time']} to {$election['end_time']}", 0, 1);
-    $pdf->Cell(0, 8, "Total Votes: $total_votes", 0, 1);
+    $pdf->Cell(0, 10, "Election: {$election['association']} - {$election['start_time']}", 0, 1, 'C');
     $pdf->Ln(10);
 
-    // Analytics
-    foreach ($positions as $position) {
-        $pdf->SetFillColor(42, 157, 143);
-        $pdf->Cell(0, 8, $position['name'], 0, 1, 'L', 1);
-        $pdf->Cell(0, 8, "Total Votes: {$position['totalVotes']}", 0, 1);
-        $pdf->Cell(0, 8, "Winner: " . ($position['winner'] ?: 'None'), 0, 1);
+    foreach ($positionsMap as $positionId => $pos) {
+        $pdf->SetFont('helvetica', 'B', 14);
+        $pdf->Cell(0, 10, $pos['name'], 0, 1);
+        $pdf->SetFont('helvetica', '', 12);
+
+        $totalVotes = array_sum(array_column($pos['candidates'], 'votes'));
+        $winner = array_reduce($pos['candidates'], fn($a, $b) => $a['votes'] > $b['votes'] ? $a : $b, ['votes' => 0, 'name' => 'None']);
+
+        $pdf->Cell(0, 10, "Total Votes: $totalVotes", 0, 1);
+        $pdf->Cell(0, 10, "Winner: {$winner['name']} ({$winner['votes']} votes)", 0, 1);
         $pdf->Ln(5);
 
-        $pdf->Cell(80, 8, 'Candidate', 1, 0, 'C');
-        $pdf->Cell(40, 8, 'Votes', 1, 0, 'C');
-        $pdf->Cell(40, 8, 'Percentage', 1, 1, 'C');
+        $pdf->SetFont('helvetica', 'B', 12);
+        $pdf->Cell(100, 10, 'Candidate', 1, 0, 'C');
+        $pdf->Cell(80, 10, 'Votes', 1, 1, 'C');
+        $pdf->SetFont('helvetica', '', 12);
 
-        foreach ($position['candidates'] as $candidate) {
-            $percentage = $position['totalVotes'] ? ($candidate['votes'] / $position['totalVotes'] * 100) : 0;
-            $pdf->Cell(80, 8, $candidate['name'], 1);
-            $pdf->Cell(40, 8, $candidate['votes'], 1, 0, 'C');
-            $pdf->Cell(40, 8, number_format($percentage, 2) . '%', 1, 1, 'C');
+        foreach ($pos['candidates'] as $candidate) {
+            $pdf->Cell(100, 10, $candidate['name'], 1, 0);
+            $pdf->Cell(80, 10, $candidate['votes'], 1, 1, 'C');
         }
         $pdf->Ln(10);
     }
 
-    // Output PDF
-    $pdf->Output("election_report_{$election_id}.pdf", 'D');
+    $pdf->Output('Election_Analytics_Report.pdf', 'D');
 } catch (Exception $e) {
-    error_log("Report generation failed: " . $e->getMessage());
-    die('Failed to generate report.');
+    die('Error generating report: ' . $e->getMessage());
 }
 ?>

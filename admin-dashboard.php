@@ -42,7 +42,7 @@ if (!isset($_SESSION['user_agent'])) {
     exit;
 }
 
-$inactivity_timeout = 30 * 60; // 30 minutes
+$inactivity_timeout = 12 * 60 * 60; 
 $max_session_duration = 12 * 60 * 60; // 12 hours
 $warning_time = 60;
 
@@ -96,7 +96,7 @@ $college_name = '';
 if ($user['college_id']) {
     try {
         $stmt = $pdo->prepare("SELECT name FROM colleges WHERE college_id = ?");
-        $stmt->execute([$user['college_id']]);
+        $stmt->execute($user['college_id']);
         $college_name = $stmt->fetchColumn() ?: 'Unknown';
     } catch (PDOException $e) {
         error_log("College query failed: " . $e->getMessage());
@@ -121,7 +121,7 @@ try {
 }
 
 try {
-    $stmt = $pdo->prepare("SELECT COUNT(*) FROM votes");
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM blockchainrecords");
     $stmt->execute();
     $total_votes = $stmt->fetchColumn();
 } catch (PDOException $e) {
@@ -150,7 +150,6 @@ try {
 
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -159,22 +158,10 @@ try {
     <title>Admin | SmartUchaguzi</title>
     <link rel="icon" href="./Uploads/Vote.jpeg" type="image/x-icon">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.ethers.io/lib/ethers-5.7.2.umd.min.js"></script>
     <style>
-        :root {
-            --primary-color: #2a9d8f;
-            --secondary-color: #207b6e;
-            --accent-color: #d00000;
-            --text-color: #1a3c34;
-            --bg-color: rgba(255, 255, 255, 0.95);
-            --dark-bg-color: rgba(26, 60, 52, 0.8);
-            --dark-text-color: #2d3748;
-            --sidebar-width: 260px;
-            --glass-bg: rgba(255, 255, 255, 0.95);
-            --glass-border: rgba(255, 255, 255, 0.3);
-        }
-
         * {
             margin: 0;
             padding: 0;
@@ -183,227 +170,181 @@ try {
         }
 
         body {
-            background: linear-gradient(135deg, rgba(26, 60, 52, 0.8), rgba(34, 78, 68, 0.8));
+            background: linear-gradient(rgba(26, 60, 52, 0.7), rgba(26, 60, 52, 0.7)), url('images/cive.jpeg');
             background-size: cover;
-            background-attachment: fixed;
-            color: var(--text-color);
+            color: #2d3748;
             min-height: 100vh;
-            transition: background-color 0.3s, color 0.3s;
-        }
-
-        body.dark-mode {
-            background: linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.95));
-            color: var(--dark-text-color);
-        }
-
-        body.dark-mode .dash-content,
-        body.dark-mode .overview .card,
-        body.dark-mode .management-section,
-        body.dark-mode .upcoming-section,
-        body.dark-mode .user-section,
-        body.dark-mode .analytics-section,
-        body.dark-mode .audit-section,
-        body.dark-mode .fraud-section,
-        body.dark-mode .sidebar {
-            background: var(--dark-bg-color);
-            color: var(--dark-text-color);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        body.dark-mode .upcoming-table td,
-        body.dark-mode .audit-table td,
-        body.dark-mode .fraud-table td {
-            background: #334155;
-            color: var(--dark-text-color);
         }
 
         .header {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            background: rgba(26, 60, 52, 0.9);
-            backdrop-filter: blur(12px);
-            padding: 1rem 2rem;
+            background: #1a3c34;
+            color: #e6e6e6;
+            padding: 15px 30px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            position: fixed;
+            width: 100%;
+            top: 0;
             z-index: 1000;
         }
 
-        .header .logo {
+        .logo {
             display: flex;
             align-items: center;
-            gap: 1rem;
         }
 
-        .header .logo img {
-            width: 2.5rem;
-            height: 2.5rem;
+        .logo img {
+            width: 40px;
+            height: 40px;
             border-radius: 50%;
-            border: 2px solid var(--accent-color);
-            transition: transform 0.3s ease;
+            margin-right: 10px;
         }
 
-        .header .logo img:hover {
-            transform: rotate(360deg);
+        .logo h1 {
+            font-size: 24px;
+            font-weight: 600;
         }
 
-        .header .logo h1 {
-            font-size: 1.6rem;
-            font-weight: 700;
-            color: #fff;
-            background: linear-gradient(to right, var(--primary-color), var(--secondary-color));
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
-        }
-
-        .header .menu-toggle {
+        .menu-toggle {
             display: none;
             font-size: 1.5rem;
-            color: #fff;
+            color: #e6e6e6;
             cursor: pointer;
+        }
+
+        .nav a {
+            color: #e6e6e6;
+            text-decoration: none;
+            margin: 0 15px;
+            font-size: 16px;
             transition: color 0.3s ease;
         }
 
-        .header .menu-toggle:hover {
-            color: var(--accent-color);
+        .nav a:hover {
+            color: #f4a261;
         }
 
-        .header .user {
+        .user {
             display: flex;
             align-items: center;
-            gap: 1rem;
         }
 
-        .header .user span {
-            font-size: 1rem;
-            color: #fff;
-            font-weight: 500;
-        }
-
-        .header .user img {
-            width: 2.2rem;
-            height: 2.2rem;
+        .user img {
+            width: 40px;
+            height: 40px;
             border-radius: 50%;
-            border: 2px solid var(--secondary-color);
-            transition: transform 0.3s ease;
-        }
-
-        .header .user img:hover {
-            transform: scale(1.1);
-        }
-
-        .header .user a,
-        .header .user button {
-            background: var(--primary-color);
-            color: #fff;
-            padding: 0.5rem 1rem;
-            border-radius: 8px;
-            text-decoration: none;
-            border: none;
+            margin-right: 10px;
             cursor: pointer;
-            font-weight: 500;
-            transition: background 0.3s ease, transform 0.2s ease;
         }
 
-        .header .user a:hover,
-        .header .user button:hover {
-            background: var(--secondary-color);
-            transform: translateY(-2px);
+        .user a {
+            color: #e6e6e6;
+            text-decoration: none;
+            font-size: 16px;
+        }
+
+        .dropdown {
+            display: none;
+            position: absolute;
+            top: 60px;
+            right: 20px;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .dropdown a,
+        .dropdown span {
+            display: block;
+            padding: 10px 20px;
+            color: #2d3748;
+            text-decoration: none;
+            font-size: 16px;
+        }
+
+        .dropdown a:hover {
+            background: #f4a261;
+            color: #fff;
+        }
+
+        .logout-link {
+            display: none;
+            color: #e6e6e6;
+            text-decoration: none;
+            font-size: 16px;
         }
 
         .sidebar {
             position: fixed;
             top: 0;
             left: 0;
-            width: var(--sidebar-width);
+            width: 260px;
             height: 100%;
-            background: linear-gradient(180deg, rgba(26, 60, 52, 0.95), rgba(34, 78, 68, 0.95));
-            padding-top: 5rem;
+            background: #1a3c34;
+            padding-top: 80px;
             overflow-y: auto;
             transition: transform 0.3s ease;
             z-index: 900;
-            box-shadow: 2px 0 15px rgba(0, 0, 0, 0.2);
         }
 
         .sidebar .nav {
             display: flex;
             flex-direction: column;
-            gap: 0.5rem;
             padding: 1rem;
         }
 
         .sidebar .nav a {
-            color: #e0e7ea;
+            color: #e6e6e6;
             text-decoration: none;
             font-size: 1rem;
-            font-weight: 500;
             padding: 0.75rem 1.5rem;
             border-radius: 8px;
             display: flex;
             align-items: center;
             gap: 0.5rem;
-            transition: all 0.3s ease;
+            margin: 0;
         }
 
-        .sidebar .nav a i {
-            font-size: 1.2rem;
+        .sidebar .nav a.active {
+            background: #f4a261;
+            color: #fff;
         }
 
         .sidebar .nav a:hover {
             background: rgba(255, 255, 255, 0.1);
-            color: var(--primary-color);
-            transform: translateX(5px);
-        }
-
-        .sidebar .nav a.active {
-            background: var(--primary-color);
-            color: #fff;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
         }
 
         .main-content {
-            margin-left: var(--sidebar-width);
-            padding: 5rem 1rem 2rem;
+            margin-left: 260px;
+            padding: 80px 1rem 2rem;
             min-height: 100vh;
-            transition: margin-left 0.3s ease;
         }
 
         .dash-content {
-            max-width: 80rem;
-            width: 95%;
-            background: var(--bg-color);
-            padding: 2rem;
-            border-radius: 15px;
-            box-shadow: 0 6px 25px rgba(0, 0, 0, 0.15);
+            background: rgba(255, 255, 255, 0.95);
+            padding: 30px;
+            border-radius: 12px;
+            width: 100%;
+            max-width: 1200px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
             margin: 0 auto;
-            transition: transform 0.3s ease;
-        }
-
-        .dash-content:hover {
-            transform: translateY(-5px);
         }
 
         .dash-content h2 {
-            font-size: 2rem;
-            font-weight: 600;
-            color: var(--text-color);
-            margin-bottom: 1.5rem;
+            font-size: 28px;
+            color: #1a3c34;
+            margin-bottom: 20px;
             text-align: center;
-            background: linear-gradient(to right, var(--primary-color), var(--secondary-color));
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
         }
 
-        body.dark-mode .dash-content h2 {
-            background: linear-gradient(to right, #2a9d8f, #207b6e);
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
+        h3 {
+            font-size: 22px;
+            color: #2d3748;
+            margin-bottom: 15px;
+            text-align: center;
         }
 
         .content-section {
@@ -417,176 +358,68 @@ try {
         .overview {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
-            gap: 1rem;
-            margin-bottom: 2rem;
+            gap: 20px;
+            margin-bottom: 30px;
         }
 
         .overview .card {
-            background: var(--bg-color);
-            padding: 1.5rem;
-            border-radius: 12px;
+            background: #fff;
+            padding: 20px;
+            border-radius: 10px;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
             text-align: center;
-            transition: all 0.3s ease;
-            border: 1px solid #e0e7ea;
+            transition: transform 0.3s ease;
         }
 
         .overview .card:hover {
             transform: translateY(-5px);
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
         }
 
         .overview .card i {
-            font-size: 2.2rem;
-            color: var(--primary-color);
-            margin-bottom: 0.75rem;
-            transition: color 0.3s ease;
-        }
-
-        .overview .card:hover i {
-            color: var(--secondary-color);
+            font-size: 2rem;
+            color: #f4a261;
+            margin-bottom: 10px;
         }
 
         .overview .card .text {
             font-size: 1rem;
             color: #2d3748;
-            font-weight: 500;
         }
 
         .overview .card .number {
-            font-size: 1.6rem;
-            font-weight: 700;
-            color: var(--text-color);
-            margin-top: 0.5rem;
-        }
-
-        h3 {
             font-size: 1.5rem;
             font-weight: 600;
-            color: var(--text-color);
-            margin-bottom: 1rem;
-            text-align: center;
-            background: linear-gradient(to right, var(--primary-color), var(--secondary-color));
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
-        }
-
-        body.dark-mode h3 {
-            background: linear-gradient(to right, #2a9d8f, #207b6e);
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
-        }
-
-        .management-section,
-        .upcoming-section,
-        .user-section,
-        .analytics-section,
-        .audit-section,
-        .fraud-section {
-            background: var(--bg-color);
-            padding: 1.5rem;
-            border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-            transition: all 0.3s ease;
+            color: #1a3c34;
+            margin-top: 5px;
         }
 
         .action-buttons {
             display: flex;
             justify-content: center;
-            gap: 1rem;
+            gap: 15px;
             flex-wrap: wrap;
         }
 
         .action-buttons button {
-            background: var(--primary-color);
+            background: #f4a261;
             color: #fff;
             border: none;
-            padding: 0.75rem 1.5rem;
+            padding: 12px 24px;
             border-radius: 6px;
-            font-size: 1rem;
-            font-weight: 500;
             cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-        .action-buttons button:hover {
-            background: var(--secondary-color);
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        }
-
-        .upcoming-table,
-        .audit-table,
-        .fraud-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 1rem;
-        }
-
-        .upcoming-table th,
-        .upcoming-table td,
-        .audit-table th,
-        .audit-table td,
-        .fraud-table th,
-        .fraud-table td {
-            padding: 0.75rem 1rem;
-            text-align: left;
-            border-bottom: 1px solid #e0e7ea;
-        }
-
-        .upcoming-table th,
-        .audit-table th,
-        .fraud-table th {
-            background: var(--primary-color);
-            color: #fff;
-            font-weight: 600;
-        }
-
-        .upcoming-table th:first-child,
-        .audit-table th:first-child,
-        .fraud-table th:first-child {
-            border-top-left-radius: 8px;
-        }
-
-        .upcoming-table th:last-child,
-        .audit-table th:last-child,
-        .fraud-table th:last-child {
-            border-top-right-radius: 8px;
-        }
-
-        .upcoming-table td,
-        .audit-table td,
-        .fraud-table td {
-            color: #2d3748;
-            font-size: 0.9rem;
-            background: var(--bg-color);
+            font-size: 16px;
             transition: background 0.3s ease;
         }
 
-        .upcoming-table tr:hover td,
-        .audit-table tr:hover td,
-        .fraud-table tr:hover td {
-            background: rgba(42, 157, 143, 0.1);
-        }
-
-        .upcoming-table td a {
-            color: var(--primary-color);
-            text-decoration: none;
-            font-weight: 500;
-            transition: color 0.3s ease;
-        }
-
-        .upcoming-table td a:hover {
-            color: var(--secondary-color);
+        .action-buttons button:hover {
+            background: #e76f51;
         }
 
         .analytics-filter {
             display: flex;
             align-items: center;
-            gap: 1rem;
-            margin-bottom: 1rem;
+            gap: 15px;
+            margin-bottom: 20px;
             justify-content: center;
             flex-wrap: wrap;
         }
@@ -594,111 +427,121 @@ try {
         .analytics-filter label {
             font-size: 1rem;
             color: #2d3748;
-            font-weight: 500;
         }
 
         .analytics-filter select {
-            padding: 0.5rem 1rem;
-            border-radius: 8px;
-            border: 1px solid #e0e7ea;
-            background: var(--bg-color);
-            color: var(--text-color);
+            padding: 8px 16px;
+            border-radius: 6px;
+            border: 1px solid #ccc;
             font-size: 1rem;
-            max-width: 18rem;
-            transition: border-color 0.3s ease;
-        }
-
-        .analytics-filter select:focus {
-            outline: none;
-            border-color: var(--primary-color);
         }
 
         .analytics-filter button {
-            background: var(--primary-color);
-            border: none;
+            background: #f4a261;
             color: #fff;
-            padding: 0.5rem 1rem;
-            border-radius: 8px;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
             font-size: 1rem;
-            font-weight: 500;
             cursor: pointer;
-            transition: all 0.3s ease;
         }
 
         .analytics-filter button:hover {
-            background: var(--secondary-color);
-            transform: translateY(-2px);
+            background: #e76f51;
         }
 
         .analytics-filter button:disabled {
-            background: #d1d5db;
+            background: #cccccc;
             cursor: not-allowed;
         }
 
-        .analytics-filter button:disabled:hover {
-            transform: none;
-        }
-
         .vote-analytics {
-            margin-top: 1rem;
+            margin-top: 20px;
         }
 
         .vote-analytics h4 {
-            font-size: 1.25rem;
-            font-weight: 600;
-            color: var(--text-color);
-            margin-bottom: 1rem;
-            text-align: center;
-            background: linear-gradient(to right, var(--primary-color), var(--secondary-color));
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
-        }
-
-        .vote-analytics h5 {
-            font-size: 1rem;
-            color: var(--text-color);
-            margin: 1rem 0 0.5rem;
+            font-size: 18px;
+            color: #2d3748;
+            margin-bottom: 15px;
             text-align: center;
         }
 
         .vote-analytics p {
-            font-size: 0.9rem;
+            font-size: 14px;
             color: #2d3748;
             text-align: center;
-            margin-bottom: 0.5rem;
         }
 
         .vote-analytics canvas {
             max-width: 100%;
-            margin: 1rem auto;
-            background: var(--bg-color);
-            padding: 1rem;
-            border-radius: 12px;
+            margin: 20px auto;
+            background: #fff;
+            padding: 15px;
+            border-radius: 10px;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
         }
 
         .error {
-            color: var(--accent-color);
+            color: #e76f51;
             text-align: center;
-            margin-bottom: 1rem;
-            font-size: 0.9rem;
+            margin-bottom: 15px;
+            font-size: 14px;
         }
 
-        footer {
-            background: rgba(26, 60, 52, 0.9);
-            color: #e0e7ea;
-            padding: 1rem;
-            text-align: center;
-            margin-top: 2rem;
-            position: fixed;
-            bottom: 0;
+        .blockchain-table,
+        .audit-table,
+        .fraud-table {
             width: 100%;
-            backdrop-filter: blur(12px);
+            border-collapse: collapse;
+            margin-top: 20px;
         }
 
-        footer p {
-            font-size: 0.9rem;
+        .blockchain-table th,
+        .blockchain-table td,
+        .audit-table th,
+        .audit-table td,
+        .fraud-table th,
+        .fraud-table td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #e0e7ea;
+        }
+
+        .blockchain-table th,
+        .audit-table th,
+        .fraud-table th {
+            background: #f4a261;
+            color: #fff;
+            font-weight: 600;
+        }
+
+        .blockchain-table td,
+        .audit-table td,
+        .fraud-table td {
+            color: #2d3748;
+            font-size: 14px;
+            background: #fff;
+        }
+
+        .blockchain-table tr:hover td,
+        .audit-table tr:hover td,
+        .fraud-table tr:hover td {
+            background: rgba(244, 162, 97, 0.1);
+        }
+
+        .blockchain-table td a,
+        .fraud-table td button {
+            color: #f4a261;
+            text-decoration: none;
+            font-weight: 500;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .blockchain-table td a:hover,
+        .fraud-table td button:hover {
+            color: #e76f51;
         }
 
         .modal {
@@ -708,110 +551,108 @@ try {
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.6);
+            background: rgba(0, 0, 0, 0.5);
             z-index: 2000;
             justify-content: center;
             align-items: center;
         }
 
         .modal-content {
-            background: var(--glass-bg);
-            padding: 1.5rem;
-            border-radius: 12px;
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
             text-align: center;
-            max-width: 25rem;
+            max-width: 400px;
             width: 90%;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
         }
 
         .modal-content p {
-            font-size: 1rem;
-            color: var(--text-color);
-            margin-bottom: 1rem;
+            font-size: 16px;
+            color: #2d3748;
+            margin-bottom: 20px;
         }
 
         .modal-content button {
-            background: var(--primary-color);
+            background: #f4a261;
             color: #fff;
             border: none;
-            padding: 0.5rem 1rem;
-            border-radius: 8px;
+            padding: 10px 20px;
+            border-radius: 6px;
             cursor: pointer;
-            font-weight: 500;
-            transition: all 0.3s ease;
+            font-size: 16px;
+            margin: 0 10px;
         }
 
         .modal-content button:hover {
-            background: var(--secondary-color);
-            transform: translateY(-2px);
+            background: #e76f51;
+        }
+
+        footer {
+            background: #1a3c34;
+            color: #e6e6e6;
+            padding: 15px;
+            text-align: center;
+            position: fixed;
+            bottom: 0;
+            width: 100%;
         }
 
         @media (max-width: 1024px) {
             .main-content {
                 margin-left: 0;
             }
-
             .sidebar {
                 transform: translateX(-100%);
             }
-
             .sidebar.active {
                 transform: translateX(0);
             }
-
-            .header .menu-toggle {
+            .menu-toggle {
                 display: block;
-            }
-
-            .dash-content {
-                width: 98%;
-                padding: 1.5rem;
-            }
-
-            .overview {
-                grid-template-columns: repeat(2, 1fr);
             }
         }
 
         @media (max-width: 768px) {
             .header {
-                padding: 1rem;
+                flex-direction: column;
+                padding: 10px 20px;
             }
-
-            .header .logo h1 {
-                font-size: 1.3rem;
+            .logo h1 {
+                font-size: 20px;
             }
-
-            .dash-content {
-                padding: 1rem;
+            .nav {
+                margin: 10px 0;
+                text-align: center;
             }
-
-            .dash-content h2 {
-                font-size: 1.5rem;
+            .nav a {
+                margin: 0 10px;
+                font-size: 14px;
             }
-
-            h3 {
-                font-size: 1.25rem;
+            .user img {
+                display: none;
             }
-
-            .overview .card {
-                padding: 1rem;
+            .dropdown {
+                display: block;
+                position: static;
+                box-shadow: none;
+                background: none;
+                text-align: center;
             }
-
-            .upcoming-table th,
-            .upcoming-table td,
-            .audit-table th,
-            .audit-table td,
-            .fraud-table th,
-            .fraud-table td {
-                padding: 0.5rem;
-                font-size: 0.8rem;
+            .dropdown a,
+            .dropdown span {
+                color: #e6e6e6;
+                padding: 5px 10px;
             }
-
-            .analytics-filter select,
-            .analytics-filter button {
-                font-size: 0.9rem;
-                padding: 0.5rem;
+            .dropdown a:hover {
+                background: none;
+                color: #f4a261;
+            }
+            .logout-link {
+                display: block;
+                margin-top: 10px;
+            }
+            .overview {
+                grid-template-columns: repeat(2, 1fr);
             }
         }
 
@@ -819,15 +660,13 @@ try {
             .overview {
                 grid-template-columns: 1fr;
             }
-
             .action-buttons button {
-                padding: 0.5rem 1rem;
-                font-size: 0.9rem;
+                padding: 10px 20px;
+                font-size: 14px;
             }
         }
     </style>
 </head>
-
 <body>
     <header class="header">
         <div class="logo">
@@ -835,30 +674,38 @@ try {
             <img src="./Uploads/Vote.jpeg" alt="SmartUchaguzi Logo">
             <h1>SmartUchaguzi</h1>
         </div>
+        <div class="nav">
+            <a href="#">Overview</a>
+            <a href="manage-elections.php">Manage Elections</a>
+        </div>
         <div class="user">
             <span><?php echo $admin_name . ($college_name ? ' (' . $college_name . ')' : ''); ?></span>
             <img src="images/default.png" alt="Profile" onerror="this.src='images/general.png';">
-            <button id="dark-mode-toggle"><i class="fas fa-moon"></i></button>
-            <a href="logout.php">Logout</a>
+            <div class="dropdown" id="user-dropdown">
+                <span><?php echo htmlspecialchars($admin_name); ?></span>
+                <a href="profile.php">My Profile</a>
+                <a href="logout.php">Logout</a>
+            </div>
+            <a href="logout.php" class="logout-link">Logout</a>
         </div>
     </header>
 
     <aside class="sidebar">
         <div class="nav">
-            <a href="#" data-section="overview" class="active"><i class="fas fa-home"></i> Overview</a>
-            <a href="#" data-section="management"><i class="fas fa-cog"></i> Election Management</a>
-            <a href="#" data-section="upcoming"><i class="fas fa-calendar-alt"></i> Upcoming Elections</a>
-            <a href="#" data-section="users"><i class="fas fa-users"></i> User Management</a>
-            <a href="#" data-section="analytics"><i class="fas fa-chart-bar"></i> Votes Analytics</a>
-            <a href="#" data-section="audit"><i class="fas fa-file-alt"></i> Audit Logs</a>
-            <a href="#" data-section="fraud"><i class="fas fa-exclamation-triangle"></i> Fraud Incidents</a>
+            <a href="#" class="active"><i class="fas fa-home"></i> Overview</a>
+            <a href="admin-operations/manage-elections.php"><i class="fas fa-cog"></i> Election Management</a>
+            <a href="admin-operations/blockchain-verification.php"><i class="fas fa-chain"></i> Blockchain Verification</a>
+            <a href="admin-operations/user-management.php"><i class="fas fa-users"></i> User Management</a>
+            <a href="admin-operations/votes-analytics.php"><i class="fas fa-chart-bar"></i> Votes Analytics</a>
+            <a href="admin-operations/fraud-incidents.php"><i class="fas fa-exclamation-triangle"></i> Fraud Incidents</a>
+            <a href="admin-operations/security-settings.php"><i class="fas fa-shield-alt"></i> Security Settings</a>
+            <a href="admin-operations/audit-logs.php"><i class="fas fa-file-alt"></i> Audit Logs</a>
         </div>
     </aside>
 
     <main class="main-content">
         <section class="dashboard">
             <div class="dash-content">
-
                 <div class="content-section active" id="overview">
                     <div class="overview">
                         <div class="card">
@@ -883,200 +730,6 @@ try {
                         </div>
                     </div>
                 </div>
-
-                <div class="content-section" id="management">
-                    <h3>Election Management</h3>
-                    <div class="management-section">
-                        <div class="action-buttons">
-                            <button onclick="window.location.href='admin-operations/add-election.php'">Add Election</button>
-                            <button onclick="window.location.href='admin-operations/edit-election.php'">Edit Election</button>
-                            <button onclick="window.location.href='admin-operations/manage-candidates.php'">Manage Candidates</button>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="content-section" id="upcoming">
-                    <h3>Upcoming Elections</h3>
-                    <div class="upcoming-section">
-                        <table class="upcoming-table">
-                            <thead>
-                                <tr>
-                                    <th>Association</th>
-                                    <th>College</th>
-                                    <th>Start Time</th>
-                                    <th>End Time</th>
-                                    <th>Action</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php
-                                try {
-                                    $stmt = $pdo->prepare("SELECT e.id, e.association, e.start_time, e.end_time, c.name AS college_name 
-                                                           FROM elections e 
-                                                           LEFT JOIN colleges c ON e.college_id = c.college_id 
-                                                           WHERE e.start_time > NOW() 
-                                                           ORDER BY e.start_time");
-                                    $stmt->execute();
-                                    $elections = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                                    if ($elections) {
-                                        foreach ($elections as $election) {
-                                            echo "<tr>";
-                                            echo "<td>" . htmlspecialchars($election['association']) . "</td>";
-                                            echo "<td>" . ($election['college_name'] ? htmlspecialchars($election['college_name']) : 'University-Wide') . "</td>";
-                                            echo "<td>" . htmlspecialchars($election['start_time']) . "</td>";
-                                            echo "<td>" . htmlspecialchars($election['end_time']) . "</td>";
-                                            echo "<td><a href='admin-operations/edit-election.php?id={$election['id']}'>Edit</a></td>";
-                                            echo "</tr>";
-                                        }
-                                    } else {
-                                        echo "<tr><td colspan='5'>No upcoming elections.</td></tr>";
-                                    }
-                                } catch (PDOException $e) {
-                                    error_log("Upcoming elections query error: " . $e->getMessage());
-                                    echo "<tr><td colspan='5'>Error loading upcoming elections. Please try again later.</td></tr>";
-                                }
-                                ?>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <div class="content-section" id="users">
-                    <h3>User Management</h3>
-                    <div class="user-section">
-                        <div class="action-buttons">
-                            <button onclick="window.location.href='admin-operations/add-user.php'">Add User</button>
-                            <button onclick="window.location.href='admin-operations/edit-user.php'">Edit User</button>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="content-section" id="analytics">
-                    <h3>Election Analytics</h3>
-                    <div class="analytics-section">
-                        <div class="analytics-filter">
-                            <label for="election-select">Select Election:</label>
-                            <select id="election-select">
-                                <option value="">All Elections</option>
-                                <?php
-                                try {
-                                    $stmt = $pdo->prepare("SELECT id, CONCAT(association, ' - ', start_time) AS name FROM elections ORDER BY start_time DESC");
-                                    $stmt->execute();
-                                    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-                                        echo "<option value='{$row['id']}'>" . htmlspecialchars($row['name']) . "</option>";
-                                    }
-                                } catch (PDOException $e) {
-                                    error_log("Election select query error: " . $e->getMessage());
-                                    echo "<option value=''>Error loading elections</option>";
-                                }
-                                ?>
-                            </select>
-                            <form method="POST" action="api/generate-report.php">
-                                <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
-                                <input type="hidden" name="election_id" id="report-election-id">
-                                <button type="submit" id="download-report" disabled>Download Report</button>
-                            </form>
-                        </div>
-                        <div id="vote-analytics" class="vote-analytics">
-                            <p>Select an election to view analytics.</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="content-section" id="audit">
-                    <h3>Audit Logs</h3>
-                    <div class="audit-section">
-                        <div class="action-buttons">
-                            <button onclick="exportAuditLogs()">Export Audit Logs</button>
-                        </div>
-                        <table class="audit-table">
-                            <thead>
-                                <tr>
-                                    <th>Timestamp</th>
-                                    <th>User</th>
-                                    <th>Action</th>
-                                    <th>Details</th>
-                                    <th>IP Address</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php
-                                try {
-                                    $stmt = $pdo->prepare("SELECT a.timestamp, a.action, a.details, a.ip_address, u.fname, u.mname, u.lname 
-                                                           FROM auditlogs a 
-                                                           JOIN users u ON a.user_id = u.user_id 
-                                                           ORDER BY a.timestamp DESC LIMIT 50");
-                                    $stmt->execute();
-                                    $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                                    if ($logs) {
-                                        foreach ($logs as $log) {
-                                            $full_name = $log['fname'] . ' ' . ($log['mname'] ? $log['mname'] . ' ' : '') . $log['lname'];
-                                            echo "<tr>";
-                                            echo "<td>" . htmlspecialchars($log['timestamp']) . "</td>";
-                                            echo "<td>" . htmlspecialchars($full_name) . "</td>";
-                                            echo "<td>" . htmlspecialchars($log['action']) . "</td>";
-                                            echo "<td>" . htmlspecialchars($log['details'] ?? 'N/A') . "</td>";
-                                            echo "<td>" . htmlspecialchars($log['ip_address']) . "</td>";
-                                            echo "</tr>";
-                                        }
-                                    } else {
-                                        echo "<tr><td colspan='5'>No audit logs available.</td></tr>";
-                                    }
-                                } catch (PDOException $e) {
-                                    error_log("Audit logs query error: " . $e->getMessage());
-                                    echo "<tr><td colspan='5'>Error loading audit logs. Please try again later.</td></tr>";
-                                }
-                                ?>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <div class="content-section" id="fraud">
-                    <h3>Fraud Incidents</h3>
-                    <div class="fraud-section">
-                        <table class="fraud-table">
-                            <thead>
-                                <tr>
-                                    <th>Timestamp</th>
-                                    <th>User</th>
-                                    <th>Details</th>
-                                    <th>IP Address</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php
-                                try {
-                                    $stmt = $pdo->prepare("SELECT f.timestamp, f.details, f.ip_address, u.fname, u.mname, u.lname 
-                                                           FROM frauddetectionlogs f 
-                                                           LEFT JOIN users u ON f.user_id = u.user_id 
-                                                           WHERE f.is_fraudulent = 1 
-                                                           ORDER BY f.timestamp DESC LIMIT 50");
-                                    $stmt->execute();
-                                    $fraud_logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                                    if ($fraud_logs) {
-                                        foreach ($fraud_logs as $log) {
-                                            $full_name = $log['fname'] ? ($log['fname'] . ' ' . ($log['mname'] ? $log['mname'] . ' ' : '') . $log['lname']) : 'Unknown';
-                                            echo "<tr>";
-                                            echo "<td>" . htmlspecialchars($log['timestamp']) . "</td>";
-                                            echo "<td>" . htmlspecialchars($full_name) . "</td>";
-                                            echo "<td>" . htmlspecialchars($log['details'] ?? 'N/A') . "</td>";
-                                            echo "<td>" . htmlspecialchars($log['ip_address'] ?? 'N/A') . "</td>";
-                                            echo "</tr>";
-                                        }
-                                    } else {
-                                        echo "<tr><td colspan='4'>No fraud incidents detected.</td></tr>";
-                                    }
-                                } catch (PDOException $e) {
-                                    error_log("Fraud logs query error: " . $e->getMessage());
-                                    echo "<tr><td colspan='4'>Error loading fraud incidents...</td></tr>";
-                                }
-                                ?>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
             </div>
         </section>
 
@@ -1093,170 +746,32 @@ try {
     </div>
 
     <script>
+        const provider = new ethers.providers.JsonRpcProvider('https://eth-sepolia.g.alchemy.com/v2/<?php echo $alchemy_api_key; ?>');
+        const contractAddress = '0x7f37Ea78D22DA910e66F8FdC1640B75dc88fa44F';
+        const contractABI = <?php echo json_encode([ /* Same ABI as in process-vote.php, omitted for brevity */ ]); ?>;
+        const contract = new ethers.Contract(contractAddress, contractABI, provider);
+
         document.addEventListener('DOMContentLoaded', () => {
-            const navLinks = document.querySelectorAll('.nav a[data-section]');
-            const sections = document.querySelectorAll('.content-section');
-            const electionSelect = document.getElementById('election-select');
-            const voteAnalytics = document.getElementById('vote-analytics');
-            const downloadButton = document.getElementById('download-report');
-            const reportElectionId = document.getElementById('report-election-id');
-            const darkModeToggle = document.getElementById('dark-mode-toggle');
             const menuToggle = document.querySelector('.menu-toggle');
             const sidebar = document.querySelector('.sidebar');
-
-            // Navigation
-            navLinks.forEach(link => {
-                link.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    const sectionId = link.getAttribute('data-section');
-                    sections.forEach(section => section.classList.remove('active'));
-                    navLinks.forEach(l => l.classList.remove('active'));
-                    document.getElementById(sectionId).classList.add('active');
-                    link.classList.add('active');
-                    if (window.innerWidth <= 1024) {
-                        sidebar.classList.remove('active');
-                    }
-                });
-            });
+            const profilePic = document.querySelector('.user img');
+            const userDropdown = document.getElementById('user-dropdown');
 
             // Sidebar Toggle
             menuToggle.addEventListener('click', () => {
                 sidebar.classList.toggle('active');
             });
 
-            // Vote Analytics
-            electionSelect.addEventListener('change', () => {
-                const electionId = electionSelect.value;
-                voteAnalytics.innerHTML = '<p>Loading analytics...</p>';
-                downloadButton.disabled = !electionId;
-                reportElectionId.value = electionId;
-
-                if (!electionId) {
-                    voteAnalytics.innerHTML = '<p>Select an election to view analytics.</p>';
-                    return;
-                }
-
-                fetch(`vote-analytics.php?election_id=${electionId}`)
-                    .then(response => {
-                        if (!response.ok) {
-                            throw new Error('Network response was not ok');
-                        }
-                        return response.text(); // Get raw HTML with script
-                    })
-                    .then(html => {
-                        voteAnalytics.innerHTML = html; // Inject script to execute Web3.js
-                        return new Promise(resolve => setTimeout(resolve, 100)); // Allow script to execute
-                    })
-                    .then(() => {
-                        // After script execution, fetch the rendered data (for now, assume JSON is in voteAnalytics)
-                        const data = JSON.parse(voteAnalytics.innerHTML);
-                        if (data.error) {
-                            voteAnalytics.innerHTML = `<p class="error">${data.error}</p>`;
-                            return;
-                        }
-
-                        let html = '<h4>Vote Analytics</h4>';
-                        data.positions.forEach(pos => {
-                            html += `
-                        <div>
-                            <h5>${pos.name}</h5>
-                            <canvas id="chart-${pos.id}" style="max-width: 100%;"></canvas>
-                            <p>Total Votes: ${pos.totalVotes}</p>
-                            <p>Winner: ${pos.winner}</p>
-                        </div>
-                    `;
-                        });
-                        voteAnalytics.innerHTML = html;
-
-                        data.positions.forEach(pos => {
-                            const ctx = document.getElementById(`chart-${pos.id}`).getContext('2d');
-                            const candidates = Object.values(pos.candidates);
-                            new Chart(ctx, {
-                                type: 'bar',
-                                data: {
-                                    labels: candidates.map(c => c.name),
-                                    datasets: [{
-                                        label: 'Votes',
-                                        data: candidates.map(c => c.votes),
-                                        backgroundColor: '#2a9d8f',
-                                        borderColor: '#207b6e',
-                                        borderWidth: 1
-                                    }]
-                                },
-                                options: {
-                                    scales: {
-                                        y: {
-                                            beginAtZero: true
-                                        }
-                                    },
-                                    plugins: {
-                                        title: {
-                                            display: true,
-                                            text: `${pos.name} Vote Distribution`,
-                                            color: '#1a3c34',
-                                            font: {
-                                                size: 14
-                                            }
-                                        },
-                                        legend: {
-                                            labels: {
-                                                color: '#2d3748'
-                                            }
-                                        }
-                                    }
-                                }
-                            });
-                        });
-                    })
-                    .catch(error => {
-                        voteAnalytics.innerHTML = '<p class="error">Failed to load analytics: ' + error.message + '</p>';
-                        console.error('Fetch error:', error);
-                    });
-            });
-
-            // Dark Mode
-            if (localStorage.getItem('darkMode') === 'enabled') {
-                document.body.classList.add('dark-mode');
-                darkModeToggle.innerHTML = '<i class="fas fa-sun"></i>';
-            }
-            darkModeToggle.addEventListener('click', () => {
-                document.body.classList.toggle('dark-mode');
-                if (document.body.classList.contains('dark-mode')) {
-                    localStorage.setItem('darkMode', 'enabled');
-                    darkModeToggle.innerHTML = '<i class="fas fa-sun"></i>';
-                } else {
-                    localStorage.setItem('darkMode', 'disabled');
-                    darkModeToggle.innerHTML = '<i class="fas fa-moon"></i>';
-                }
-            });
-
-            // Export Audit Logs
-            function exportAuditLogs() {
-                const table = document.querySelector('.audit-table');
-                const rows = table.querySelectorAll('tr');
-                let csv = [];
-
-                const headers = Array.from(rows[0].querySelectorAll('th')).map(header => header.textContent.trim());
-                csv.push(headers.join(','));
-
-                for (let i = 1; i < rows.length; i++) {
-                    const cols = rows[i].querySelectorAll('td');
-                    const row = Array.from(cols).map(col => `"${col.textContent.trim().replace(/"/g, '""')}"`);
-                    csv.push(row.join(','));
-                }
-
-                const csvContent = csv.join('\n');
-                const blob = new Blob([csvContent], {
-                    type: 'text/csv;charset=utf-8;'
+            // Profile Dropdown
+            if (profilePic) {
+                profilePic.addEventListener('click', () => {
+                    userDropdown.style.display = userDropdown.style.display === 'block' ? 'none' : 'block';
                 });
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = 'audit_logs.csv';
-                document.body.appendChild(a);
-                a.click();
-                a.remove();
-                window.URL.revokeObjectURL(url);
+                document.addEventListener('click', (e) => {
+                    if (!profilePic.contains(e.target) && !userDropdown.contains(e.target)) {
+                        userDropdown.style.display = 'none';
+                    }
+                });
             }
 
             // Session Timeout
@@ -1285,18 +800,13 @@ try {
                 if (inactiveTime >= inactivityTimeout - warningTime && inactiveTime < inactivityTimeout) {
                     timeoutMessage.textContent = "You will be logged out in 1 minute due to inactivity.";
                     modal.style.display = 'flex';
-                } else if (inactiveTime >= inactivityTimeout) {
+                } else if (inactiveTime >= inactivity_timeout) {
                     window.location.href = 'logout.php';
                 }
             }
 
-            document.addEventListener('mousemove', () => {
-                lastActivity = Date.now();
-            });
-            document.addEventListener('keydown', () => {
-                lastActivity = Date.now();
-            });
-
+            document.addEventListener('mousemove', () => { lastActivity = Date.now(); });
+            document.addEventListener('keydown', () => { lastActivity = Date.now(); });
             extendButton.addEventListener('click', () => {
                 lastActivity = Date.now();
                 modal.style.display = 'none';
@@ -1306,8 +816,5 @@ try {
         });
     </script>
 </body>
-
 </html>
-<?php
-$pdo = null;
-?>
+<?php $pdo = null; ?>

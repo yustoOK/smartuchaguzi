@@ -6,7 +6,7 @@ $host = 'localhost';
 $dbname = 'smartuchaguzi_db';
 $username = 'root';
 $password = 'Leonida1972@@@@';
-
+ 
 try {
     $conn = new mysqli($host, $username, $password, $dbname);
     if ($conn->connect_error) {

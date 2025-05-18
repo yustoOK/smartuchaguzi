@@ -57,7 +57,7 @@ if (!isset($_SESSION['user_agent']) || $_SESSION['user_agent'] !== $_SERVER['HTT
 
 $inactivity_timeout = 30 * 60;
 $max_session_duration = 30 * 60;
-$warning_time = 60;
+$warning_time = 60; 
 
 if (!isset($_SESSION['start_time'])) {
     $_SESSION['start_time'] = time();
