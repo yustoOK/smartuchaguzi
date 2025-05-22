@@ -106,7 +106,7 @@ try {
     exit;
 }
 
-$profile_picture = 'images/general.png';
+$profile_picture = 'uploads/passports/general.png';   
 $errors = [];
 $elections = [];
 
@@ -176,7 +176,6 @@ try {
                 $candidates = [];
 
                 if ($scope === 'hostel') {
-                    // Hostel positions: Fetch solo candidates (pair_id IS NULL)
                     $cand_stmt = $conn->prepare(
                         "SELECT c.id, c.official_id, c.firstname, c.lastname, c.passport, c.pair_id, c.position_id, ep.is_vice
                          FROM candidates c
@@ -192,7 +191,6 @@ try {
                     $cand_stmt->close();
                 } else {
                     if ($is_vice == 0) {
-                        // Find the corresponding vice position for this main position
                         $vice_position_id = null;
                         $vice_position_name = '';
                         $vice_stmt = $conn->prepare(
@@ -214,7 +212,6 @@ try {
                         $vice_stmt->close();
 
                         if ($vice_position_id) {
-                            // Fetch paired candidates (main and vice)
                             $cand_stmt = $conn->prepare(
                                 "SELECT c.id, c.official_id, c.firstname, c.lastname, c.passport, c.pair_id, c.position_id, ep.is_vice
                                  FROM candidates c
@@ -265,9 +262,10 @@ try {
     <link rel="icon" href="./Uploads/Vote.jpeg" type="image/x-icon">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/web3@1.10.0/dist/web3.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', sans-serif; }
-        body { background: linear-gradient(rgba(26, 60, 52, 0.7), rgba(26, 60, 52, 0.7)), url('images/cive.jpeg'); background-size: cover; color: #2d3748; min-height: 100vh; }
+        body { background: linear-gradient(rgba(26, 60, 52, 0.7), rgba(26, 60, 52, 0.7)), url('images/cive.jpeg'); background-size: cover; color: #2d3748; min-height: 100vh; display: flex; flex-direction: column; }
         .header { background: #1a3c34; color: #e6e6e6; padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1); position: fixed; width: 100%; top: 0; z-index: 1000; }
         .logo { display: flex; align-items: center; }
         .logo img { width: 40px; height: 40px; border-radius: 50%; margin-right: 10px; }
@@ -280,9 +278,12 @@ try {
         .dropdown a, .dropdown span { display: block; padding: 10px 20px; color: #2d3748; text-decoration: none; font-size: 16px; }
         .dropdown a:hover { background: #f4a261; color: #fff; }
         .logout-link { display: none; color: #e6e6e6; text-decoration: none; font-size: 16px; }
-        .dashboard { margin-top: 80px; padding: 30px; display: flex; justify-content: center; }
+        .dashboard { margin-top: 80px; padding: 30px; display: flex; justify-content: center; flex: 1; }
         .dash-content { background: rgba(255, 255, 255, 0.95); padding: 30px; border-radius: 12px; width: 100%; max-width: 1200px; box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15); }
         .dash-content h2 { font-size: 28px; color: #1a3c34; margin-bottom: 20px; text-align: center; }
+        .my-votes-section { margin-bottom: 30px; }
+        .my-votes-section h3 { font-size: 22px; color: #2d3748; margin-bottom: 15px; }
+        .vote-item { background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 15px; margin-bottom: 10px; }
         .election-section { margin-bottom: 30px; }
         .election-section h3 { font-size: 22px; color: #2d3748; margin-bottom: 15px; }
         .position-section { margin-bottom: 20px; }
@@ -298,11 +299,12 @@ try {
         .error, .success { padding: 15px; border-radius: 6px; margin-bottom: 20px; font-size: 16px; }
         .error { background: #ffe6e6; color: #e76f51; border: 1px solid #e76f51; }
         .success { background: #e6fff5; color: #2a9d8f; border: 1px solid #2a9d8f; }
-        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 1001; justify-content: center; align-items: center; }
-        .modal-content { background: #fff; padding: 20px; border-radius: 8px; text-align: center; max-width: 400px; width: 90%; }
-        .modal-content p { font-size: 16px; color: #2d3748; margin-bottom: 20px; }
-        .modal-content button { background: #f4a261; color: #fff; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-size: 16px; margin: 0 10px; }
-        .modal-content button:hover { background: #e76f51; }
+        .verify-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 1001; justify-content: center; align-items: center; }
+        .verify-modal-content { background: #fff; padding: 20px; border-radius: 8px; text-align: center; max-width: 400px; width: 90%; }
+        .verify-modal-content label { display: block; margin: 10px 0 5px; color: #2d3748; }
+        .verify-modal-content input { width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #e0e0e0; border-radius: 4px; }
+        .verify-modal-content button { background: #f4a261; color: #fff; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-size: 16px; margin: 0 10px; }
+        .verify-modal-content button:hover { background: #e76f51; }
         @media (max-width: 768px) {
             .header { flex-direction: column; padding: 10px 20px; }
             .logo h1 { font-size: 20px; }
@@ -336,9 +338,9 @@ try {
             <h1>SmartUchaguzi</h1>
         </div>
         <div class="nav">
-            <a href="process-vote.php">Cast Vote</a>
-            <a href="#">Verify Vote</a>
-            <a href="#">Results</a>
+            <a href="process-vote.php" id="cast-vote-link">Cast Vote</a>
+            <a href="#" id="verify-vote-link">Verify Vote</a>
+            <a href="#" id="results-link">Results</a>
         </div>
         <div class="user">
             <img src="<?php echo htmlspecialchars($profile_picture); ?>" alt="User Profile Picture" id="profile-pic">
@@ -353,7 +355,13 @@ try {
 
     <section class="dashboard">
         <div class="dash-content">
-            <h2>Candidate Details</h2>
+            <h2>The Candidate Details</h2>
+
+            <!-- My Votes Section -->
+            <div class="my-votes-section">
+                <h3>My Votes</h3>
+                <div id="my-votes"></div>
+            </div>
 
             <?php if (!empty($errors)): ?>
                 <div class="error">
@@ -386,7 +394,6 @@ try {
                                             <?php
                                             foreach ($position['candidates'] as $key => $candidateGroup) {
                                                 if ($position['scope'] !== 'hostel' && count($candidateGroup) == 2) {
-                                                    // Paired candidates (main and vice)
                                                     $mainCandidate = $candidateGroup[0]['is_vice'] == 0 ? $candidateGroup[0] : $candidateGroup[1];
                                                     $viceCandidate = $candidateGroup[0]['is_vice'] == 1 ? $candidateGroup[0] : $candidateGroup[1];
                                                     $pair_id = $mainCandidate['pair_id'];
@@ -411,7 +418,6 @@ try {
                                                     </div>
                                                     <?php
                                                 } else {
-                                                    // Solo candidate (hostel positions)
                                                     $candidate = $candidateGroup[0];
                                                     $candidate_id = $candidate['id'];
                                                     ?>
@@ -440,10 +446,33 @@ try {
         </div>
     </section>
 
+    <div class="verify-modal" id="verify-modal">
+        <div class="verify-modal-content">
+            <h3>Verify Your Vote</h3>
+            <label for="verify-election-id">Election ID:</label>
+            <input type="number" id="verify-election-id" placeholder="Enter Election ID" required>
+            <label for="verify-position-id">Position ID:</label>
+            <input type="number" id="verify-position-id" placeholder="Enter Position ID" required>
+            <label for="verify-candidate-id">Candidate ID:</label>
+            <input type="number" id="verify-candidate-id" placeholder="Enter Candidate ID" required>
+            <button onclick="verifyVote()">Verify</button>
+            <button onclick="closeVerifyModal()">Cancel</button>
+            <p id="verify-result"></p>
+        </div>
+    </div>
+
     <div class="modal" id="timeout-modal">
         <div class="modal-content">
             <p id="timeout-message">You will be logged out in 1 minute due to inactivity.</p>
             <button id="extend-session">OK</button>
+        </div>
+    </div>
+
+    <div class="results-modal" id="results-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 1001; justify-content: center; align-items: center;">
+        <div class="verify-modal-content" style="background: #fff; padding: 20px; border-radius: 8px; text-align: center; max-width: 400px; width: 90%;">
+            <h3>Results</h3>
+            <p id="results-content">Results will be displayed here.</p>
+            <button onclick="closeResultsModal()">Close</button>
         </div>
     </div>
 
@@ -455,6 +484,296 @@ try {
         const timeoutModal = document.getElementById('timeout-modal');
         const timeoutMessage = document.getElementById('timeout-message');
         const extendSessionButton = document.getElementById('extend-session');
+        const verifyVoteLink = document.getElementById('verify-vote-link');
+        const verifyModal = document.getElementById('verify-modal');
+        const myVotesSection = document.getElementById('my-votes');
+        const castVoteLink = document.getElementById('cast-vote-link');
+        const resultsLink = document.getElementById('results-link');
+        const resultsModal = document.getElementById('results-modal');
+
+        const contractAddress = '0x7f37Ea78D22DA910e66F8FdC1640B75dc88fa44F';
+        const abi = [
+    {
+      "inputs": [],
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "electionId",
+          "type": "uint256"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "voter",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "positionId",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "candidateId",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "string",
+          "name": "candidateName",
+          "type": "string"
+        },
+        {
+          "indexed": false,
+          "internalType": "string",
+          "name": "positionName",
+          "type": "string"
+        }
+      ],
+      "name": "VoteCast",
+      "type": "event"
+    },
+    {
+      "inputs": [],
+      "name": "admin",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "electionId",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "positionId",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "candidateId",
+          "type": "uint256"
+        },
+        {
+          "internalType": "string",
+          "name": "candidateName",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "positionName",
+          "type": "string"
+        }
+      ],
+      "name": "castVote",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "positionId",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "candidateId",
+          "type": "uint256"
+        }
+      ],
+      "name": "getVoteCount",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "electionId",
+          "type": "uint256"
+        }
+      ],
+      "name": "getVotesByElection",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "uint256",
+              "name": "electionId",
+              "type": "uint256"
+            },
+            {
+              "internalType": "address",
+              "name": "voter",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "positionId",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "candidateId",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "timestamp",
+              "type": "uint256"
+            },
+            {
+              "internalType": "string",
+              "name": "candidateName",
+              "type": "string"
+            },
+            {
+              "internalType": "string",
+              "name": "positionName",
+              "type": "string"
+            }
+          ],
+          "internalType": "struct VoteContract.Vote[]",
+          "name": "",
+          "type": "tuple[]"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "name": "hasVoted",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "name": "voteCount",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "name": "votes",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "electionId",
+          "type": "uint256"
+        },
+        {
+          "internalType": "address",
+          "name": "voter",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "positionId",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "candidateId",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "timestamp",
+          "type": "uint256"
+        },
+        {
+          "internalType": "string",
+          "name": "candidateName",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "positionName",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ];
+        const alchemyApiKey = '1isPc6ojuMcMbyoNNeQkLDGM76n8oT8B';
+        const provider = new Web3.providers.HttpProvider(`https://eth-sepolia.g.alchemy.com/v2/${alchemyApiKey}`);
+        const web3 = new Web3(provider);
+        const contract = new web3.eth.Contract(abi, contractAddress);
 
         function resetInactivityTimer() {
             clearTimeout(inactivityTimer);
@@ -494,6 +813,101 @@ try {
                 userDropdown.style.display = 'none';
             }
         });
+
+        // Open verify modal
+        verifyVoteLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            verifyModal.style.display = 'flex';
+        });
+
+        // Open results modal
+        resultsLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            resultsModal.style.display = 'flex';
+            // Placeholder for results logic (e.g., fetch from contract)
+            document.getElementById('results-content').textContent = 'Fetching results...'; // Replace with actual data fetch
+        });
+
+        // Close verify modal
+        function closeVerifyModal() {
+            verifyModal.style.display = 'none';
+            document.getElementById('verify-result').textContent = '';
+            document.getElementById('verify-election-id').value = '';
+            document.getElementById('verify-position-id').value = '';
+            document.getElementById('verify-candidate-id').value = '';
+        }
+
+        // Close results modal
+        function closeResultsModal() {
+            resultsModal.style.display = 'none';
+            document.getElementById('results-content').textContent = '';
+        }
+
+        // Verify vote function
+        async function verifyVote() {
+            const electionId = document.getElementById('verify-election-id').value;
+            const positionId = document.getElementById('verify-position-id').value;
+            const candidateId = document.getElementById('verify-candidate-id').value;
+            const voterAddress = '<?php echo $_SESSION['wallet_address'] ?? '0x0000000000000000000000000000000000000000'; ?>';
+
+            try {
+                const hasVoted = await contract.methods.hasVoted(voterAddress, electionId, positionId).call();
+                if (hasVoted) {
+                    const votes = await contract.methods.getVotesByElection(electionId).call();
+                    let found = false;
+                    for (let i = 0; i < votes.length; i++) {
+                        if (votes[i].voter === voterAddress && votes[i].positionId == positionId && votes[i].candidateId == candidateId) {
+                            document.getElementById('verify-result').textContent = `Vote verified! You voted for ${votes[i].candidateName} in position ${votes[i].positionName} on ${new Date(votes[i].timestamp * 1000).toLocaleString()}.`;
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found) {
+                        document.getElementById('verify-result').textContent = 'No matching vote found for the provided details.';
+                    }
+                } else {
+                    document.getElementById('verify-result').textContent = 'You have not voted for this position in this election.';
+                }
+            } catch (error) {
+                document.getElementById('verify-result').textContent = 'Error verifying vote: ' + error.message;
+                console.error(error);
+            }
+        }
+
+        // Load my votes
+        async function loadMyVotes() {
+            const voterAddress = '<?php echo $_SESSION['wallet_address'] ?? '0x0000000000000000000000000000000000000000'; ?>';
+            try {
+                const allVotes = await contract.methods.getVotesByElection(1).call(); // Adjust electionId dynamically if needed
+                let myVotesHtml = '';
+                for (let i = 0; i < allVotes.length; i++) {
+                    if (allVotes[i].voter === voterAddress) {
+                        myVotesHtml += `<div class="vote-item">
+                            <p>Election ID: ${allVotes[i].electionId}</p>
+                            <p>Position: ${allVotes[i].positionName}</p>
+                            <p>Candidate: ${allVotes[i].candidateName}</p>
+                            <p>Time: ${new Date(allVotes[i].timestamp * 1000).toLocaleString()}</p>
+                        </div>`;
+                    }
+                }
+                if (myVotesHtml === '') {
+                    myVotesHtml = '<p>No votes cast by you yet.</p>';
+                }
+                myVotesSection.innerHTML = myVotesHtml;
+            } catch (error) {
+                myVotesSection.innerHTML = '<p class="error">Error loading votes: ' + error.message + '</p>';
+                console.error(error);
+            }
+        }
+
+        // Handle cast vote link (redirect)
+        castVoteLink.addEventListener('click', (e) => {
+            // No preventDefault needed as it should redirect
+            // Ensure process-vote.php exists and handles the voting logic
+        });
+
+        // Load votes on page load
+        window.addEventListener('load', loadMyVotes);
     </script>
 </body>
 </html>

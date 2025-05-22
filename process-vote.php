@@ -182,7 +182,7 @@ try {
     exit;
 }
 
-$profile_picture = 'images/general.png';
+$profile_picture ='uploads/passports/general.png';
 $errors = [];
 $elections = [];
 $csrf_token = generateCsrfToken();
@@ -554,7 +554,7 @@ try {
             <img src="<?php echo htmlspecialchars($profile_picture); ?>" alt="User Profile Picture" id="profile-pic" aria-label="User Profile">
             <div class="dropdown" id="user-dropdown">
                 <span style="color: #e6e6e6; padding: 10px 20px;"><?php echo htmlspecialchars($user['fname'] ?? 'User'); ?></span>
-                <a href="profile.php">My Profile</a>
+                <a href="#">My Profile</a>
                 <a href="logout.php">Logout</a>
             </div>
             <a href="logout.php" class="logout-link">Logout</a>
@@ -682,7 +682,7 @@ try {
     <script>
         const provider = new ethers.providers.JsonRpcProvider('https://eth-sepolia.g.alchemy.com/v2/<?php echo $alchemy_api_key; ?>');
         const contractAddress = '0x7f37Ea78D22DA910e66F8FdC1640B75dc88fa44F';
-        const contractABI = <?php echo json_encode([ /* Same ABI as original, omitted for brevity */ ]); ?>;
+        const contractABI = <?php echo json_encode([ /* ABI */ ]); ?>;
         const contract = new ethers.Contract(contractAddress, contractABI, provider);
 
         function showSuccess(message) {

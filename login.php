@@ -26,58 +26,6 @@
             align-items: center;
         }
 
-        .header {
-            background: linear-gradient(135deg, #1a3c34, #2d3748);
-            color: #e6e6e6;
-            width: 100%;
-            padding: 15px 40px;
-            position: fixed;
-            top: 0;
-            left: 0;
-            z-index: 1000;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        .header .logo-container {
-            display: flex;
-            align-items: center;
-            gap: 20px;
-        }
-
-        .header .logo {
-            display: flex;
-            align-items: center;
-        }
-
-        .header .logo img {
-            width: 40px;
-            height: 40px;
-            margin-right: 15px;
-        }
-
-        .header .logo h1 {
-            font-size: 20px;
-            font-weight: 600;
-        }
-
-        .breadcrumb {
-            font-size: 14px;
-        }
-
-        .breadcrumb a {
-            color: #e6e6e6;
-            text-decoration: none;
-            padding: 0 5px;
-            transition: color 0.3s ease;
-        }
-
-        .breadcrumb a:hover {
-            color: #f4a261;
-        }
-
         .login-container {
             background: rgba(255, 255, 255, 0.1);
             backdrop-filter: blur(10px);
@@ -87,7 +35,7 @@
             width: 100%;
             max-width: 600px;
             text-align: center;
-            margin-top: 120px;
+            margin-top: 20px;
             border: 1px solid rgba(255, 255, 255, 0.2);
             animation: fadeIn 0.5s ease-in-out;
         }
@@ -97,7 +45,6 @@
                 opacity: 0;
                 transform: translateY(20px);
             }
-
             to {
                 opacity: 1;
                 transform: translateY(0);
@@ -287,14 +234,6 @@
                 padding: 20px;
             }
 
-            .header {
-                padding: 10px 20px;
-            }
-
-            .header .logo h1 {
-                font-size: 18px;
-            }
-
             .login-title {
                 font-size: 24px;
                 padding: 6px 12px;
@@ -304,17 +243,6 @@
 </head>
 
 <body>
-    <div class="header">
-        <div class="logo-container">
-            <div class="logo">
-                <img src="./uploads/Vote.jpeg" alt="SmartUchaguzi Logo">
-                <h1>SmartUchaguzi</h1>
-            </div>
-            <div class="breadcrumb">
-                <a href="index.php">Home</a> / <a href="login.php">Login</a>
-            </div>
-        </div>
-    </div>
     <div class="login-container">
         <div class="login-title">SmartUchaguzi Login</div>
         <?php if (isset($_GET['success'])): ?>

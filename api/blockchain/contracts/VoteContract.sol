@@ -37,7 +37,7 @@ contract VoteContract {
         admin = msg.sender;
     }
 
-    // Function to cast a vote with additional details
+    // Function to cast a vote
     function castVote(
         uint256 electionId,
         uint256 positionId,
@@ -45,7 +45,7 @@ contract VoteContract {
         string memory candidateName,
         string memory positionName
     ) external {
-        // Ensure voter hasn't voted for this position in this election
+        // To ensure voter hasn't voted for this position in this election
         require(!hasVoted[msg.sender][electionId][positionId], "Already voted for this position");
         
         require(positionId >= 1 && positionId <= 5, "Invalid position ID (must be 1 to 5)");
