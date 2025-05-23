@@ -447,19 +447,27 @@ try {
     </section>
 
     <div class="verify-modal" id="verify-modal">
-        <div class="verify-modal-content">
-            <h3>Verify Your Vote</h3>
-            <label for="verify-election-id">Election ID:</label>
-            <input type="number" id="verify-election-id" placeholder="Enter Election ID" required>
-            <label for="verify-position-id">Position ID:</label>
-            <input type="number" id="verify-position-id" placeholder="Enter Position ID" required>
-            <label for="verify-candidate-id">Candidate ID:</label>
-            <input type="number" id="verify-candidate-id" placeholder="Enter Candidate ID" required>
-            <button onclick="verifyVote()">Verify</button>
-            <button onclick="closeVerifyModal()">Cancel</button>
-            <p id="verify-result"></p>
+    <div class="verify-modal-content" style="background: #fff; padding: 30px; border-radius: 12px; max-width: 500px; width: 90%; box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);">
+        <h3 style="font-size: 24px; color: #1a3c34; margin-bottom: 20px;">Verify Your Vote</h3>
+        <div style="margin-bottom: 15px;">
+            <label for="verify-election-id" style="display: block; font-size: 14px; color: #2d3748; margin-bottom: 5px;">Election ID:</label>
+            <input type="number" id="verify-election-id" placeholder="Enter Election ID" required style="width: 100%; padding: 10px; border: 1px solid #e0e0e0; border-radius: 4px; font-size: 14px; outline: none;" onfocus="this.style.borderColor='#1a3c34';" onblur="this.style.borderColor='#e0e0e0';">
         </div>
+        <div style="margin-bottom: 15px;">
+            <label for="verify-position-id" style="display: block; font-size: 14px; color: #2d3748; margin-bottom: 5px;">Position ID:</label>
+            <input type="number" id="verify-position-id" placeholder="Enter Position ID" required style="width: 100%; padding: 10px; border: 1px solid #e0e0e0; border-radius: 4px; font-size: 14px; outline: none;" onfocus="this.style.borderColor='#1a3c34';" onblur="this.style.borderColor='#e0e0e0';">
+        </div>
+        <div style="margin-bottom: 15px;">
+            <label for="verify-candidate-id" style="display: block; font-size: 14px; color: #2d3748; margin-bottom: 5px;">Candidate ID:</label>
+            <input type="number" id="verify-candidate-id" placeholder="Enter Candidate ID" required style="width: 100%; padding: 10px; border: 1px solid #e0e0e0; border-radius: 4px; font-size: 14px; outline: none;" onfocus="this.style.borderColor='#1a3c34';" onblur="this.style.borderColor='#e0e0e0';">
+        </div>
+        <div style="display: flex; justify-content: center; gap: 10px; margin-top: 20px;">
+            <button onclick="verifyVote()" style="padding: 10px 20px; background: #1a3c34; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; transition: background 0.3s;">Verify</button>
+            <button onclick="closeVerifyModal()" style="padding: 10px 20px; background: #e76f51; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; transition: background 0.3s;">Cancel</button>
+        </div>
+        <p id="verify-result" style="margin-top: 15px; font-size: 14px; color: #2d3748;"></p>
     </div>
+</div>
 
     <div class="modal" id="timeout-modal">
         <div class="modal-content">
@@ -819,7 +827,7 @@ try {
         });
 
         // Open results modal
-        // Existing variable declarations (already in cive-students.php, so we reuse them)
+ 
 const resultsLink = document.getElementById('results-link');
 const resultsModal = document.getElementById('results-modal');
 const resultsContent = document.getElementById('results-content');
@@ -827,17 +835,14 @@ const resultsContent = document.getElementById('results-content');
 // Function to display results based on electionId
 async function displayResults(electionId) {
     try {
-        // Validate electionId
         if (!electionId || isNaN(electionId) || electionId <= 0) {
             resultsContent.innerHTML = '<p class="error">Please enter a valid Election ID.</p>';
             return;
         }
 
-        // Fetch all votes for the election
         const votes = await contract.methods.getVotesByElection(electionId).call();
         const positionVoteCounts = {};
 
-        // Aggregate vote counts by position and candidate
         for (const vote of votes) {
             const positionId = vote.positionId;
             const candidateId = vote.candidateId;
@@ -848,37 +853,40 @@ async function displayResults(electionId) {
                 positionVoteCounts[positionId] = { positionName, candidates: {} };
             }
             if (!positionVoteCounts[positionId].candidates[candidateId]) {
-                positionVoteCounts[positionId].candidates[candidateId] = {
-                    name: candidateName,
-                    count: 0
-                };
+                positionVoteCounts[positionId].candidates[candidateId] = { name: candidateName, count: 0 };
             }
             positionVoteCounts[positionId].candidates[candidateId].count++;
         }
 
-        // Generate HTML for results
         let html = '<h3>Election Results</h3>';
         if (Object.keys(positionVoteCounts).length === 0) {
             html += '<p>No votes recorded for this election.</p>';
         } else {
-            html += '<table style="width:100%; border-collapse: collapse; margin-top: 10px;">';
-            html += '<tr style="background: #f4a261; color: #fff;"><th style="padding: 8px; border: 1px solid #ddd;">Position</th><th style="padding: 8px; border: 1px solid #ddd;">Candidate</th><th style="padding: 8px; border: 1px solid #ddd;">Votes</th></tr>';
-
+            html += `
+                <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+                    <thead style="background: #1a3c34; color: #fff;">
+                        <tr>
+                            <th style="padding: 12px; border: 1px solid #ddd;">Position</th>
+                            <th style="padding: 12px; border: 1px solid #ddd;">Candidate</th>
+                            <th style="padding: 12px; border: 1px solid #ddd;">Votes</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
             for (const positionId in positionVoteCounts) {
                 const position = positionVoteCounts[positionId];
                 const candidates = position.candidates;
                 for (const candidateId in candidates) {
                     const candidate = candidates[candidateId];
-                    html += `<tr style="background: #fff;">
-                        <td style="padding: 8px; border: 1px solid #ddd;">${position.positionName}</td>
-                        <td style="padding: 8px; border: 1px solid #ddd;">${candidate.name}</td>
-                        <td style="padding: 8px; border: 1px solid #ddd;">${candidate.count}</td>
-                    </tr>`;
+                    html += `
+                        <tr style="background: #fff;">
+                            <td style="padding: 12px; border: 1px solid #ddd;">${position.positionName}</td>
+                            <td style="padding: 12px; border: 1px solid #ddd;">${candidate.name}</td>
+                            <td style="padding: 12px; border: 1px solid #ddd;">${candidate.count}</td>
+                        </tr>`;
                 }
             }
-            html += '</table>';
+            html += `</tbody></table>`;
         }
-
         resultsContent.innerHTML = html;
     } catch (error) {
         resultsContent.innerHTML = `<p class="error">Error fetching results: ${error.message}</p>`;
@@ -886,21 +894,19 @@ async function displayResults(electionId) {
     }
 }
 
-// Update the results modal event listener to show input field and fetch results dynamically
+// Update the results modal event listener with styled search input
 resultsLink.addEventListener('click', (e) => {
     e.preventDefault();
     resultsModal.style.display = 'flex';
-    // Set initial modal content with input field for electionId
     resultsContent.innerHTML = `
         <h3>Election Results</h3>
-        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 20px;">
-            <input type="number" id="election-id-input" placeholder="Enter Election ID" style="padding: 10px; border: 1px solid #ddd; border-radius: 5px; width: 200px; font-size: 14px; outline: none; transition: border-color 0.3s;" onfocus="this.style.borderColor='#f4a261';" onblur="this.style.borderColor='#ddd';">
-            <button id="fetch-results-btn" style="padding: 10px 20px; background: #f4a261; color: #fff; border: none; border-radius: 5px; cursor: pointer; font-size: 14px; transition: background 0.3s;">Fetch Results</button>
+        <div style="margin-bottom: 20px;">
+            <input type="number" id="election-id-input" placeholder="Search Election ID..." style="padding: 10px; border: 1px solid #e0e0e0; border-radius: 4px; width: 100%; max-width: 300px; font-size: 14px; outline: none;" onfocus="this.style.borderColor='#1a3c34';" onblur="this.style.borderColor='#e0e0e0';">
+            <button id="fetch-results-btn" style="padding: 10px 20px; background: #1a3c34; color: #fff; border: none; border-radius: 4px; cursor: pointer; margin-left: 10px; font-size: 14px; transition: background 0.3s;">Fetch Results</button>
         </div>
         <div id="results-display"></div>
     `;
 
-    // Add event listener for the Fetch Results button
     const fetchResultsBtn = document.getElementById('fetch-results-btn');
     fetchResultsBtn.addEventListener('click', () => {
         const electionId = document.getElementById('election-id-input').value;
