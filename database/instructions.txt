@@ -1,0 +1,5 @@
+To create a mysql database backup:
+mysqldump -u root -p database_name > "path/to/file.sql"
+
+To recorver it
+mysqldump -u root -p database_name < "path/to/file.sql"
