@@ -994,9 +994,10 @@ function closeResultsModal() {
 
         // Handle cast vote link (redirect)
         castVoteLink.addEventListener('click', (e) => {
-            // No preventDefault needed as it should redirect
-            // We must ensure process-vote.php exists and handles the voting logic
-        });
+    e.preventDefault();
+    const csrfToken = '<?php echo $_SESSION['csrf_token']; ?>';
+    window.location.href = `process-vote.php?csrf_token=${csrfToken}`;
+});
 
         // Load votes on page load
         window.addEventListener('load', loadMyVotes);
