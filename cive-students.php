@@ -488,8 +488,6 @@ try {
         const verifyModal = document.getElementById('verify-modal');
         const myVotesSection = document.getElementById('my-votes');
         const castVoteLink = document.getElementById('cast-vote-link');
-        const resultsLink = document.getElementById('results-link');
-        const resultsModal = document.getElementById('results-modal');
 
         const contractAddress = '0x7f37Ea78D22DA910e66F8FdC1640B75dc88fa44F';
         const abi = [
@@ -821,12 +819,100 @@ try {
         });
 
         // Open results modal
-        resultsLink.addEventListener('click', (e) => {
-            e.preventDefault();
-            resultsModal.style.display = 'flex';
-            // Placeholder for results logic (e.g., fetch from contract)
-            document.getElementById('results-content').textContent = 'Fetching results...'; // Replace with actual data fetch
-        });
+        // Existing variable declarations (already in cive-students.php, so we reuse them)
+const resultsLink = document.getElementById('results-link');
+const resultsModal = document.getElementById('results-modal');
+const resultsContent = document.getElementById('results-content');
+
+// Function to display results based on electionId
+async function displayResults(electionId) {
+    try {
+        // Validate electionId
+        if (!electionId || isNaN(electionId) || electionId <= 0) {
+            resultsContent.innerHTML = '<p class="error">Please enter a valid Election ID.</p>';
+            return;
+        }
+
+        // Fetch all votes for the election
+        const votes = await contract.methods.getVotesByElection(electionId).call();
+        const positionVoteCounts = {};
+
+        // Aggregate vote counts by position and candidate
+        for (const vote of votes) {
+            const positionId = vote.positionId;
+            const candidateId = vote.candidateId;
+            const candidateName = vote.candidateName;
+            const positionName = vote.positionName;
+
+            if (!positionVoteCounts[positionId]) {
+                positionVoteCounts[positionId] = { positionName, candidates: {} };
+            }
+            if (!positionVoteCounts[positionId].candidates[candidateId]) {
+                positionVoteCounts[positionId].candidates[candidateId] = {
+                    name: candidateName,
+                    count: 0
+                };
+            }
+            positionVoteCounts[positionId].candidates[candidateId].count++;
+        }
+
+        // Generate HTML for results
+        let html = '<h3>Election Results</h3>';
+        if (Object.keys(positionVoteCounts).length === 0) {
+            html += '<p>No votes recorded for this election.</p>';
+        } else {
+            html += '<table style="width:100%; border-collapse: collapse; margin-top: 10px;">';
+            html += '<tr style="background: #f4a261; color: #fff;"><th style="padding: 8px; border: 1px solid #ddd;">Position</th><th style="padding: 8px; border: 1px solid #ddd;">Candidate</th><th style="padding: 8px; border: 1px solid #ddd;">Votes</th></tr>';
+
+            for (const positionId in positionVoteCounts) {
+                const position = positionVoteCounts[positionId];
+                const candidates = position.candidates;
+                for (const candidateId in candidates) {
+                    const candidate = candidates[candidateId];
+                    html += `<tr style="background: #fff;">
+                        <td style="padding: 8px; border: 1px solid #ddd;">${position.positionName}</td>
+                        <td style="padding: 8px; border: 1px solid #ddd;">${candidate.name}</td>
+                        <td style="padding: 8px; border: 1px solid #ddd;">${candidate.count}</td>
+                    </tr>`;
+                }
+            }
+            html += '</table>';
+        }
+
+        resultsContent.innerHTML = html;
+    } catch (error) {
+        resultsContent.innerHTML = `<p class="error">Error fetching results: ${error.message}</p>`;
+        console.error(error);
+    }
+}
+
+// Update the results modal event listener to show input field and fetch results dynamically
+resultsLink.addEventListener('click', (e) => {
+    e.preventDefault();
+    resultsModal.style.display = 'flex';
+    // Set initial modal content with input field for electionId
+    resultsContent.innerHTML = `
+        <h3>Election Results</h3>
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 20px;">
+            <input type="number" id="election-id-input" placeholder="Enter Election ID" style="padding: 10px; border: 1px solid #ddd; border-radius: 5px; width: 200px; font-size: 14px; outline: none; transition: border-color 0.3s;" onfocus="this.style.borderColor='#f4a261';" onblur="this.style.borderColor='#ddd';">
+            <button id="fetch-results-btn" style="padding: 10px 20px; background: #f4a261; color: #fff; border: none; border-radius: 5px; cursor: pointer; font-size: 14px; transition: background 0.3s;">Fetch Results</button>
+        </div>
+        <div id="results-display"></div>
+    `;
+
+    // Add event listener for the Fetch Results button
+    const fetchResultsBtn = document.getElementById('fetch-results-btn');
+    fetchResultsBtn.addEventListener('click', () => {
+        const electionId = document.getElementById('election-id-input').value;
+        displayResults(electionId);
+    });
+});
+
+// Close results modal and reset content
+function closeResultsModal() {
+    resultsModal.style.display = 'none';
+    resultsContent.innerHTML = 'Results will be displayed here.';
+}
 
         // Close verify modal
         function closeVerifyModal() {
@@ -903,7 +989,7 @@ try {
         // Handle cast vote link (redirect)
         castVoteLink.addEventListener('click', (e) => {
             // No preventDefault needed as it should redirect
-            // Ensure process-vote.php exists and handles the voting logic
+            // We must ensure process-vote.php exists and handles the voting logic
         });
 
         // Load votes on page load
