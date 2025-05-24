@@ -26,7 +26,7 @@ function redirectUser($role, $college_id, $association) {
         } elseif ($college_id === 2) { // COED
             header('Location: coed-students.php'); 
         } else {
-            header('Location: index.php');
+            header('Location: login.php');
         }
     } elseif ($role === 'voter' && $association === 'UDOMASA') {
         if ($college_id === 1) { // CIVE
@@ -36,10 +36,10 @@ function redirectUser($role, $college_id, $association) {
         } elseif ($college_id === 2) { // CoED
             header('Location: coed-teachers.php'); 
         } else {
-            header('Location: index.php');
+            header('Location: login.php');
         }
     } else {
-        header('Location: index.php'); // Default location if everything fails
+        header('Location: login.php'); // Default location if everything fails
     }
     exit;
 }
