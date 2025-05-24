@@ -156,7 +156,7 @@ try {
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="robots" content="noindex, nofollow">
     <title>Admin | SmartUchaguzi</title>
-    <link rel="icon" href="./Uploads/Vote.jpeg" type="image/x-icon">
+    <link rel="icon" href="./images/System Logo.jpg" type="image/x-icon">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -671,7 +671,7 @@ try {
     <header class="header">
         <div class="logo">
             <i class="fas fa-bars menu-toggle"></i>
-            <img src="./Uploads/Vote.jpeg" alt="SmartUchaguzi Logo">
+            <img src="./images/System Logo.jpg" alt="SmartUchaguzi Logo">
             <h1>SmartUchaguzi</h1>
         </div>
         <div class="nav">

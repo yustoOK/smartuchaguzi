@@ -106,6 +106,14 @@ try {
     exit;
 }
 
+function generateCsrfToken() {
+    if (!isset($_SESSION['csrf_token'])) {
+        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+    }
+    return $_SESSION['csrf_token'];
+}
+$csrf_token = generateCsrfToken();
+
 $profile_picture = 'uploads/passports/general.png';   
 $errors = [];
 $elections = [];
@@ -259,7 +267,7 @@ try {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CIVE UDOSO | Dashboard</title>
-    <link rel="icon" href="./Uploads/Vote.jpeg" type="image/x-icon">
+    <link rel="icon" href="./images/System Logo.jpg" type="image/x-icon">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/web3@1.10.0/dist/web3.min.js"></script>
@@ -334,11 +342,11 @@ try {
 <body>
     <header class="header">
         <div class="logo">
-            <img src="./Uploads/Vote.jpeg" alt="SmartUchaguzi Logo">
-            <h1>SmartUchaguzi</h1>
+        <img src="./images/System Logo.jpg" alt="SmartUchaguzi Logo">    
+        <h1>SmartUchaguzi</h1>
         </div>
         <div class="nav">
-            <a href="process-vote.php" id="cast-vote-link">Cast Vote</a>
+            <a href="process-vote.php?csrf_token=<?php echo htmlspecialchars($csrf_token); ?>" id="cast-vote-link">Cast Vote</a>
             <a href="#" id="verify-vote-link">Verify Vote</a>
             <a href="#" id="results-link">Results</a>
         </div>
@@ -992,11 +1000,10 @@ function closeResultsModal() {
             }
         }
 
-        // Handle cast vote link (redirect)
+        // Handling cast vote link (redirect)
         castVoteLink.addEventListener('click', (e) => {
     e.preventDefault();
-    const csrfToken = '<?php echo $_SESSION['csrf_token']; ?>';
-    window.location.href = `process-vote.php?csrf_token=${csrfToken}`;
+    window.location.href = `process-vote.php?csrf_token=<?php echo htmlspecialchars($csrf_token); ?>`;
 });
 
         // Load votes on page load

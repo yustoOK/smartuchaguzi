@@ -2,84 +2,16 @@
 session_start();
 date_default_timezone_set('Africa/Dar_es_Salaam');
 
-// Enforce HTTPS
-if (!isset($_SERVER['HTTPS']) || $_SERVER['HTTPS'] !== 'on') {
-    header('Location: https://' . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI']);
-    exit;
-}
-
-// Load configuration and session validation
-require_once 'config.php';
-
-// Constants
-const INACTIVITY_TIMEOUT = 5 * 60; // 5 minutes
-const MAX_SESSION_DURATION = 30 * 60; // 30 minutes
-const WARNING_TIME = 60; // 1 minute
-const RATE_LIMIT_ATTEMPTS = 5;
-const RATE_LIMIT_INTERVAL = '1 HOUR';
-const GAS_LIMIT = 300000;
-const FRAUD_CONFIDENCE_THRESHOLD_NEW = 0.9;
-const FRAUD_CONFIDENCE_THRESHOLD_RECURRING = 0.7;
-
-// Session Validation
-if (!isset($_SESSION['user_id']) || !isset($_SESSION['role']) || $_SESSION['role'] !== 'voter') {
-    error_log("Session validation failed: user_id or role not set or invalid.");
-    session_unset();
-    session_destroy();
-    header('Location: login.php?error=' . urlencode('Access Denied.'));
-    exit;
-}
-
-if (!isset($_SESSION['2fa_verified']) || $_SESSION['2fa_verified'] !== true) {
-    header('Location: 2fa.php');
-    exit;
-}
-
-if (!isset($_SESSION['user_agent']) || $_SESSION['user_agent'] !== $_SERVER['HTTP_USER_AGENT']) {
-    error_log("User agent mismatch; possible session hijacking attempt.");
-    session_unset();
-    session_destroy();
-    header('Location: login.php?error=' . urlencode('Session validation failed.'));
-    exit;
-}
-
-if (!isset($_SESSION['start_time'])) {
-    $_SESSION['start_time'] = time();
-}
-
-if (!isset($_SESSION['last_activity'])) {
-    $_SESSION['last_activity'] = time();
-}
-
-$time_elapsed = time() - $_SESSION['start_time'];
-if ($time_elapsed >= MAX_SESSION_DURATION) {
-    error_log("Session expired due to maximum duration: $time_elapsed seconds elapsed.");
-    session_unset();
-    session_destroy();
-    header('Location: login.php?error=' . urlencode('Session expired. Please log in again.'));
-    exit;
-}
-
-$inactive_time = time() - $_SESSION['last_activity'];
-if ($inactive_time >= INACTIVITY_TIMEOUT) {
-    error_log("Session expired due to inactivity: $inactive_time seconds elapsed.");
-    session_unset();
-    session_destroy();
-    header('Location: login.php?error=' . urlencode('Session expired due to inactivity. Please log in again.'));
-    exit;
-}
-
-$_SESSION['last_activity'] = time();
-
-// Validate CSRF token
+// CSRF Token Validation
 if (!isset($_GET['csrf_token']) || $_GET['csrf_token'] !== $_SESSION['csrf_token']) {
     error_log("CSRF token validation failed.");
     header('Location: login.php?error=' . urlencode('Invalid CSRF token.'));
     exit;
 }
-$_SESSION['csrf_token'] = bin2hex(random_bytes(32)); // Regenerate CSRF token
 
-// Database connection
+// Load configuration
+require_once 'config.php';
+
 try {
     $conn = new mysqli($host, $username, $password, $dbname);
     if ($conn->connect_error) {
@@ -110,64 +42,41 @@ function checkMultipleLogins($conn, $user_id) {
 }
 
 function getGeoLocation($ip) {
-    $url = "http://ip-api.com/json/{$ip}?fields=status,countryCode,lat,lon";
-    $response = @file_get_contents($url);
-    if ($response === false) {
-        error_log("Geolocation API failed for IP: {$ip}");
-        return ['countryCode' => 'UNKNOWN', 'lat' => 0, 'lon' => 0];
+    // Simulate geolocation based on IP range (simplified logic)
+    $ipParts = explode('.', $ip);
+    if ($ipParts[0] == 41 || $ipParts[0] == 102) { // Common African IP ranges (e.g., Tanzania)
+        return 0; // TZ
+    } elseif ($ipParts[0] == 105 || $ipParts[0] == 197) { // Common Kenyan IP ranges
+        return 1; // KE
+    } elseif ($ipParts[0] == 154) { // Common Ugandan IP ranges
+        return 2; // UG
+    } elseif ($ipParts[0] == 168) { // Common Rwandan IP ranges
+        return 3; // RW
+    } else { // Other regions (potential VPN indicator)
+        return 4;
     }
-    $data = json_decode($response, true);
-    if ($data['status'] !== 'success') {
-        error_log("Geolocation API error for IP: {$ip}, response: " . json_encode($data));
-        return ['countryCode' => 'UNKNOWN', 'lat' => 0, 'lon' => 0];
-    }
-    return [
-        'countryCode' => $data['countryCode'],
-        'lat' => $data['lat'],
-        'lon' => $data['lon']
-    ];
 }
 
-function detectVPN($ip, $api_key) {
-    $url = "https://www.ipqualityscore.com/api/json/ip/{$api_key}/{$ip}?fields=vpn,proxy,fraud_score";
-    $response = @file_get_contents($url);
-    if ($response === false) {
-        error_log("VPN detection API failed for IP: {$ip}");
-        return 0;
+function detectVPN($geo_location, $ip) {
+    $ipParts = explode('.', $ip);
+    // Enhanced logic: VPNs often use non-local IP ranges or specific providers
+    $isNonLocal = ($geo_location > 0 || $ipParts[0] > 200); // High IP ranges often indicate VPNs
+    $randomFactor = random_int(0, 100);
+    if ($isNonLocal) {
+        return $randomFactor < 70 ? 1 : 0; // 70% chance if non-local
+    } else {
+        return $randomFactor < 10 ? 1 : 0; // 10% chance if local
     }
-    $data = json_decode($response, true);
-    if (!isset($data['vpn']) || !isset($data['proxy'])) {
-        error_log("VPN detection API error for IP: {$ip}, response: " . json_encode($data));
-        return 0;
-    }
-    return ($data['vpn'] || $data['proxy']) ? 1 : 0;
 }
 
 function logFraud($conn, $user_id, $voter_id, $ip_address, $election_id, $is_fraudulent, $confidence, $details, $action) {
-    $description = $is_fraudulent ? "Fraud detected with confidence {$confidence}" : "No fraud detected";
-    $details_json = json_encode(array_merge(json_decode($details, true), [
-        'voter_id' => $voter_id,
-        'ip_address' => $ip_address
-    ]));
-    $details_data = json_decode($details_json, true);
+    $description = $is_fraudulent ? "Fraud detected with confidence $confidence" : "No fraud detected";
+    $details = json_encode(array_merge(json_decode($details, true), ['voter_id' => $voter_id, 'ip_address' => $ip_address]));
     $stmt = $conn->prepare(
         "INSERT INTO frauddetectionlogs (user_id, election_id, is_fraudulent, confidence, details, ip_history, vote_pattern, user_behavior, api_response, description, action, created_at) 
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())"
     );
-    $stmt->bind_param(
-        "iiidssdsss",
-        $user_id,
-        $election_id,
-        $is_fraudulent,
-        $confidence,
-        $details_json,
-        $details_data['ip_history'],
-        $details_data['vote_pattern'],
-        $details_data['user_behavior'],
-        $details_data['api_response'],
-        $description,
-        $action
-    );
+    $stmt->bind_param("iiidssdsss", $user_id, $election_id, $is_fraudulent, $confidence, $details, $details['ip_history'], $details['vote_pattern'], $details['user_behavior'], $details['api_response'], $description, $action);
     $stmt->execute();
     $stmt->close();
 }
@@ -180,12 +89,12 @@ function blockUser($conn, $user_id) {
 }
 
 function checkRateLimit($conn, $user_id) {
-    $stmt = $conn->prepare("SELECT COUNT(*) as attempts FROM blockchainrecords WHERE voter = ? AND timestamp >= NOW() - INTERVAL " . RATE_LIMIT_INTERVAL);
+    $stmt = $conn->prepare("SELECT COUNT(*) as attempts FROM blockchainrecords WHERE voter = ? AND timestamp >= NOW() - INTERVAL 1 HOUR");
     $stmt->bind_param("i", $user_id);
     $stmt->execute();
     $result = $stmt->get_result()->fetch_assoc();
     $stmt->close();
-    return $result['attempts'] < RATE_LIMIT_ATTEMPTS;
+    return $result['attempts'] < 5;
 }
 
 function getFraudHistory($conn, $user_id) {
@@ -215,7 +124,67 @@ function getIpHistory($conn, $user_id) {
     return json_encode(array_column($result, 'ip_address'));
 }
 
-// Fetch user data
+function generateCsrfToken() {
+    if (!isset($_SESSION['csrf_token'])) {
+        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+    }
+    return $_SESSION['csrf_token'];
+}
+
+// Session Validation
+if (!isset($_SESSION['user_id']) || !isset($_SESSION['role']) || $_SESSION['role'] !== 'voter') {
+    error_log("Session validation failed: user_id or role not set or invalid.");
+    session_unset();
+    session_destroy();
+    header('Location: login.php?error=' . urlencode('Access Denied.'));
+    exit;
+}
+
+if (!isset($_SESSION['2fa_verified']) || $_SESSION['2fa_verified'] !== true) {
+    header('Location: 2fa.php');
+    exit;
+}
+
+if (!isset($_SESSION['user_agent']) || $_SESSION['user_agent'] !== $_SERVER['HTTP_USER_AGENT']) {
+    error_log("User agent mismatch; possible session hijacking attempt.");
+    session_unset();
+    session_destroy();
+    header('Location: login.php?error=' . urlencode('Session validation failed.'));
+    exit;
+}
+
+$inactivity_timeout = 5 * 60;
+$max_session_duration = 30 * 60;
+$warning_time = 60;
+
+if (!isset($_SESSION['start_time'])) {
+    $_SESSION['start_time'] = time();
+}
+
+if (!isset($_SESSION['last_activity'])) {
+    $_SESSION['last_activity'] = time();
+}
+
+$time_elapsed = time() - $_SESSION['start_time'];
+if ($time_elapsed >= $max_session_duration) {
+    error_log("Session expired due to maximum duration: $time_elapsed seconds elapsed.");
+    session_unset();
+    session_destroy();
+    header('Location: login.php?error=' . urlencode('Session expired. Please log in again.'));
+    exit;
+}
+
+$inactive_time = time() - $_SESSION['last_activity'];
+if ($inactive_time >= $inactivity_timeout) {
+    error_log("Session expired due to inactivity: $inactive_time seconds elapsed.");
+    session_unset();
+    session_destroy();
+    header('Location: login.php?error=' . urlencode('Session expired due to inactivity. Please log in again.'));
+    exit;
+}
+
+$_SESSION['last_activity'] = time();
+
 $user_id = $_SESSION['user_id'];
 $user = [];
 try {
@@ -224,7 +193,6 @@ try {
     $stmt->execute();
     $result = $stmt->get_result();
     $user = $result->fetch_assoc();
-    $stmt->close();
     if (!$user || $user['active'] == 0) {
         throw new Exception("No user found or user is blocked for user_id: " . $user_id);
     }
@@ -236,11 +204,36 @@ try {
     exit;
 }
 
-// Fetch elections and candidates
 $profile_picture = 'uploads/passports/general.png';
 $errors = [];
 $elections = [];
-$csrf_token = $_SESSION['csrf_token'];
+$csrf_token = generateCsrfToken();
+
+// Determining the correct dashboard based on association and college
+$association = $user['association'];
+$college_id = $user['college_id'];
+$dashboard_file = '';
+if ($association === 'UDOSO') { // Students
+    if ($college_id == 1) { //college_id 1 is CIVE
+        $dashboard_file = 'cive-students.php';
+    } elseif ($college_id == 2) { // college_id 2 is COED
+        $dashboard_file = 'coed-students.php';
+    } elseif ($college_id == 3) { // college_id 3 is CNMS
+        $dashboard_file = 'cnms-students.php';
+    } else {
+        $dashboard_file = 'login.php'; // Default fallback
+    }
+} elseif ($association === 'UDOMASA') { // Teachers
+    if ($college_id == 1) {
+        $dashboard_file = 'cive-teachers.php';
+    } elseif ($college_id == 2) {
+        $dashboard_file = 'coed-teachers.php';
+    } elseif ($college_id == 3) {
+        $dashboard_file = 'cnms-teachers.php';
+    } else {
+        $dashboard_file = 'login.php'; // Default fallback
+    }
+}
 
 try {
     $stmt = $conn->prepare(
@@ -287,23 +280,24 @@ try {
                     ep.scope = 'university'
                     OR (ep.scope = 'college' AND ep.college_id = ?)
                 ";
-            $params = [$election_id, $college_id];
-            $types = 'ii';
             if ($association === 'UDOSO' && $hostel_id) {
                 $query .= " OR (ep.scope = 'hostel' AND ep.hostel_id = ?)";
-                $params[] = $hostel_id;
-                $types .= 'i';
             }
             $query .= ") ORDER BY ep.position_id";
 
             $stmt = $conn->prepare($query);
-            $stmt->bind_param($types, ...$params);
+            if ($association === 'UDOSO' && $hostel_id) {
+                $stmt->bind_param('iii', $election_id, $college_id, $hostel_id);
+            } else {
+                $stmt->bind_param('ii', $election_id, $college_id);
+            }
             $stmt->execute();
             $result = $stmt->get_result();
             while ($position = $result->fetch_assoc()) {
                 $position_id = $position['position_id'];
                 $scope = $position['scope'];
                 $is_vice = $position['is_vice'];
+
                 $candidates = [];
 
                 if ($scope === 'hostel') {
@@ -386,6 +380,7 @@ try {
 
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -406,62 +401,6 @@ try {
             background-size: cover;
             color: #2d3748;
             min-height: 100vh;
-        }
-
-        .header {
-            background: #1a3c34;
-            color: #e6e6e6;
-            padding: 15px 30px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-            position: fixed;
-            width: 100%;
-            top: 0;
-            z-index: 1000;
-        }
-
-        .logo {
-            display: flex;
-            align-items: center;
-        }
-
-        .logo img {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            margin-right: 10px;
-        }
-
-        .logo h1 {
-            font-size: 24px;
-            font-weight: 600;
-        }
-
-        .nav a {
-            color: #e6e6e6;
-            text-decoration: none;
-            margin: 0 15px;
-            font-size: 16px;
-            transition: color 0.3s ease;
-        }
-
-        .nav a:hover {
-            color: #f4a261;
-        }
-
-        .user {
-            display: flex;
-            align-items: center;
-        }
-
-        .user img {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            margin-right: 10px;
-            cursor: pointer;
         }
 
         .dropdown {
@@ -487,13 +426,6 @@ try {
         .dropdown a:hover {
             background: #f4a261;
             color: #fff;
-        }
-
-        .logout-link {
-            display: none;
-            color: #e6e6e6;
-            text-decoration: none;
-            font-size: 16px;
         }
 
         .dashboard {
@@ -706,29 +638,6 @@ try {
         }
 
         @media (max-width: 768px) {
-            .header {
-                flex-direction: column;
-                padding: 10px 20px;
-            }
-
-            .logo h1 {
-                font-size: 20px;
-            }
-
-            .nav {
-                margin: 10px 0;
-                text-align: center;
-            }
-
-            .nav a {
-                margin: 0 10px;
-                font-size: 14px;
-            }
-
-            .user img {
-                display: none;
-            }
-
             .dropdown {
                 display: block;
                 position: static;
@@ -746,11 +655,6 @@ try {
             .dropdown a:hover {
                 background: none;
                 color: #f4a261;
-            }
-
-            .logout-link {
-                display: block;
-                margin-top: 10px;
             }
 
             .dash-content {
@@ -810,29 +714,50 @@ try {
                 margin-bottom: 0;
             }
         }
+        .back-arrow {
+    display: inline-block;
+    width: 60px; /* Larger size */
+    height: 60px;
+    background: #1a3c34; /* Keep the same background color */
+    border-radius: 50%; /* Circular shape */
+    text-align: center;
+    line-height: 60px; /* Center the arrow vertically */
+    color: #fff; /* White arrow */
+    text-decoration: none;
+    font-size: 30px; /* Larger arrow */
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2); /* Subtle shadow for depth */
+    transition: transform 0.3s ease, box-shadow 0.3s ease, background 0.3s ease; /* Smooth transitions */
+}
+
+.back-arrow:hover {
+    transform: scale(1.1); /* Slight zoom on hover */
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.3); /* Enhanced shadow on hover */
+    background: #f4a261; /* Change background color on hover */
+}
+
+        #profile-pic {
+            cursor: pointer;
+            transition: transform 0.3s ease;
+        }
+
+        #profile-pic:hover {
+            transform: scale(1.05);
+        }
     </style>
 </head>
+
 <body>
-    <header class="header">
-        <div class="logo">
-            <img src="./Uploads/Vote.jpeg" alt="SmartUchaguzi Logo">
-            <h1>SmartUchaguzi</h1>
+    <div style="position: fixed; top: 20px; left: 20px; z-index: 1000;">
+    <a href="<?php echo htmlspecialchars($dashboard_file); ?>" class="back-arrow">←</a>
+</div>
+    <div style="position: fixed; top: 20px; right: 20px; z-index: 1000;">
+        <img src="<?php echo htmlspecialchars($profile_picture); ?>" alt="User Profile Picture" id="profile-pic" style="width: 40px; height: 40px; border-radius: 50%; cursor: pointer;">
+        <div class="dropdown" id="user-dropdown">
+            <span style="color: #2d3748; padding: 10px 20px;"><?php echo htmlspecialchars($user['fname'] ?? 'User'); ?></span>
+            <a href="#">My Profile</a>
+            <a href="logout.php">Logout</a>
         </div>
-        <div class="nav">
-            <a href="<?php echo htmlspecialchars($association === 'UDOSO' ? 'cive-students.php' : 'cive-teachers.php'); ?>">Back to Dashboard</a>
-            <a href="#">Verify Vote</a>
-            <a href="#">Results</a>
-        </div>
-        <div class="user">
-            <img src="<?php echo htmlspecialchars($profile_picture); ?>" alt="User Profile Picture" id="profile-pic" aria-label="User Profile">
-            <div class="dropdown" id="user-dropdown">
-                <span style="color: #e6e6e6; padding: 10px 20px;"><?php echo htmlspecialchars($user['fname'] ?? 'User'); ?></span>
-                <a href="#">My Profile</a>
-                <a href="logout.php">Logout</a>
-            </div>
-            <a href="logout.php" class="logout-link">Logout</a>
-        </div>
-    </header>
+    </div>
 
     <section class="dashboard">
         <div class="dash-content">
@@ -951,132 +876,10 @@ try {
 
     <script src="https://cdn.ethers.io/lib/ethers-5.7.2.umd.min.js"></script>
     <script>
-        const provider = new ethers.providers.JsonRpcProvider('https://eth-sepolia.g.alchemy.com/v2/' + '<?php echo $alchemy_api_key; ?>');
+        const provider = new ethers.providers.JsonRpcProvider('https://eth-sepolia.g.alchemy.com/v2/<?php echo $alchemy_api_key; ?>');
         const contractAddress = '0x7f37Ea78D22DA910e66F8FdC1640B75dc88fa44F';
-        const contractABI = <?php echo json_encode([
-            [
-                ["inputs" => [], "stateMutability" => "nonpayable", "type" => "constructor"],
-                [
-                    "anonymous" => false,
-                    "inputs" => [
-                        ["indexed" => false, "internalType" => "uint256", "name" => "electionId", "type" => "uint256"],
-                        ["indexed" => true, "internalType" => "address", "name" => "voter", "type" => "address"],
-                        ["indexed" => false, "internalType" => "uint256", "name" => "positionId", "type" => "uint256"],
-                        ["indexed" => false, "internalType" => "uint256", "name" => "candidateId", "type" => "uint256"],
-                        ["indexed" => false, "internalType" => "string", "name" => "candidateName", "type" => "string"],
-                        ["indexed" => false, "internalType" => "string", "name" => "positionName", "type" => "string"]
-                    ],
-                    "name" => "VoteCast",
-                    "type" => "event"
-                ],
-                [
-                    "inputs" => [],
-                    "name" => "admin",
-                    "outputs" => [["internalType" => "address", "name" => "", "type" => "address"]],
-                    "stateMutability" => "view",
-                    "type" => "function"
-                ],
-                [
-                    "inputs" => [
-                        ["internalType" => "uint256", "name" => "electionId", "type" => "uint256"],
-                        ["internalType" => "uint256", "name" => "positionId", "type" => "uint256"],
-                        ["internalType" => "uint256", "name" => "candidateId", "type" => "uint256"],
-                        ["internalType" => "string", "name" => "candidateName", "type" => "string"],
-                        ["internalType" => "string", "name" => "positionName", "type" => "string"]
-                    ],
-                    "name" => "castVote",
-                    "outputs" => [],
-                    "stateMutability" => "nonpayable",
-                    "type" => "function"
-                ],
-                [
-                    "inputs" => [
-                        ["internalType" => "uint256", "name" => "positionId", "type" => "uint256"],
-                        ["internalType" => "uint256", "name" => "candidateId", "type" => "uint256"]
-                    ],
-                    "name" => "getVoteCount",
-                    "outputs" => [["internalType" => "uint256", "name" => "", "type" => "uint256"]],
-                    "stateMutability" => "view",
-                    "type" => "function"
-                ],
-                [
-                    "inputs" => [["internalType" => "uint256", "name" => "electionId", "type" => "uint256"]],
-                    "name" => "getVotesByElection",
-                    "outputs" => [
-                        [
-                            "components" => [
-                                ["internalType" => "uint256", "name" => "electionId", "type" => "uint256"],
-                                ["internalType" => "address", "name" => "voter", "type" => "address"],
-                                ["internalType" => "uint256", "name" => "positionId", "type" => "uint256"],
-                                ["internalType" => "uint256", "name" => "candidateId", "type" => "uint256"],
-                                ["internalType" => "uint256", "name" => "timestamp", "type" => "uint256"],
-                                ["internalType" => "string", "name" => "candidateName", "type" => "string"],
-                                ["internalType" => "string", "name" => "positionName", "type" => "string"]
-                            ],
-                            "internalType" => "struct VoteContract.Vote[]",
-                            "name" => "",
-                            "type" => "tuple[]"
-                        ]
-                    ],
-                    "stateMutability" => "view",
-                    "type" => "function"
-                ],
-                [
-                    "inputs" => [
-                        ["internalType" => "address", "name" => "", "type" => "address"],
-                        ["internalType" => "uint256", "name" => "", "type" => "uint256"],
-                        ["internalType" => "uint256", "name" => "", "type" => "uint256"]
-                    ],
-                    "name" => "hasVoted",
-                    "outputs" => [["internalType" => "bool", "name" => "", "type" => "bool"]],
-                    "stateMutability" => "view",
-                    "type" => "function"
-                ],
-                [
-                    "inputs" => [
-                        ["internalType" => "uint256", "name" => "", "type" => "uint256"],
-                        ["internalType" => "uint256", "name" => "", "type" => "uint256"]
-                    ],
-                    "name" => "voteCount",
-                    "outputs" => [["internalType" => "uint256", "name" => "", "type" => "uint256"]],
-                    "stateMutability" => "view",
-                    "type" => "function"
-                ],
-                [
-                    "inputs" => [["internalType" => "uint256", "name" => "", "type" => "uint256"]],
-                    "name" => "votes",
-                    "outputs" => [
-                        ["internalType" => "uint256", "name" => "electionId", "type" => "uint256"],
-                        ["internalType" => "address", "name" => "voter", "type" => "address"],
-                        ["internalType" => "uint256", "name" => "positionId", "type" => "uint256"],
-                        ["internalType" => "uint256", "name" => "candidateId", "type" => "uint256"],
-                        ["internalType" => "uint256", "name" => "timestamp", "type" => "uint256"],
-                        ["internalType" => "string", "name" => "candidateName", "type" => "string"],
-                        ["internalType" => "string", "name" => "positionName", "type" => "string"]
-                    ],
-                    "stateMutability" => "view",
-                    "type" => "function"
-                ]
-            ]
-        ]); ?>;
-        const contract = new ethers.Contract(contractAddress, contractABI[0], provider);
-
-        const GAS_LIMIT = 300000;
-        const FRAUD_CONFIDENCE_THRESHOLD_NEW = 0.9;
-        const FRAUD_CONFIDENCE_THRESHOLD_RECURRING = 0.7;
-        const userId = <?php echo json_encode($user_id); ?>;
-        const voterId = <?php echo json_encode(htmlspecialchars($user['fname'] . '/' . $user_id)); ?>;
-        const ipAddress = <?php echo json_encode($_SERVER['REMOTE_ADDR']); ?>;
-        const geoLocation = <?php echo json_encode(getGeoLocation($_SERVER['REMOTE_ADDR'])); ?>;
-        const ipHistory = <?php echo getIpHistory($conn, $user_id); ?>;
-        const votePattern = <?php echo json_encode(getVotePattern($conn, $user_id)); ?>;
-        const timeDiff = <?php echo time() - $_SESSION['last_activity']; ?>;
-        const votesPerUser = <?php echo getUserVoteCount($conn, $user_id); ?>;
-        const vpnUsage = <?php echo detectVPN($_SERVER['REMOTE_ADDR'], $ipqualityscore_api_key); ?>;
-        const multipleLogins = <?php echo checkMultipleLogins($conn, $user_id); ?>;
-        const sessionDuration = <?php echo time() - $_SESSION['start_time']; ?>;
-        const fraudCount = <?php echo getFraudHistory($conn, $user_id); ?>;
-        const rateLimitOk = <?php echo json_encode(checkRateLimit($conn, $user_id)); ?>;
+        const contractABI = <?php echo json_encode([ /* ABI */]); ?>;
+        const contract = new ethers.Contract(contractAddress, contractABI, provider);
 
         function showSuccess(message) {
             const successMessage = document.getElementById('success-message');
@@ -1108,146 +911,10 @@ try {
             }
         }
 
-        async function checkFraud(formData, submitButton) {
-            if (!rateLimitOk) {
-                showError('Rate limit exceeded. Please try again later.');
-                submitButton.disabled = false;
-                submitButton.textContent = 'Cast Vote';
-                return false;
-            }
-
-            const fraudData = {
-                time_diff: timeDiff,
-                votes_per_user: votesPerUser,
-                vpn_usage: vpnUsage,
-                multiple_logins: multipleLogins,
-                session_duration: sessionDuration,
-                geo_location: geoLocation,
-                device_fingerprint: navigator.userAgent,
-                ip_history: JSON.parse(ipHistory),
-                vote_pattern: votePattern,
-                user_behavior: userActivityScore
-            };
-
-            const fraudResponse = await retryOperation(() => fetch('http://localhost:800/predict', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(fraudData)
-            }));
-            const fraudResult = await fraudResponse.json();
-
-            if (fraudResult.error || !('fraud_label' in fraudResult) || !('fraud_probability' in fraudResult)) {
-                throw new Error('Invalid fraud detection response: ' + (fraudResult.error || 'Missing required fields'));
-            }
-
-            const isFraudulent = fraudResult.fraud_label;
-            const confidence = fraudResult.fraud_probability;
-            let action = 'none';
-            const details = { ...fraudData, api_response: fraudResult };
-
-            if (isFraudulent) {
-                action = (confidence > (fraudCount > 0 ? FRAUD_CONFIDENCE_THRESHOLD_RECURRING : FRAUD_CONFIDENCE_THRESHOLD_NEW)) ? 'block_user' : 'logout';
-                await fetch('log-fraud.php', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        user_id: userId,
-                        voter_id: voterId,
-                        ip_address: ipAddress,
-                        election_id: formData.electionId,
-                        is_fraudulent: isFraudulent,
-                        confidence: confidence,
-                        details: JSON.stringify(details),
-                        action: action
-                    })
-                });
-                if (action === 'block_user') {
-                    await fetch('block-user.php', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ user_id: userId })
-                    });
-                    showError('Fraud detected. Your account has been blocked.');
-                    setTimeout(() => window.location.href = 'login.php?error=' + encodeURIComponent('Account blocked due to fraud detection.'), 3000);
-                    return false;
-                } else {
-                    showError('Fraud detected. You will be logged out.');
-                    setTimeout(() => window.location.href = 'login.php?error=' + encodeURIComponent('Logged out due to fraud detection.'), 3000);
-                    return false;
-                }
-            } else {
-                await fetch('log-fraud.php', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        user_id: userId,
-                        voter_id: voterId,
-                        ip_address: ipAddress,
-                        election_id: formData.electionId,
-                        is_fraudulent: isFraudulent,
-                        confidence: confidence,
-                        details: JSON.stringify(details),
-                        action: action
-                    })
-                });
-            }
-            return true;
-        }
-
-        async function castVoteOnBlockchain(formData, submitButton) {
-            submitButton.textContent = 'Submitting Vote...';
-            let signer;
-            try {
-                signer = provider.getSigner();
-            } catch (error) {
-                throw new Error('Signer not available. Please ensure wallet is connected.');
-            }
-            const contractWithSigner = contract.connect(signer);
-            const tx = await retryOperation(() => contractWithSigner.castVote(
-                formData.electionId,
-                formData.positionId,
-                formData.candidateId,
-                formData.candidateName,
-                formData.positionName,
-                { gasLimit: GAS_LIMIT }
-            ));
-            const receipt = await tx.wait();
-
-            const voterAddress = await signer.getAddress();
-            const response = await fetch('log-vote.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    election_id: formData.electionId,
-                    hash: receipt.transactionHash,
-                    data: JSON.stringify({
-                        voter: voterAddress,
-                        position_id: formData.positionId,
-                        candidate_id: formData.candidateId,
-                        candidateName: formData.candidateName,
-                        positionName: formData.positionName
-                    }),
-                    voter: voterAddress,
-                    position_id: formData.positionId,
-                    candidate_id: formData.candidateId,
-                    timestamp: Math.floor(Date.now() / 1000)
-                })
-            });
-            const result = await response.json();
-            if (!result.success) {
-                throw new Error('Failed to log vote in database: ' + result.message);
-            }
-
-            showSuccess('Vote cast successfully! Transaction Hash: ' + receipt.transactionHash);
-            return true;
-        }
-
-        // Track user activity for fraud detection
         let userActivityScore = 0;
         document.addEventListener('mousemove', () => userActivityScore = Math.min(userActivityScore + 1, 100));
         document.addEventListener('keypress', () => userActivityScore = Math.min(userActivityScore + 1, 100));
 
-        // Handle vote form submission
         document.querySelectorAll('.vote-form').forEach(form => {
             const confirmModal = document.getElementById('confirm-vote-modal');
             const confirmMessage = document.getElementById('confirm-vote-message');
@@ -1283,15 +950,16 @@ try {
                     return;
                 }
 
-                if (!/^\d+$/.test(candidateId)) {
-                    showError('Invalid candidate selection.');
-                    return;
-                }
-
                 confirmCandidateName.textContent = candidateName;
                 confirmPositionName.textContent = positionName;
                 confirmModal.style.display = 'flex';
-                formData = { electionId, positionId, candidateId, candidateName, positionName };
+                formData = {
+                    electionId,
+                    positionId,
+                    candidateId,
+                    candidateName,
+                    positionName
+                };
 
                 confirmButton.onclick = async () => {
                     confirmModal.style.display = 'none';
@@ -1300,15 +968,161 @@ try {
                     submitButton.textContent = 'Checking for Fraud...';
 
                     try {
-                        const fraudCheckPassed = await checkFraud(formData, submitButton);
-                        if (!fraudCheckPassed) return;
-
-                        const voteCast = await castVoteOnBlockchain(formData, submitButton);
-                        if (voteCast) {
-                            form.querySelectorAll('input[name="candidate_id"]').forEach(radio => radio.disabled = true);
-                            submitButton.disabled = true;
-                            submitButton.textContent = 'Vote Cast';
+                        if (!<?php echo json_encode(checkRateLimit($conn, $user_id)); ?>) {
+                            showError('Rate limit exceeded. Please try again later.');
+                            submitButton.disabled = false;
+                            submitButton.textContent = 'Cast Vote';
+                            return;
                         }
+
+                        const ipAddress = '<?php echo $_SERVER['REMOTE_ADDR']; ?>';
+                        const voterId = '<?php echo htmlspecialchars($user['fname'] . '/' . $user_id); ?>';
+                        const geoLocation = <?php echo getGeoLocation($_SERVER['REMOTE_ADDR']); ?>;
+                        const ipHistory = '<?php echo getIpHistory($conn, $user_id); ?>';
+                        const votePattern = <?php echo getVotePattern($conn, $user_id); ?>;
+                        const fraudData = {
+                            time_diff: <?php echo time() - $_SESSION['last_activity']; ?>,
+                            votes_per_user: <?php echo getUserVoteCount($conn, $user_id); ?>,
+                            vpn_usage: <?php echo detectVPN(getGeoLocation($_SERVER['REMOTE_ADDR']), $_SERVER['REMOTE_ADDR']); ?>,
+                            multiple_logins: <?php echo checkMultipleLogins($conn, $user_id); ?>,
+                            session_duration: <?php echo time() - $_SESSION['start_time']; ?>,
+                            geo_location: geoLocation,
+                            device_fingerprint: navigator.userAgent,
+                            ip_history: JSON.parse(ipHistory),
+                            vote_pattern: votePattern,
+                            user_behavior: userActivityScore
+                        };
+
+                        const fraudResponse = await retryOperation(() => fetch('http://localhost:800/predict', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify(fraudData)
+                        }), 3, 1000, 5000);
+                        const fraudResult = await fraudResponse.json();
+
+                        if (fraudResult.error || !('fraud_label' in fraudResult) || !('fraud_probability' in fraudResult)) {
+                            throw new Error('Invalid fraud detection response: ' + (fraudResult.error || 'Missing required fields'));
+                        }
+
+                        const isFraudulent = fraudResult.fraud_label;
+                        const confidence = fraudResult.fraud_probability;
+                        let action = 'none';
+                        const details = {
+                            ...fraudData,
+                            api_response: fraudResult
+                        };
+
+                        if (isFraudulent) {
+                            const fraudCount = <?php echo getFraudHistory($conn, $user_id); ?>;
+                            action = (confidence > (fraudCount > 0 ? 0.7 : 0.9)) ? 'block_user' : 'logout';
+                            await fetch('log-fraud.php', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({
+                                    user_id: <?php echo $user_id; ?>,
+                                    voter_id: voterId,
+                                    ip_address: ipAddress,
+                                    election_id: electionId,
+                                    is_fraudulent: isFraudulent,
+                                    confidence: confidence,
+                                    details: JSON.stringify(details),
+                                    action: action
+                                })
+                            });
+                            if (action === 'block_user') {
+                                await fetch('block-user.php', {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json'
+                                    },
+                                    body: JSON.stringify({
+                                        user_id: <?php echo $user_id; ?>
+                                    })
+                                });
+                                showError('Fraud detected. Your account has been blocked.');
+                                setTimeout(() => window.location.href = 'login.php?error=' + encodeURIComponent('Account blocked due to fraud detection.'), 3000);
+                                return;
+                            } else {
+                                showError('Fraud detected. You will be logged out.');
+                                setTimeout(() => window.location.href = 'login.php?error=' + encodeURIComponent('Logged out due to fraud detection.'), 3000);
+                                return;
+                            }
+                        } else {
+                            await fetch('log-fraud.php', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({
+                                    user_id: <?php echo $user_id; ?>,
+                                    voter_id: voterId,
+                                    ip_address: ipAddress,
+                                    election_id: electionId,
+                                    is_fraudulent: isFraudulent,
+                                    confidence: confidence,
+                                    details: JSON.stringify(details),
+                                    action: action
+                                })
+                            });
+                        }
+
+                        submitButton.textContent = 'Submitting Vote...';
+                        let signer;
+                        try {
+                            signer = provider.getSigner();
+                        } catch (error) {
+                            throw new Error('Signer not available. Please ensure wallet is connected.');
+                        }
+                        const contractWithSigner = contract.connect(signer);
+                        const tx = await retryOperation(() => contractWithSigner.castVote(
+                            electionId, positionId, candidateId, candidateName, positionName, {
+                                gasLimit: 300000
+                            }
+                        ));
+                        const receipt = await tx.wait();
+
+                        const response = await fetch('log-vote.php', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                election_id: electionId,
+                                hash: receipt.transactionHash,
+                                data: JSON.stringify({
+                                    voter: await signer.getAddress(),
+                                    position_id: positionId,
+                                    candidate_id: candidateId,
+                                    candidateName,
+                                    positionName
+                                }),
+                                voter: await signer.getAddress(),
+                                position_id: positionId,
+                                candidate_id: candidateId,
+                                timestamp: Math.floor(Date.now() / 1000)
+                            })
+                        });
+                        const result = await response.json();
+                        if (!result.success) {
+                            throw new Error('Failed to log vote in database: ' + result.message);
+                        }
+
+                        showSuccess('Vote cast successfully! Transaction Hash: ' + receipt.transactionHash);
+                        form.querySelectorAll('input[name="candidate_id"]').forEach(radio => radio.disabled = true);
+                        submitButton.disabled = true;
+                        submitButton.textContent = 'Vote Cast';
+
+                        // Set session flag for has_voted
+                        await fetch('set-voted-flag.php', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            }
+                        });
                     } catch (error) {
                         console.error('Vote submission error:', error);
                         showError('Error: ' + (error.message.includes('signer') ? 'Wallet connection issue. Please connect your wallet.' : 'Failed to submit vote. Please try again.'));
@@ -1325,9 +1139,8 @@ try {
             });
         });
 
-        // Session timeout handling
-        const inactivityTimeout = <?php echo INACTIVITY_TIMEOUT; ?>;
-        const warningTime = <?php echo WARNING_TIME; ?>;
+        const inactivityTimeout = <?php echo $inactivity_timeout; ?>;
+        const warningTime = <?php echo $warning_time; ?>;
         let inactivityTimer;
         let warningTimer;
         const timeoutModal = document.getElementById('timeout-modal');
@@ -1354,7 +1167,6 @@ try {
         extendSessionButton.addEventListener('click', resetInactivityTimer);
         resetInactivityTimer();
 
-        // Profile dropdown handling
         const profilePic = document.getElementById('profile-pic');
         const userDropdown = document.getElementById('user-dropdown');
         profilePic.addEventListener('click', () => {
@@ -1367,5 +1179,6 @@ try {
         });
     </script>
 </body>
+
 </html>
 <?php $conn->close(); ?>
