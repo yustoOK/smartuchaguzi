@@ -80,7 +80,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (!$college_id) {
                     $errors[] = "College is required for college-scoped position " . ($index + 1) . ".";
                 }
-                $hostel_id = null; // Ensure hostel_id is NULL for college scope
+                $hostel_id = null; 
             } elseif ($scope === 'hostel') {
                 if (!$college_id) {
                     $errors[] = "College is required for hostel-scoped position " . ($index + 1) . ".";

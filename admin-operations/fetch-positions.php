@@ -44,15 +44,15 @@ try {
 
 // Add candidate
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_candidate'])) {
-    $official_id = filter_var($_POST['official_id'], FILTER_SANITIZE_STRING);
+    $official_id = isset($_POST['official_id']) ? trim(strip_tags($_POST['official_id'])) : '';
     $election_id = filter_var($_POST['election_id'], FILTER_VALIDATE_INT);
     $firstname = filter_input(INPUT_POST, 'firstname', FILTER_SANITIZE_FULL_SPECIAL_CHARS);
     $midname = filter_input(INPUT_POST, 'midname', FILTER_SANITIZE_FULL_SPECIAL_CHARS);
     $lastname = filter_input(INPUT_POST, 'lastname', FILTER_SANITIZE_FULL_SPECIAL_CHARS);
-    $association = filter_var($_POST['association'], FILTER_SANITIZE_STRING);
-    $college = filter_var($_POST['college'], FILTER_SANITIZE_STRING);
+    $association = isset($_POST['association']) ? trim(strip_tags($_POST['association'])) : '';
+    $college = isset($_POST['college']) ? trim(strip_tags($_POST['college'])) : '';
     $position_id = filter_var($_POST['position_id'], FILTER_VALIDATE_INT);
-    $passport = filter_var($_POST['passport'], FILTER_SANITIZE_STRING);
+    $passport = isset($_POST['passport']) ? trim(strip_tags($_POST['passport'])) : '';
 
     if (empty($firstname) || empty($lastname)) {
         $errors[] = "First name and last name are required.";

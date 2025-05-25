@@ -359,10 +359,6 @@ try {
             <img src="../Uploads/Vote.jpeg" alt="SmartUchaguzi Logo">
             <h1>SmartUchaguzi</h1>
         </div>
-        <div class="nav">
-            <a href="../overview.php">Overview</a>
-            <a href="../manage-elections.php">Manage Elections</a>
-        </div>
         <div class="user">
             <span><?php echo $admin_name . ($college_name ? ' (' . $college_name . ')' : ''); ?></span>
             <img src="../images/default.png" alt="Profile" onerror="this.src='../images/general.png';">
@@ -377,7 +373,7 @@ try {
 
     <aside class="sidebar">
         <div class="nav">
-            <a href="../overview.php"><i class="fas fa-home"></i> Overview</a>
+            <a href="../admin-dashboard.php"><i class="fas fa-home"></i> Overview</a>
             <a href="manage-elections.php"><i class="fas fa-cog"></i> Election Management</a>
             <a href="blockchain-verification.php"><i class="fas fa-chain"></i> Blockchain Verification</a>
             <a href="user-management.php"><i class="fas fa-users"></i> User Management</a>

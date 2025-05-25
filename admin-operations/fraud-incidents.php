@@ -341,10 +341,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['resolve_id'])) {
             <img src="../Uploads/Vote.jpeg" alt="SmartUchaguzi Logo">
             <h1>SmartUchaguzi</h1>
         </div>
-        <div class="nav">
-            <a href="../overview.php">Overview</a>
-            <a href="../manage-elections.php">Manage Elections</a>
-        </div>
         <div class="user">
             <span><?php echo $admin_name . ($college_name ? ' (' . $college_name . ')' : ''); ?></span>
             <img src="../images/default.png" alt="Profile" onerror="this.src='../images/general.png';">
@@ -359,7 +355,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['resolve_id'])) {
 
     <aside class="sidebar">
         <div class="nav">
-            <a href="../overview.php"><i class="fas fa-home"></i> Overview</a>
+            <a href="../admin-dashboard.php"><i class="fas fa-home"></i> Overview</a>
             <a href="manage-elections.php"><i class="fas fa-cog"></i> Election Management</a>
             <a href="blockchain-verification.php"><i class="fas fa-chain"></i> Blockchain Verification</a>
             <a href="user-management.php"><i class="fas fa-users"></i> User Management</a>
@@ -382,7 +378,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['resolve_id'])) {
                         <tr>
                             <th>ID</th>
                             <th>Election ID</th>
-                            <th>Voter ID</th>
                             <th>Details</th>
                             <th>Timestamp</th>
                             <th>Resolved</th>
@@ -392,28 +387,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['resolve_id'])) {
                     <tbody>
                         <?php
                         try {
-                            $stmt = $pdo->prepare("SELECT id, election_id, voter_id, details, timestamp, resolved FROM frauddetectionlogs ORDER BY timestamp DESC");
-                            $stmt->execute();
-                            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-                                echo "<tr>";
-                                echo "<td>" . htmlspecialchars($row['id']) . "</td>";
-                                echo "<td>" . htmlspecialchars($row['election_id'] ?: 'N/A') . "</td>";
-                                echo "<td>" . htmlspecialchars($row['voter_id'] ?: 'N/A') . "</td>";
-                                echo "<td>" . htmlspecialchars($row['details']) . "</td>";
-                                echo "<td>" . htmlspecialchars($row['timestamp']) . "</td>";
-                                echo "<td>" . ($row['resolved'] ? 'Yes' : 'No') . "</td>";
-                                echo "<td>";
-                                if (!$row['resolved']) {
-                                    echo "<form method='POST' style='display:inline;'><input type='hidden' name='resolve_id' value='" . htmlspecialchars($row['id']) . "'><button type='submit'>Resolve</button></form>";
-                                } else {
-                                    echo "N/A";
+                            $stmt = $pdo->query("SELECT id, election_id, details, created_at, resolved, action FROM frauddetectionlogs");
+                            if ($stmt->rowCount() > 0) {
+                                while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                                    echo "<tr>";
+                                    echo "<td>" . htmlspecialchars($row['id']) . "</td>";
+                                    echo "<td>" . htmlspecialchars($row['election_id']) . "</td>";
+                                    echo "<td>" . htmlspecialchars($row['details']) . "</td>";
+                                    echo "<td>" . htmlspecialchars($row['created_at']) . "</td>";
+                                    echo "<td>" . ($row['resolved'] ? 'Yes' : 'No') . "</td>";
+                                    echo "<td><button onclick=\"if(confirm('Are you sure you want to resolve this incident?')) { resolveIncident(" . $row['id'] . "); }\">Resolve</button></td>";
+                                    echo "</tr>";
                                 }
-                                echo "</td>";
-                                echo "</tr>";
+                            } else {
+                                echo "<tr><td colspan='6'>No fraud incidents found.</td></tr>";
                             }
                         } catch (PDOException $e) {
-                            error_log("Fraud incidents query error: " . $e->getMessage());
-                            echo "<tr><td colspan='7'><p class='error'>Error loading fraud incidents.</p></td></tr>";
+                            error_log("Query error: " . $e->getMessage());
+                            echo "<tr><td colspan='6'>Error loading fraud incidents.</td></tr>";
                         }
                         ?>
                     </tbody>
@@ -445,6 +436,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['resolve_id'])) {
                         userDropdown.style.display = 'none';
                     }
                 });
+            }
+
+            function resolveIncident(incidentId) {
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = '';
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'resolve_id';
+                input.value = incidentId;
+                form.appendChild(input);
+                document.body.appendChild(form);
+                form.submit();
             }
         });
     </script>

@@ -674,10 +674,7 @@ try {
             <img src="./images/System Logo.jpg" alt="SmartUchaguzi Logo">
             <h1>SmartUchaguzi</h1>
         </div>
-        <div class="nav">
-            <a href="#">Overview</a>
-            <a href="manage-elections.php">Manage Elections</a>
-        </div>
+        
         <div class="user">
             <span><?php echo $admin_name . ($college_name ? ' (' . $college_name . ')' : ''); ?></span>
             <img src="images/default.png" alt="Profile" onerror="this.src='images/general.png';">

@@ -106,7 +106,8 @@ try {
     exit;
 }
 
-function generateCsrfToken() {
+function generateCsrfToken()
+{
     if (!isset($_SESSION['csrf_token'])) {
         $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
     }
@@ -114,7 +115,7 @@ function generateCsrfToken() {
 }
 $csrf_token = generateCsrfToken();
 
-$profile_picture = 'uploads/passports/general.png';   
+$profile_picture = 'uploads/passports/general.png';
 $errors = [];
 $elections = [];
 
@@ -263,6 +264,7 @@ try {
 
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -272,78 +274,412 @@ try {
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/web3@1.10.0/dist/web3.min.js"></script>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', sans-serif; }
-        body { background: linear-gradient(rgba(26, 60, 52, 0.7), rgba(26, 60, 52, 0.7)), url('images/cive.jpeg'); background-size: cover; color: #2d3748; min-height: 100vh; display: flex; flex-direction: column; }
-        .header { background: #1a3c34; color: #e6e6e6; padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1); position: fixed; width: 100%; top: 0; z-index: 1000; }
-        .logo { display: flex; align-items: center; }
-        .logo img { width: 40px; height: 40px; border-radius: 50%; margin-right: 10px; }
-        .logo h1 { font-size: 24px; font-weight: 600; }
-        .nav a { color: #e6e6e6; text-decoration: none; margin: 0 15px; font-size: 16px; transition: color 0.3s ease; }
-        .nav a:hover { color: #f4a261; }
-        .user { display: flex; align-items: center; }
-        .user img { width: 40px; height: 40px; border-radius: 50%; margin-right: 10px; cursor: pointer; }
-        .dropdown { display: none; position: absolute; top: 60px; right: 20px; background: #fff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1); overflow: hidden; }
-        .dropdown a, .dropdown span { display: block; padding: 10px 20px; color: #2d3748; text-decoration: none; font-size: 16px; }
-        .dropdown a:hover { background: #f4a261; color: #fff; }
-        .logout-link { display: none; color: #e6e6e6; text-decoration: none; font-size: 16px; }
-        .dashboard { margin-top: 80px; padding: 30px; display: flex; justify-content: center; flex: 1; }
-        .dash-content { background: rgba(255, 255, 255, 0.95); padding: 30px; border-radius: 12px; width: 100%; max-width: 1200px; box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15); }
-        .dash-content h2 { font-size: 28px; color: #1a3c34; margin-bottom: 20px; text-align: center; }
-        .my-votes-section { margin-bottom: 30px; }
-        .my-votes-section h3 { font-size: 22px; color: #2d3748; margin-bottom: 15px; }
-        .vote-item { background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 15px; margin-bottom: 10px; }
-        .election-section { margin-bottom: 30px; }
-        .election-section h3 { font-size: 22px; color: #2d3748; margin-bottom: 15px; }
-        .position-section { margin-bottom: 20px; }
-        .position-section h4 { font-size: 18px; color: #2d3748; margin-bottom: 15px; border-bottom: 2px solid #1a3c34; padding-bottom: 5px; }
-        .candidate-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 20px; }
-        .candidate-card { background: #fff; border: 1px solid #e0e0e0; border-radius: 12px; padding: 20px; display: flex; align-items: center; justify-content: space-between; transition: transform 0.3s ease, box-shadow 0.3s ease; position: relative; overflow: hidden; }
-        .candidate-card:hover { transform: translateY(-5px); box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15); }
-        .candidate-img { width: 80px; height: 80px; object-fit: cover; border-radius: 50%; border: 3px solid #1a3c34; margin-right: 15px; transition: border-color 0.3s ease; }
-        .candidate-card:hover .candidate-img { border-color: #f4a261; }
-        .candidate-details { flex: 1; display: flex; flex-direction: column; gap: 5px; }
-        .candidate-details h5 { font-size: 16px; font-weight: 600; color: #2d3748; margin: 0; }
-        .candidate-details p { font-size: 14px; color: #666; margin: 0; }
-        .error, .success { padding: 15px; border-radius: 6px; margin-bottom: 20px; font-size: 16px; }
-        .error { background: #ffe6e6; color: #e76f51; border: 1px solid #e76f51; }
-        .success { background: #e6fff5; color: #2a9d8f; border: 1px solid #2a9d8f; }
-        .verify-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 1001; justify-content: center; align-items: center; }
-        .verify-modal-content { background: #fff; padding: 20px; border-radius: 8px; text-align: center; max-width: 400px; width: 90%; }
-        .verify-modal-content label { display: block; margin: 10px 0 5px; color: #2d3748; }
-        .verify-modal-content input { width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #e0e0e0; border-radius: 4px; }
-        .verify-modal-content button { background: #f4a261; color: #fff; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-size: 16px; margin: 0 10px; }
-        .verify-modal-content button:hover { background: #e76f51; }
-        @media (max-width: 768px) {
-            .header { flex-direction: column; padding: 10px 20px; }
-            .logo h1 { font-size: 20px; }
-            .nav { margin: 10px 0; text-align: center; }
-            .nav a { margin: 0 10px; font-size: 14px; }
-            .user img { display: none; }
-            .dropdown { display: block; position: static; box-shadow: none; background: none; text-align: center; }
-            .dropdown a, .dropdown span { color: #e6e6e6; padding: 5px 10px; }
-            .dropdown a:hover { background: none; color: #f4a261; }
-            .logout-link { display: block; margin-top: 10px; }
-            .dash-content { padding: 20px; }
-            .dash-content h2 { font-size: 24px; }
-            .election-section h3 { font-size: 18px; }
-            .position-section h4 { font-size: 16px; }
-            .candidate-grid { grid-template-columns: 1fr; }
-            .candidate-card { flex-direction: column; align-items: flex-start; padding: 15px; }
-            .candidate-img { width: 60px; height: 60px; margin-bottom: 10px; margin-right: 0; }
-            .candidate-details h5 { font-size: 14px; }
-            .candidate-details p { font-size: 12px; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Poppins', sans-serif;
         }
+
+        body {
+            background: linear-gradient(rgba(26, 60, 52, 0.7), rgba(26, 60, 52, 0.7)), url('images/cive.jpeg');
+            background-size: cover;
+            color: #2d3748;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            background: #1a3c34;
+            color: #e6e6e6;
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            position: fixed;
+            width: 100%;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+        }
+
+        .logo img {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            margin-right: 10px;
+        }
+
+        .logo h1 {
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .nav a {
+            color: #e6e6e6;
+            text-decoration: none;
+            margin: 0 15px;
+            font-size: 16px;
+            transition: color 0.3s ease;
+        }
+
+        .nav a:hover {
+            color: #f4a261;
+        }
+
+        .user {
+            display: flex;
+            align-items: center;
+        }
+
+        .user img {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            margin-right: 10px;
+            cursor: pointer;
+        }
+
+        .dropdown {
+            display: none;
+            position: absolute;
+            top: 60px;
+            right: 20px;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .dropdown a,
+        .dropdown span {
+            display: block;
+            padding: 10px 20px;
+            color: #2d3748;
+            text-decoration: none;
+            font-size: 16px;
+        }
+
+        .dropdown a:hover {
+            background: #f4a261;
+            color: #fff;
+        }
+
+        .logout-link {
+            display: none;
+            color: #e6e6e6;
+            text-decoration: none;
+            font-size: 16px;
+        }
+
+        .dashboard {
+            margin-top: 80px;
+            padding: 30px;
+            display: flex;
+            justify-content: center;
+            flex: 1;
+        }
+
+        .dash-content {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 30px;
+            border-radius: 12px;
+            width: 100%;
+            max-width: 1200px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+        }
+
+        .dash-content h2 {
+            font-size: 28px;
+            color: #1a3c34;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .my-votes-section {
+            margin-bottom: 30px;
+        }
+
+        .my-votes-section h3 {
+            font-size: 22px;
+            color: #2d3748;
+            margin-bottom: 15px;
+        }
+
+        .vote-item {
+            background: #fff;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 10px;
+        }
+
+        .election-section {
+            margin-bottom: 30px;
+        }
+
+        .election-section h3 {
+            font-size: 22px;
+            color: #2d3748;
+            margin-bottom: 15px;
+        }
+
+        .position-section {
+            margin-bottom: 20px;
+        }
+
+        .position-section h4 {
+            font-size: 18px;
+            color: #2d3748;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #1a3c34;
+            padding-bottom: 5px;
+        }
+
+        .candidate-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .candidate-card {
+            background: #fff;
+            border: 1px solid #e0e0e0;
+            border-radius: 12px;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .candidate-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+        }
+
+        .candidate-img {
+            width: 80px;
+            height: 80px;
+            object-fit: cover;
+            border-radius: 50%;
+            border: 3px solid #1a3c34;
+            margin-right: 15px;
+            transition: border-color 0.3s ease;
+        }
+
+        .candidate-card:hover .candidate-img {
+            border-color: #f4a261;
+        }
+
+        .candidate-details {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .candidate-details h5 {
+            font-size: 16px;
+            font-weight: 600;
+            color: #2d3748;
+            margin: 0;
+        }
+
+        .candidate-details p {
+            font-size: 14px;
+            color: #666;
+            margin: 0;
+        }
+
+        .error,
+        .success {
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            font-size: 16px;
+        }
+
+        .error {
+            background: #ffe6e6;
+            color: #e76f51;
+            border: 1px solid #e76f51;
+        }
+
+        .success {
+            background: #e6fff5;
+            color: #2a9d8f;
+            border: 1px solid #2a9d8f;
+        }
+
+        .verify-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1001;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .verify-modal-content {
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+        }
+
+        .verify-modal-content label {
+            display: block;
+            margin: 10px 0 5px;
+            color: #2d3748;
+        }
+
+        .verify-modal-content input {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+        }
+
+        .verify-modal-content button {
+            background: #f4a261;
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 0 10px;
+        }
+
+        .verify-modal-content button:hover {
+            background: #e76f51;
+        }
+
+        @media (max-width: 768px) {
+            .header {
+                flex-direction: column;
+                padding: 10px 20px;
+            }
+
+            .logo h1 {
+                font-size: 20px;
+            }
+
+            .nav {
+                margin: 10px 0;
+                text-align: center;
+            }
+
+            .nav a {
+                margin: 0 10px;
+                font-size: 14px;
+            }
+
+            .user img {
+                display: none;
+            }
+
+            .dropdown {
+                display: block;
+                position: static;
+                box-shadow: none;
+                background: none;
+                text-align: center;
+            }
+
+            .dropdown a,
+            .dropdown span {
+                color: #e6e6e6;
+                padding: 5px 10px;
+            }
+
+            .dropdown a:hover {
+                background: none;
+                color: #f4a261;
+            }
+
+            .logout-link {
+                display: block;
+                margin-top: 10px;
+            }
+
+            .dash-content {
+                padding: 20px;
+            }
+
+            .dash-content h2 {
+                font-size: 24px;
+            }
+
+            .election-section h3 {
+                font-size: 18px;
+            }
+
+            .position-section h4 {
+                font-size: 16px;
+            }
+
+            .candidate-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .candidate-card {
+                flex-direction: column;
+                align-items: flex-start;
+                padding: 15px;
+            }
+
+            .candidate-img {
+                width: 60px;
+                height: 60px;
+                margin-bottom: 10px;
+                margin-right: 0;
+            }
+
+            .candidate-details h5 {
+                font-size: 14px;
+            }
+
+            .candidate-details p {
+                font-size: 12px;
+            }
+        }
+
         @media (min-width: 600px) {
-            .candidate-card { flex-direction: row; align-items: center; }
-            .candidate-img { margin-bottom: 0; }
+            .candidate-card {
+                flex-direction: row;
+                align-items: center;
+            }
+
+            .candidate-img {
+                margin-bottom: 0;
+            }
         }
     </style>
 </head>
+
 <body>
     <header class="header">
         <div class="logo">
-        <img src="./images/System Logo.jpg" alt="SmartUchaguzi Logo">    
-        <h1>SmartUchaguzi</h1>
+            <img src="./images/System Logo.jpg" alt="SmartUchaguzi Logo">
+            <h1>SmartUchaguzi</h1>
         </div>
         <div class="nav">
             <a href="process-vote.php?csrf_token=<?php echo htmlspecialchars($csrf_token); ?>" id="cast-vote-link">Cast Vote</a>
@@ -405,7 +741,7 @@ try {
                                                     $mainCandidate = $candidateGroup[0]['is_vice'] == 0 ? $candidateGroup[0] : $candidateGroup[1];
                                                     $viceCandidate = $candidateGroup[0]['is_vice'] == 1 ? $candidateGroup[0] : $candidateGroup[1];
                                                     $pair_id = $mainCandidate['pair_id'];
-                                                    ?>
+                                            ?>
                                                     <div class="candidate-card">
                                                         <div style="display: flex; align-items: center;">
                                                             <img src="<?php echo htmlspecialchars($mainCandidate['passport'] ?: 'images/general.png'); ?>" alt="Candidate <?php echo htmlspecialchars($mainCandidate['firstname'] . ' ' . $mainCandidate['lastname']); ?>" class="candidate-img">
@@ -424,11 +760,11 @@ try {
                                                             </div>
                                                         </div>
                                                     </div>
-                                                    <?php
+                                                <?php
                                                 } else {
                                                     $candidate = $candidateGroup[0];
                                                     $candidate_id = $candidate['id'];
-                                                    ?>
+                                                ?>
                                                     <div class="candidate-card">
                                                         <div style="display: flex; align-items: center;">
                                                             <img src="<?php echo htmlspecialchars($candidate['passport'] ?: 'images/general.png'); ?>" alt="Candidate <?php echo htmlspecialchars($candidate['firstname'] . ' ' . $candidate['lastname']); ?>" class="candidate-img">
@@ -439,7 +775,7 @@ try {
                                                             </div>
                                                         </div>
                                                     </div>
-                                                    <?php
+                                            <?php
                                                 }
                                             }
                                             ?>
@@ -455,27 +791,27 @@ try {
     </section>
 
     <div class="verify-modal" id="verify-modal">
-    <div class="verify-modal-content" style="background: #fff; padding: 30px; border-radius: 12px; max-width: 500px; width: 90%; box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);">
-        <h3 style="font-size: 24px; color: #1a3c34; margin-bottom: 20px;">Verify Your Vote</h3>
-        <div style="margin-bottom: 15px;">
-            <label for="verify-election-id" style="display: block; font-size: 14px; color: #2d3748; margin-bottom: 5px;">Election ID:</label>
-            <input type="number" id="verify-election-id" placeholder="Enter Election ID" required style="width: 100%; padding: 10px; border: 1px solid #e0e0e0; border-radius: 4px; font-size: 14px; outline: none;" onfocus="this.style.borderColor='#1a3c34';" onblur="this.style.borderColor='#e0e0e0';">
+        <div class="verify-modal-content" style="background: #fff; padding: 30px; border-radius: 12px; max-width: 500px; width: 90%; box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);">
+            <h3 style="font-size: 24px; color: #1a3c34; margin-bottom: 20px;">Verify Your Vote</h3>
+            <div style="margin-bottom: 15px;">
+                <label for="verify-election-id" style="display: block; font-size: 14px; color: #2d3748; margin-bottom: 5px;">Election ID:</label>
+                <input type="number" id="verify-election-id" placeholder="Enter Election ID" required style="width: 100%; padding: 10px; border: 1px solid #e0e0e0; border-radius: 4px; font-size: 14px; outline: none;" onfocus="this.style.borderColor='#1a3c34';" onblur="this.style.borderColor='#e0e0e0';">
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label for="verify-position-id" style="display: block; font-size: 14px; color: #2d3748; margin-bottom: 5px;">Position ID:</label>
+                <input type="number" id="verify-position-id" placeholder="Enter Position ID" required style="width: 100%; padding: 10px; border: 1px solid #e0e0e0; border-radius: 4px; font-size: 14px; outline: none;" onfocus="this.style.borderColor='#1a3c34';" onblur="this.style.borderColor='#e0e0e0';">
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label for="verify-candidate-id" style="display: block; font-size: 14px; color: #2d3748; margin-bottom: 5px;">Candidate ID:</label>
+                <input type="number" id="verify-candidate-id" placeholder="Enter Candidate ID" required style="width: 100%; padding: 10px; border: 1px solid #e0e0e0; border-radius: 4px; font-size: 14px; outline: none;" onfocus="this.style.borderColor='#1a3c34';" onblur="this.style.borderColor='#e0e0e0';">
+            </div>
+            <div style="display: flex; justify-content: center; gap: 10px; margin-top: 20px;">
+                <button onclick="verifyVote()" style="padding: 10px 20px; background: #1a3c34; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; transition: background 0.3s;">Verify</button>
+                <button onclick="closeVerifyModal()" style="padding: 10px 20px; background: #e76f51; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; transition: background 0.3s;">Cancel</button>
+            </div>
+            <p id="verify-result" style="margin-top: 15px; font-size: 14px; color: #2d3748;"></p>
         </div>
-        <div style="margin-bottom: 15px;">
-            <label for="verify-position-id" style="display: block; font-size: 14px; color: #2d3748; margin-bottom: 5px;">Position ID:</label>
-            <input type="number" id="verify-position-id" placeholder="Enter Position ID" required style="width: 100%; padding: 10px; border: 1px solid #e0e0e0; border-radius: 4px; font-size: 14px; outline: none;" onfocus="this.style.borderColor='#1a3c34';" onblur="this.style.borderColor='#e0e0e0';">
-        </div>
-        <div style="margin-bottom: 15px;">
-            <label for="verify-candidate-id" style="display: block; font-size: 14px; color: #2d3748; margin-bottom: 5px;">Candidate ID:</label>
-            <input type="number" id="verify-candidate-id" placeholder="Enter Candidate ID" required style="width: 100%; padding: 10px; border: 1px solid #e0e0e0; border-radius: 4px; font-size: 14px; outline: none;" onfocus="this.style.borderColor='#1a3c34';" onblur="this.style.borderColor='#e0e0e0';">
-        </div>
-        <div style="display: flex; justify-content: center; gap: 10px; margin-top: 20px;">
-            <button onclick="verifyVote()" style="padding: 10px 20px; background: #1a3c34; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; transition: background 0.3s;">Verify</button>
-            <button onclick="closeVerifyModal()" style="padding: 10px 20px; background: #e76f51; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; transition: background 0.3s;">Cancel</button>
-        </div>
-        <p id="verify-result" style="margin-top: 15px; font-size: 14px; color: #2d3748;"></p>
     </div>
-</div>
 
     <div class="modal" id="timeout-modal">
         <div class="modal-content">
@@ -506,284 +842,262 @@ try {
         const castVoteLink = document.getElementById('cast-vote-link');
 
         const contractAddress = '0x7f37Ea78D22DA910e66F8FdC1640B75dc88fa44F';
-        const abi = [
-    {
-      "inputs": [],
-      "stateMutability": "nonpayable",
-      "type": "constructor"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "electionId",
-          "type": "uint256"
-        },
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "voter",
-          "type": "address"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "positionId",
-          "type": "uint256"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "candidateId",
-          "type": "uint256"
-        },
-        {
-          "indexed": false,
-          "internalType": "string",
-          "name": "candidateName",
-          "type": "string"
-        },
-        {
-          "indexed": false,
-          "internalType": "string",
-          "name": "positionName",
-          "type": "string"
-        }
-      ],
-      "name": "VoteCast",
-      "type": "event"
-    },
-    {
-      "inputs": [],
-      "name": "admin",
-      "outputs": [
-        {
-          "internalType": "address",
-          "name": "",
-          "type": "address"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "electionId",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "positionId",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "candidateId",
-          "type": "uint256"
-        },
-        {
-          "internalType": "string",
-          "name": "candidateName",
-          "type": "string"
-        },
-        {
-          "internalType": "string",
-          "name": "positionName",
-          "type": "string"
-        }
-      ],
-      "name": "castVote",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "positionId",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "candidateId",
-          "type": "uint256"
-        }
-      ],
-      "name": "getVoteCount",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "electionId",
-          "type": "uint256"
-        }
-      ],
-      "name": "getVotesByElection",
-      "outputs": [
-        {
-          "components": [
-            {
-              "internalType": "uint256",
-              "name": "electionId",
-              "type": "uint256"
+        const abi = [{
+                "inputs": [],
+                "stateMutability": "nonpayable",
+                "type": "constructor"
             },
             {
-              "internalType": "address",
-              "name": "voter",
-              "type": "address"
+                "anonymous": false,
+                "inputs": [{
+                        "indexed": false,
+                        "internalType": "uint256",
+                        "name": "electionId",
+                        "type": "uint256"
+                    },
+                    {
+                        "indexed": true,
+                        "internalType": "address",
+                        "name": "voter",
+                        "type": "address"
+                    },
+                    {
+                        "indexed": false,
+                        "internalType": "uint256",
+                        "name": "positionId",
+                        "type": "uint256"
+                    },
+                    {
+                        "indexed": false,
+                        "internalType": "uint256",
+                        "name": "candidateId",
+                        "type": "uint256"
+                    },
+                    {
+                        "indexed": false,
+                        "internalType": "string",
+                        "name": "candidateName",
+                        "type": "string"
+                    },
+                    {
+                        "indexed": false,
+                        "internalType": "string",
+                        "name": "positionName",
+                        "type": "string"
+                    }
+                ],
+                "name": "VoteCast",
+                "type": "event"
             },
             {
-              "internalType": "uint256",
-              "name": "positionId",
-              "type": "uint256"
+                "inputs": [],
+                "name": "admin",
+                "outputs": [{
+                    "internalType": "address",
+                    "name": "",
+                    "type": "address"
+                }],
+                "stateMutability": "view",
+                "type": "function"
             },
             {
-              "internalType": "uint256",
-              "name": "candidateId",
-              "type": "uint256"
+                "inputs": [{
+                        "internalType": "uint256",
+                        "name": "electionId",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "positionId",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "candidateId",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "string",
+                        "name": "candidateName",
+                        "type": "string"
+                    },
+                    {
+                        "internalType": "string",
+                        "name": "positionName",
+                        "type": "string"
+                    }
+                ],
+                "name": "castVote",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
             },
             {
-              "internalType": "uint256",
-              "name": "timestamp",
-              "type": "uint256"
+                "inputs": [{
+                        "internalType": "uint256",
+                        "name": "positionId",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "candidateId",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "getVoteCount",
+                "outputs": [{
+                    "internalType": "uint256",
+                    "name": "",
+                    "type": "uint256"
+                }],
+                "stateMutability": "view",
+                "type": "function"
             },
             {
-              "internalType": "string",
-              "name": "candidateName",
-              "type": "string"
+                "inputs": [{
+                    "internalType": "uint256",
+                    "name": "electionId",
+                    "type": "uint256"
+                }],
+                "name": "getVotesByElection",
+                "outputs": [{
+                    "components": [{
+                            "internalType": "uint256",
+                            "name": "electionId",
+                            "type": "uint256"
+                        },
+                        {
+                            "internalType": "address",
+                            "name": "voter",
+                            "type": "address"
+                        },
+                        {
+                            "internalType": "uint256",
+                            "name": "positionId",
+                            "type": "uint256"
+                        },
+                        {
+                            "internalType": "uint256",
+                            "name": "candidateId",
+                            "type": "uint256"
+                        },
+                        {
+                            "internalType": "uint256",
+                            "name": "timestamp",
+                            "type": "uint256"
+                        },
+                        {
+                            "internalType": "string",
+                            "name": "candidateName",
+                            "type": "string"
+                        },
+                        {
+                            "internalType": "string",
+                            "name": "positionName",
+                            "type": "string"
+                        }
+                    ],
+                    "internalType": "struct VoteContract.Vote[]",
+                    "name": "",
+                    "type": "tuple[]"
+                }],
+                "stateMutability": "view",
+                "type": "function"
             },
             {
-              "internalType": "string",
-              "name": "positionName",
-              "type": "string"
+                "inputs": [{
+                        "internalType": "address",
+                        "name": "",
+                        "type": "address"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "hasVoted",
+                "outputs": [{
+                    "internalType": "bool",
+                    "name": "",
+                    "type": "bool"
+                }],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [{
+                        "internalType": "uint256",
+                        "name": "",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "voteCount",
+                "outputs": [{
+                    "internalType": "uint256",
+                    "name": "",
+                    "type": "uint256"
+                }],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [{
+                    "internalType": "uint256",
+                    "name": "",
+                    "type": "uint256"
+                }],
+                "name": "votes",
+                "outputs": [{
+                        "internalType": "uint256",
+                        "name": "electionId",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "address",
+                        "name": "voter",
+                        "type": "address"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "positionId",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "candidateId",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "timestamp",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "string",
+                        "name": "candidateName",
+                        "type": "string"
+                    },
+                    {
+                        "internalType": "string",
+                        "name": "positionName",
+                        "type": "string"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
             }
-          ],
-          "internalType": "struct VoteContract.Vote[]",
-          "name": "",
-          "type": "tuple[]"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "",
-          "type": "address"
-        },
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "name": "hasVoted",
-      "outputs": [
-        {
-          "internalType": "bool",
-          "name": "",
-          "type": "bool"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "name": "voteCount",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "name": "votes",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "electionId",
-          "type": "uint256"
-        },
-        {
-          "internalType": "address",
-          "name": "voter",
-          "type": "address"
-        },
-        {
-          "internalType": "uint256",
-          "name": "positionId",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "candidateId",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "timestamp",
-          "type": "uint256"
-        },
-        {
-          "internalType": "string",
-          "name": "candidateName",
-          "type": "string"
-        },
-        {
-          "internalType": "string",
-          "name": "positionName",
-          "type": "string"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    }
-  ];
+        ];
         const alchemyApiKey = '1isPc6ojuMcMbyoNNeQkLDGM76n8oT8B';
         const provider = new Web3.providers.HttpProvider(`https://eth-sepolia.g.alchemy.com/v2/${alchemyApiKey}`);
         const web3 = new Web3(provider);
@@ -835,42 +1149,48 @@ try {
         });
 
         // Open results modal
- 
-const resultsLink = document.getElementById('results-link');
-const resultsModal = document.getElementById('results-modal');
-const resultsContent = document.getElementById('results-content');
 
-// Function to display results based on electionId
-async function displayResults(electionId) {
-    try {
-        if (!electionId || isNaN(electionId) || electionId <= 0) {
-            resultsContent.innerHTML = '<p class="error">Please enter a valid Election ID.</p>';
-            return;
-        }
+        const resultsLink = document.getElementById('results-link');
+        const resultsModal = document.getElementById('results-modal');
+        const resultsContent = document.getElementById('results-content');
 
-        const votes = await contract.methods.getVotesByElection(electionId).call();
-        const positionVoteCounts = {};
+        // Function to display results based on electionId
+        async function displayResults(electionId) {
+            try {
+                if (!electionId || isNaN(electionId) || electionId <= 0) {
+                    resultsContent.innerHTML = '<p class="error">Please enter a valid Election ID.</p>';
+                    return;
+                }
 
-        for (const vote of votes) {
-            const positionId = vote.positionId;
-            const candidateId = vote.candidateId;
-            const candidateName = vote.candidateName;
-            const positionName = vote.positionName;
+                const votes = await contract.methods.getVotesByElection(electionId).call();
+                const positionVoteCounts = {};
 
-            if (!positionVoteCounts[positionId]) {
-                positionVoteCounts[positionId] = { positionName, candidates: {} };
-            }
-            if (!positionVoteCounts[positionId].candidates[candidateId]) {
-                positionVoteCounts[positionId].candidates[candidateId] = { name: candidateName, count: 0 };
-            }
-            positionVoteCounts[positionId].candidates[candidateId].count++;
-        }
+                for (const vote of votes) {
+                    const positionId = vote.positionId;
+                    const candidateId = vote.candidateId;
+                    const candidateName = vote.candidateName;
+                    const positionName = vote.positionName;
 
-        let html = '<h3>Election Results</h3>';
-        if (Object.keys(positionVoteCounts).length === 0) {
-            html += '<p>No votes recorded for this election.</p>';
-        } else {
-            html += `
+                    if (!positionVoteCounts[positionId]) {
+                        positionVoteCounts[positionId] = {
+                            positionName,
+                            candidates: {}
+                        };
+                    }
+                    if (!positionVoteCounts[positionId].candidates[candidateId]) {
+                        positionVoteCounts[positionId].candidates[candidateId] = {
+                            name: candidateName,
+                            count: 0
+                        };
+                    }
+                    positionVoteCounts[positionId].candidates[candidateId].count++;
+                }
+
+                let html = '<h3>Election Results</h3>';
+                if (Object.keys(positionVoteCounts).length === 0) {
+                    html += '<p>No votes recorded for this election.</p>';
+                } else {
+                    html += `
                 <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
                     <thead style="background: #1a3c34; color: #fff;">
                         <tr>
@@ -880,33 +1200,33 @@ async function displayResults(electionId) {
                         </tr>
                     </thead>
                     <tbody>`;
-            for (const positionId in positionVoteCounts) {
-                const position = positionVoteCounts[positionId];
-                const candidates = position.candidates;
-                for (const candidateId in candidates) {
-                    const candidate = candidates[candidateId];
-                    html += `
+                    for (const positionId in positionVoteCounts) {
+                        const position = positionVoteCounts[positionId];
+                        const candidates = position.candidates;
+                        for (const candidateId in candidates) {
+                            const candidate = candidates[candidateId];
+                            html += `
                         <tr style="background: #fff;">
                             <td style="padding: 12px; border: 1px solid #ddd;">${position.positionName}</td>
                             <td style="padding: 12px; border: 1px solid #ddd;">${candidate.name}</td>
                             <td style="padding: 12px; border: 1px solid #ddd;">${candidate.count}</td>
                         </tr>`;
+                        }
+                    }
+                    html += `</tbody></table>`;
                 }
+                resultsContent.innerHTML = html;
+            } catch (error) {
+                resultsContent.innerHTML = `<p class="error">Error fetching results: ${error.message}</p>`;
+                console.error(error);
             }
-            html += `</tbody></table>`;
         }
-        resultsContent.innerHTML = html;
-    } catch (error) {
-        resultsContent.innerHTML = `<p class="error">Error fetching results: ${error.message}</p>`;
-        console.error(error);
-    }
-}
 
-// Update the results modal event listener with styled search input
-resultsLink.addEventListener('click', (e) => {
-    e.preventDefault();
-    resultsModal.style.display = 'flex';
-    resultsContent.innerHTML = `
+        // Update the results modal event listener with styled search input
+        resultsLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            resultsModal.style.display = 'flex';
+            resultsContent.innerHTML = `
         <h3>Election Results</h3>
         <div style="margin-bottom: 20px;">
             <input type="number" id="election-id-input" placeholder="Search Election ID..." style="padding: 10px; border: 1px solid #e0e0e0; border-radius: 4px; width: 100%; max-width: 300px; font-size: 14px; outline: none;" onfocus="this.style.borderColor='#1a3c34';" onblur="this.style.borderColor='#e0e0e0';">
@@ -915,18 +1235,18 @@ resultsLink.addEventListener('click', (e) => {
         <div id="results-display"></div>
     `;
 
-    const fetchResultsBtn = document.getElementById('fetch-results-btn');
-    fetchResultsBtn.addEventListener('click', () => {
-        const electionId = document.getElementById('election-id-input').value;
-        displayResults(electionId);
-    });
-});
+            const fetchResultsBtn = document.getElementById('fetch-results-btn');
+            fetchResultsBtn.addEventListener('click', () => {
+                const electionId = document.getElementById('election-id-input').value;
+                displayResults(electionId);
+            });
+        });
 
-// Close results modal and reset content
-function closeResultsModal() {
-    resultsModal.style.display = 'none';
-    resultsContent.innerHTML = 'Results will be displayed here.';
-}
+        // Close results modal and reset content
+        function closeResultsModal() {
+            resultsModal.style.display = 'none';
+            resultsContent.innerHTML = 'Results will be displayed here.';
+        }
 
         // Close verify modal
         function closeVerifyModal() {
@@ -1002,14 +1322,15 @@ function closeResultsModal() {
 
         // Handling cast vote link (redirect)
         castVoteLink.addEventListener('click', (e) => {
-    e.preventDefault();
-    window.location.href = `process-vote.php?csrf_token=<?php echo htmlspecialchars($csrf_token); ?>`;
-});
+            e.preventDefault();
+            window.location.href = `process-vote.php?csrf_token=<?php echo htmlspecialchars($csrf_token); ?>`;
+        });
 
         // Load votes on page load
         window.addEventListener('load', loadMyVotes);
     </script>
 </body>
+
 </html>
 <?php
 $conn->close();

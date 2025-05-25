@@ -42,7 +42,7 @@ $college_name = '';
 if ($user['college_id']) {
     try {
         $stmt = $pdo->prepare("SELECT name FROM colleges WHERE college_id = ?");
-        $stmt->execute($user['college_id']);
+        $stmt->execute([$user['college_id']]);
         $college_name = $stmt->fetchColumn() ?: 'Unknown';
     } catch (PDOException $e) {
         error_log("College query failed: " . $e->getMessage());
@@ -338,10 +338,6 @@ if ($user['college_id']) {
             <img src="../Uploads/Vote.jpeg" alt="SmartUchaguzi Logo">
             <h1>SmartUchaguzi</h1>
         </div>
-        <div class="nav">
-            <a href="../overview.php">Overview</a>
-            <a href="../manage-elections.php">Manage Elections</a>
-        </div>
         <div class="user">
             <span><?php echo $admin_name . ($college_name ? ' (' . $college_name . ')' : ''); ?></span>
             <img src="../images/default.png" alt="Profile" onerror="this.src='../images/general.png';">
@@ -356,7 +352,7 @@ if ($user['college_id']) {
 
     <aside class="sidebar">
         <div class="nav">
-            <a href="../overview.php"><i class="fas fa-home"></i> Overview</a>
+            <a href="../admin-dashboard.php"><i class="fas fa-home"></i> Overview</a>
             <a href="manage-elections.php"><i class="fas fa-cog"></i> Election Management</a>
             <a href="blockchain-verification.php" class="active"><i class="fas fa-chain"></i> Blockchain Verification</a>
             <a href="user-management.php"><i class="fas fa-users"></i> User Management</a>
@@ -377,10 +373,10 @@ if ($user['college_id']) {
                         <option value="">Select Election</option>
                         <?php
                         try {
-                            $stmt = $pdo->prepare("SELECT id, CONCAT(association, ' - ', start_time) AS name FROM elections ORDER BY start_time DESC");
+                            $stmt = $pdo->prepare("SELECT election_id, CONCAT(association, ' - ', start_time) AS name FROM elections ORDER BY start_time DESC");
                             $stmt->execute();
                             while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-                                echo "<option value='{$row['id']}'>" . htmlspecialchars($row['name']) . "</option>";
+                                echo "<option value='{$row['election_id']}'>" . htmlspecialchars($row['name']) . "</option>";
                             }
                         } catch (PDOException $e) {
                             error_log("Election select query error: " . $e->getMessage());
@@ -400,18 +396,40 @@ if ($user['college_id']) {
     </main>
 
     <script>
-        const provider = new ethers.providers.JsonRpcProvider('https://eth-sepolia.g.alchemy.com/v2/<?php echo $alchemy_api_key; ?>');
+        // Initialize provider and contract variables
+        const provider = new ethers.providers.JsonRpcProvider('https://eth-sepolia.g.alchemy.com/v2/1isPc6ojuMcMbyoNNeQkLDGM76n8oT8B');
         const contractAddress = '0x7f37Ea78D22DA910e66F8FdC1640B75dc88fa44F';
-        const contractABI = <?php echo json_encode([ /* Same ABI as in process-vote.php, omitted for brevity */ ]); ?>;
-        const contract = new ethers.Contract(contractAddress, contractABI, provider);
 
-        document.addEventListener('DOMContentLoaded', () => {
+        // Fetch ABI and initialize contract
+        async function loadContract() {
+            try {
+                const response = await fetch('../js/contract-abi.json');
+                if (!response.ok) {
+                    throw new Error('Failed to load ABI');
+                }
+                const contractABI = await response.json();
+                return new ethers.Contract(contractAddress, contractABI, provider);
+            } catch (error) {
+                console.error('Error loading ABI:', error);
+                throw error;
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
             const menuToggle = document.querySelector('.menu-toggle');
             const sidebar = document.querySelector('.sidebar');
             const profilePic = document.querySelector('.user img');
             const userDropdown = document.getElementById('user-dropdown');
             const blockchainElectionSelect = document.getElementById('blockchain-election-select');
             const blockchainVerification = document.getElementById('blockchain-verification');
+
+            let contract;
+            try {
+                contract = await loadContract();
+            } catch (error) {
+                blockchainVerification.innerHTML = `<p class="error">Failed to initialize contract: ${error.message}</p>`;
+                return;
+            }
 
             menuToggle.addEventListener('click', () => {
                 sidebar.classList.toggle('active');
