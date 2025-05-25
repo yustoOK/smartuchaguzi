@@ -420,11 +420,11 @@ if ($user['college_id']) {
     </main>
 
     <script>
-        // Initialize provider and contract variables
+        // Initializing provider and contract variables
         const provider = new ethers.providers.JsonRpcProvider('https://eth-sepolia.g.alchemy.com/v2/1isPc6ojuMcMbyoNNeQkLDGM76n8oT8B');
         const contractAddress = '0x7f37Ea78D22DA910e66F8FdC1640B75dc88fa44F';
 
-        // Fetch ABI and initialize contract
+        // Fetching ABI 
         async function loadContract() {
             try {
                 const response = await fetch('../js/contract-abi.json');

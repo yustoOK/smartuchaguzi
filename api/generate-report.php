@@ -17,25 +17,27 @@ try {
     }
 
     // Fetch election details
-    $stmt = $conn->prepare("SELECT association, start_time FROM elections WHERE id = ?");
+    $stmt = $conn->prepare("SELECT association, start_time FROM elections WHERE election_id = ?");
     $stmt->execute([$election_id]);
     $election = $stmt->fetch(PDO::FETCH_ASSOC);
     if (!$election) {
         die('Election not found');
     }
 
-    // Fetch vote data (assuming blockchain data is mirrored in blockchainrecords)
-    $stmt = $conn->prepare("SELECT data FROM blockchainrecords WHERE election_id = ?");
-    $stmt->execute([$election_id]);
-    $votes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    // Fetch votes from the blockchain via an API endpoint
+    $voteResponse = file_get_contents("http://localhost/smartuchaguzi/api/fetch-blockchain-votes.php?election_id=$election_id");
+    $voteData = json_decode($voteResponse, true);
+    if (isset($voteData['error'])) {
+        die('Error fetching votes: ' . $voteData['error']);
+    }
+    $votes = $voteData['votes'];
 
     $positionsMap = [];
     foreach ($votes as $vote) {
-        $data = json_decode($vote['data'], true);
-        $positionId = $data['position_id'];
-        $candidateId = $data['candidate_id'];
-        $candidateName = $data['candidateName'];
-        $positionName = $data['positionName'];
+        $positionId = $vote['positionId'];
+        $candidateId = $vote['candidateId'];
+        $candidateName = $vote['candidateName'];
+        $positionName = $vote['positionName'];
 
         if (!isset($positionsMap[$positionId])) {
             $positionsMap[$positionId] = [
@@ -90,7 +92,7 @@ try {
         $pdf->Ln(10);
     }
 
-    $pdf->Output('Election_Analytics_Report.pdf', 'D');
+    $pdf->Output('Analytics_Report.pdf', 'D');
 } catch (Exception $e) {
     die('Error generating report: ' . $e->getMessage());
 }
