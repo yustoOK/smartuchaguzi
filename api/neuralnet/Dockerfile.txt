@@ -1,14 +1,17 @@
-FROM python:3.9-slim@sha256:3e5e3e8c2e2c2b1e5b5e6c7e8e9e0e1e2e3e4e5e6e7e8e9e0e1e2e3e4e5e6e7
+FROM python:3.9-slim
 
 WORKDIR /app
 
-COPY fraud_api.py .
-COPY fraud_model.keras .
-COPY scaler.pkl .
 COPY requirements.txt .
-
 RUN pip install --no-cache-dir -r requirements.txt
 
-EXPOSE 800
+COPY fraud_detection_model.keras .
+COPY scaler.pkl .
+COPY encoder.pkl .
+COPY synthetic_voting_data.csv .
+COPY smartuchaguzi_api.py .
+COPY all_metrics_measures.py .
 
-CMD ["uvicorn", "fraud_api:app", "--host", "0.0.0.0", "--port", "800"]
+EXPOSE 8002
+
+CMD ["uvicorn", "smartuchaguzi_api:app", "--host", "127.0.0.1", "--port", "8002"]
