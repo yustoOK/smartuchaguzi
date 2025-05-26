@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  smartuchaguzi-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: smartuchaguzi-api
+    ports:
+      - "8002:8002"
+    volumes:
+      - .:/app
+    restart: unless-stopped
