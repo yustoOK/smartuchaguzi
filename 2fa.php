@@ -17,7 +17,7 @@ try {
     die("Unable to connect to the database. Please try again later.");
 }
 
-// Session validation
+// Session validation 
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['role']) || !in_array($_SESSION['role'], ['voter', 'admin'])) {
     error_log("Session validation failed: user_id or role not set or invalid. Session: " . print_r($_SESSION, true));
     session_unset();
@@ -168,7 +168,7 @@ if (!$setup_needed && isset($_POST['verify_totp'])) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>2FA Verification | SmartUchaguzi</title>
-    <link rel="icon" href="/smartuchaguzi/Uploads/Vote.jpeg" type="image/x-icon"> <!-- Relative URL -->
+    <link rel="icon" href="./images/System Logo.jpg" type="image/x-icon"> <!-- Relative URL -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>

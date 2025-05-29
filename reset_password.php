@@ -8,7 +8,7 @@ date_default_timezone_set('Africa/Dar_es_Salaam');
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SmartUchaguzi | Reset Password</title>
-    <link rel="icon" href="./uploads/Vote.jpeg" type="image/x-icon">
+    <link rel="icon" href="./images/System Logo.jpg" type="image/x-icon">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         * {
@@ -231,7 +231,7 @@ date_default_timezone_set('Africa/Dar_es_Salaam');
     <div class="header">
         <div class="logo-container">
             <div class="logo">
-                <img src="./uploads/Vote.jpeg" alt="SmartUchaguzi Logo">
+                <img src="./images/System Logo.jpg" alt="SmartUchaguzi Logo">
                 <h1>SmartUchaguzi</h1>
             </div>
             <div class="breadcrumb">
