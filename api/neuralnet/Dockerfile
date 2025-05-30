@@ -14,4 +14,4 @@ COPY all_metrics_measures.py .
 
 EXPOSE 8002
 
-CMD ["uvicorn", "smartuchaguzi_api:app", "--host", "127.0.0.1", "--port", "8002"]
+CMD ["uvicorn", "smartuchaguzi_api:app", "--host", "0.0.0.0", "--port", "8002"]
