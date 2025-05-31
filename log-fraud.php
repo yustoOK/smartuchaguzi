@@ -1,38 +1,90 @@
 <?php
-   header('Content-Type: application/json');
+header('Content-Type: application/json');
+require_once 'config.php';
 
-   $host = 'localhost';
-   $dbname = 'smartuchaguzi_db';
-   $username = 'root';
-   $password = 'Leonida1972@@@@';
+try {
+    $conn = new mysqli($host, $username, $password, $dbname);
+    if ($conn->connect_error) {
+        throw new Exception("Database connection failed: " . $conn->connect_error);
+    }
 
-   try {
-       $conn = new mysqli($host, $username, $password, $dbname);
-       if ($conn->connect_error) {
-           throw new Exception("Database connection failed: " . $conn->connect_error);
-       }
+    // Get the JSON input
+    $input = json_decode(file_get_contents('php://input'), true);
+    if (!$input) {
+        throw new Exception("Invalid JSON input");
+    }
 
-       $data = json_decode(file_get_contents('php://input'), true);
-       $election_id = $data['election_id'];
-       $hash = $data['hash'];
-       $data_str = $data['data'];
-       $voter = $data['voter'];
-       $position_id = $data['position_id'];
-       $candidate_id = $data['candidate_id'];
-       $timestamp = date('Y-m-d H:i:s', $data['timestamp']);
+    // Extract fields from input
+    $user_id = $input['user_id'] ?? null;
+    $voter_id = $input['voter_id'] ?? null;
+    $ip_address = $input['ip_address'] ?? null;
+    $election_id = $input['election_id'] ?? null;
+    $is_fraudulent = $input['is_fraudulent'] ?? 0;
+    $confidence = $input['confidence'] ?? 0.0;
+    $details = $input['details'] ?? '{}';
+    $action = $input['action'] ?? 'none';
 
-       $stmt = $conn->prepare(
-           "INSERT INTO blockchainrecords (election_id, hash, data, voter, position_id, candidate_id, timestamp) 
-            VALUES (?, ?, ?, ?, ?, ?, ?)"
-       );
-       $stmt->bind_param("issssii", $election_id, $hash, $data_str, $voter, $position_id, $candidate_id, $timestamp);
-       $stmt->execute();
-       $stmt->close();
+    // Parse details JSON
+    $details_array = json_decode($details, true);
+    if (!$details_array) {
+        throw new Exception("Invalid details JSON");
+    }
 
-       echo json_encode(['success' => true]);
-   } catch (Exception $e) {
-       echo json_encode(['success' => false, 'message' => $e->getMessage()]);
-   }
+    // Prepare the SQL statement
+    $stmt = $conn->prepare(
+        "INSERT INTO frauddetectionlogs (
+            user_id, election_id, is_fraudulent, confidence, details, 
+            ip_history, vote_pattern, user_behavior, api_response, description, 
+            action, time_diff, votes_per_user, session_duration, geo_location, 
+            device_fingerprint, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())"
+    );
 
-   $conn->close();
-   ?>
+    $description = $is_fraudulent ? "Fraud detected with confidence $confidence" : "No fraud detected";
+    $ip_history = json_encode($details_array['ip_history'] ?? []);
+    $vote_pattern = $details_array['vote_pattern'] ?? 0;
+    $user_behavior = $details_array['user_behavior'] ?? 0;
+    $api_response = json_encode($details_array['api_response'] ?? []);
+    $time_diff = $details_array['time_diff'] ?? 0;
+    $votes_per_user = $details_array['votes_per_user'] ?? 0;
+    $session_duration = $details_array['session_duration'] ?? 0;
+    $geo_location = $details_array['geo_location'] ?? 0;
+    $device_fingerprint = $details_array['device_fingerprint'] ?? '';
+
+    $stmt->bind_param(
+        "iiidssdsssiiiiis",
+        $user_id,
+        $election_id,
+        $is_fraudulent,
+        $confidence,
+        $details,
+        $ip_history,
+        $vote_pattern,
+        $user_behavior,
+        $api_response,
+        $description,
+        $action,
+        $time_diff,
+        $votes_per_user,
+        $session_duration,
+        $geo_location,
+        $device_fingerprint
+    );
+
+    // Execute the query
+    if (!$stmt->execute()) {
+        throw new Exception("Failed to log fraud: " . $stmt->error);
+    }
+
+    $stmt->close();
+    $conn->close();
+
+    // Return success response
+    echo json_encode(['success' => true]);
+} catch (Exception $e) {
+    // Log the error and return failure response
+    error_log("log-fraud.php error: " . $e->getMessage());
+    http_response_code(500);
+    echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+}
+?>

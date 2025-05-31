@@ -24,7 +24,7 @@ try {
 
 // Helper Functions
 function getUserVoteCount($conn, $user_id) {
-    $stmt = $conn->prepare("SELECT COUNT(*) as vote_count FROM blockchainrecords WHERE voter = ?");
+    $stmt = $conn->prepare("SELECT COUNT(*) as vote_count FROM blockchainrecords WHERE voter = ? AND timestamp >= NOW() - INTERVAL 24 HOUR");
     $stmt->bind_param("i", $user_id);
     $stmt->execute();
     $result = $stmt->get_result()->fetch_assoc();
@@ -42,41 +42,47 @@ function checkMultipleLogins($conn, $user_id) {
 }
 
 function getGeoLocation($ip) {
-    // Simulate geolocation based on IP range (simplified logic)
     $ipParts = explode('.', $ip);
-    if ($ipParts[0] == 41 || $ipParts[0] == 102) { // Common African IP ranges (e.g., Tanzania)
-        return 0; // TZ
-    } elseif ($ipParts[0] == 105 || $ipParts[0] == 197) { // Common Kenyan IP ranges
-        return 1; // KE
-    } elseif ($ipParts[0] == 154) { // Common Ugandan IP ranges
-        return 2; // UG
-    } elseif ($ipParts[0] == 168) { // Common Rwandan IP ranges
-        return 3; // RW
-    } else { // Other regions (potential VPN indicator)
-        return 4;
-    }
+    if ($ipParts[0] == 41 || $ipParts[0] == 102) return 0; // Tanzania
+    if ($ipParts[0] == 105 || $ipParts[0] == 197) return 1; // Kenya
+    if ($ipParts[0] == 154) return 2; // Uganda
+    if ($ipParts[0] == 168) return 3; // Rwanda
+    return 4; // Other
 }
 
 function detectVPN($geo_location, $ip) {
     $ipParts = explode('.', $ip);
-    // Enhanced logic: VPNs often use non-local IP ranges or specific providers
-    $isNonLocal = ($geo_location > 0 || $ipParts[0] > 200); // High IP ranges often indicate VPNs
+    $isNonLocal = ($geo_location > 0 || $ipParts[0] > 200);
     $randomFactor = random_int(0, 100);
-    if ($isNonLocal) {
-        return $randomFactor < 70 ? 1 : 0; // 70% chance if non-local
-    } else {
-        return $randomFactor < 10 ? 1 : 0; // 10% chance if local
-    }
+    return $isNonLocal ? ($randomFactor < 80 ? 1 : 0) : ($randomFactor < 5 ? 1 : 0);
 }
 
 function logFraud($conn, $user_id, $voter_id, $ip_address, $election_id, $is_fraudulent, $confidence, $details, $action) {
     $description = $is_fraudulent ? "Fraud detected with confidence $confidence" : "No fraud detected";
-    $details = json_encode(array_merge(json_decode($details, true), ['voter_id' => $voter_id, 'ip_address' => $ip_address]));
+    $details_array = json_decode($details, true);
     $stmt = $conn->prepare(
-        "INSERT INTO frauddetectionlogs (user_id, election_id, is_fraudulent, confidence, details, ip_history, vote_pattern, user_behavior, api_response, description, action, created_at) 
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())"
+        "INSERT INTO frauddetectionlogs (user_id, election_id, is_fraudulent, confidence, details, ip_history, vote_pattern, user_behavior, api_response, description, action, time_diff, votes_per_user, session_duration, geo_location, device_fingerprint, created_at) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())"
     );
-    $stmt->bind_param("iiidssdsss", $user_id, $election_id, $is_fraudulent, $confidence, $details, $details['ip_history'], $details['vote_pattern'], $details['user_behavior'], $details['api_response'], $description, $action);
+    $stmt->bind_param(
+        "iiidssdsssiiiiis",
+        $user_id,
+        $election_id,
+        $is_fraudulent,
+        $confidence,
+        $details,
+        json_encode($details_array['ip_history']),
+        $details_array['vote_pattern'],
+        $details_array['user_behavior'],
+        json_encode($details_array['api_response']),
+        $description,
+        $action,
+        $details_array['time_diff'],
+        $details_array['votes_per_user'],
+        $details_array['session_duration'],
+        $details_array['geo_location'],
+        $details_array['device_fingerprint']
+    );
     $stmt->execute();
     $stmt->close();
 }
@@ -107,21 +113,44 @@ function getFraudHistory($conn, $user_id) {
 }
 
 function getVotePattern($conn, $user_id) {
-    $stmt = $conn->prepare("SELECT AVG(UNIX_TIMESTAMP(timestamp) - UNIX_TIMESTAMP(LAG(timestamp) OVER (ORDER BY timestamp))) as avg_interval FROM blockchainrecords WHERE voter = ? AND timestamp >= NOW() - INTERVAL 24 HOUR");
+    $stmt = $conn->prepare(
+        "SELECT AVG(UNIX_TIMESTAMP(timestamp) - UNIX_TIMESTAMP(LAG(timestamp) OVER (ORDER BY timestamp))) as avg_interval 
+         FROM blockchainrecords 
+         WHERE voter = ? AND timestamp >= NOW() - INTERVAL 24 HOUR"
+    );
     $stmt->bind_param("i", $user_id);
     $stmt->execute();
     $result = $stmt->get_result()->fetch_assoc();
     $stmt->close();
-    return $result['avg_interval'] ?: 0;
+    return $result['avg_interval'] ?: 600; // Default to non-fraud-like value
 }
 
 function getIpHistory($conn, $user_id) {
-    $stmt = $conn->prepare("SELECT DISTINCT ip_address FROM frauddetectionlogs WHERE user_id = ? AND created_at >= NOW() - INTERVAL 24 HOUR");
+    $stmt = $conn->prepare(
+        "SELECT DISTINCT ip_address 
+         FROM sessions 
+         WHERE user_id = ? AND login_time >= NOW() - INTERVAL 24 HOUR"
+    );
     $stmt->bind_param("i", $user_id);
     $stmt->execute();
     $result = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
     $stmt->close();
-    return json_encode(array_column($result, 'ip_address'));
+    $ip_list = array_column($result, 'ip_address');
+    return json_encode($ip_list ?: [$_SERVER['REMOTE_ADDR']]); // Fallback to current IP
+}
+
+function getUserBehavior($conn, $user_id) {
+    $stmt = $conn->prepare(
+        "SELECT COUNT(*) as activity_count 
+         FROM user_activity 
+         WHERE user_id = ? AND timestamp >= NOW() - INTERVAL 24 HOUR"
+    );
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    $result = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+    $activity_count = $result['activity_count'] ?: 0;
+    return min($activity_count * 10, 100); // Scale to 0-100
 }
 
 function generateCsrfToken() {
@@ -151,6 +180,21 @@ if (!isset($_SESSION['user_agent']) || $_SESSION['user_agent'] !== $_SERVER['HTT
     session_destroy();
     header('Location: login.php?error=' . urlencode('Session validation failed.'));
     exit;
+}
+
+// Store session data in database
+$user_id = $_SESSION['user_id'];
+if (!isset($_SESSION['session_stored'])) {
+    $session_id = session_id();
+    $session_token = session_id(); 
+    $stmt = $conn->prepare(
+        "INSERT INTO sessions (session_id, user_id, login_time, ip_address, device_fingerprint, session_token) 
+         VALUES (?, ?, NOW(), ?, ?, ?)"
+    );
+    $stmt->bind_param("sisss", $session_id, $user_id, $_SERVER['REMOTE_ADDR'], $_SERVER['HTTP_USER_AGENT'], $session_token);
+    $stmt->execute();
+    $stmt->close();
+    $_SESSION['session_stored'] = true;
 }
 
 $inactivity_timeout = 5 * 60;
@@ -185,7 +229,6 @@ if ($inactive_time >= $inactivity_timeout) {
 
 $_SESSION['last_activity'] = time();
 
-$user_id = $_SESSION['user_id'];
 $user = [];
 try {
     $stmt = $conn->prepare("SELECT fname, college_id, hostel_id, association, active FROM users WHERE user_id = ?");
@@ -209,19 +252,19 @@ $errors = [];
 $elections = [];
 $csrf_token = generateCsrfToken();
 
-// Determining the correct dashboard based on association and college
+
 $association = $user['association'];
 $college_id = $user['college_id'];
 $dashboard_file = '';
 if ($association === 'UDOSO') { // Students
-    if ($college_id == 1) { //college_id 1 is CIVE
+    if ($college_id == 1) { // CIVE
         $dashboard_file = 'cive-students.php';
-    } elseif ($college_id == 2) { // college_id 2 is COED
+    } elseif ($college_id == 2) { // COED
         $dashboard_file = 'coed-students.php';
-    } elseif ($college_id == 3) { // college_id 3 is CNMS
+    } elseif ($college_id == 3) { // CNMS
         $dashboard_file = 'cnms-students.php';
     } else {
-        $dashboard_file = 'login.php'; // Default fallback
+        $dashboard_file = 'login.php';
     }
 } elseif ($association === 'UDOMASA') { // Teachers
     if ($college_id == 1) {
@@ -231,7 +274,7 @@ if ($association === 'UDOSO') { // Students
     } elseif ($college_id == 3) {
         $dashboard_file = 'cnms-teachers.php';
     } else {
-        $dashboard_file = 'login.php'; // Default fallback
+        $dashboard_file = 'login.php';
     }
 }
 
@@ -385,7 +428,7 @@ try {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cast Vote | SmartUchaguzi</title>
-    <link rel="icon" href="./Uploads/Vote.jpeg" type="image/x-icon">
+    <link rel="icon" href="./images/System Logo.jpg" type="image/x-icon">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
@@ -714,26 +757,27 @@ try {
                 margin-bottom: 0;
             }
         }
-        .back-arrow {
-    display: inline-block;
-    width: 60px; /* Larger size */
-    height: 60px;
-    background: #1a3c34; /* Keep the same background color */
-    border-radius: 50%; /* Circular shape */
-    text-align: center;
-    line-height: 60px; /* Center the arrow vertically */
-    color: #fff; /* White arrow */
-    text-decoration: none;
-    font-size: 30px; /* Larger arrow */
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2); /* Subtle shadow for depth */
-    transition: transform 0.3s ease, box-shadow 0.3s ease, background 0.3s ease; /* Smooth transitions */
-}
 
-.back-arrow:hover {
-    transform: scale(1.1); /* Slight zoom on hover */
-    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.3); /* Enhanced shadow on hover */
-    background: #f4a261; /* Change background color on hover */
-}
+        .back-arrow {
+            display: inline-block;
+            width: 60px;
+            height: 60px;
+            background: #1a3c34;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 60px;
+            color: #fff;
+            text-decoration: none;
+            font-size: 30px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+            transition: transform 0.3s ease, box-shadow 0.3s ease, background 0.3s ease;
+        }
+
+        .back-arrow:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.3);
+            background: #f4a261;
+        }
 
         #profile-pic {
             cursor: pointer;
@@ -748,8 +792,8 @@ try {
 
 <body>
     <div style="position: fixed; top: 20px; left: 20px; z-index: 1000;">
-    <a href="<?php echo htmlspecialchars($dashboard_file); ?>" class="back-arrow">←</a>
-</div>
+        <a href="<?php echo htmlspecialchars($dashboard_file); ?>" class="back-arrow">←</a>
+    </div>
     <div style="position: fixed; top: 20px; right: 20px; z-index: 1000;">
         <img src="<?php echo htmlspecialchars($profile_picture); ?>" alt="User Profile Picture" id="profile-pic" style="width: 40px; height: 40px; border-radius: 50%; cursor: pointer;">
         <div class="dropdown" id="user-dropdown">
@@ -876,9 +920,9 @@ try {
 
     <script src="https://cdn.ethers.io/lib/ethers-5.7.2.umd.min.js"></script>
     <script>
-        const provider = new ethers.providers.JsonRpcProvider('https://eth-sepolia.g.alchemy.com/v2/<?php echo $alchemy_api_key; ?>');
+        const provider = new ethers.providers.JsonRpcProvider('https://eth-sepolia.g.alchemy.com/v2/1isPc6ojuMcMbyoNNeQkLDGM76n8oT8B');
         const contractAddress = '0x7f37Ea78D22DA910e66F8FdC1640B75dc88fa44F';
-        const contractABI = <?php echo json_encode([ /* ABI */]); ?>;
+        const contractABI = <?php echo file_get_contents('./js/contract-abi.json'); ?>;
         const contract = new ethers.Contract(contractAddress, contractABI, provider);
 
         function showSuccess(message) {
@@ -910,10 +954,6 @@ try {
                 }
             }
         }
-
-        let userActivityScore = 0;
-        document.addEventListener('mousemove', () => userActivityScore = Math.min(userActivityScore + 1, 100));
-        document.addEventListener('keypress', () => userActivityScore = Math.min(userActivityScore + 1, 100));
 
         document.querySelectorAll('.vote-form').forEach(form => {
             const confirmModal = document.getElementById('confirm-vote-modal');
@@ -978,8 +1018,9 @@ try {
                         const ipAddress = '<?php echo $_SERVER['REMOTE_ADDR']; ?>';
                         const voterId = '<?php echo htmlspecialchars($user['fname'] . '/' . $user_id); ?>';
                         const geoLocation = <?php echo getGeoLocation($_SERVER['REMOTE_ADDR']); ?>;
-                        const ipHistory = '<?php echo getIpHistory($conn, $user_id); ?>';
+                        const ipHistory = <?php echo getIpHistory($conn, $user_id); ?>;
                         const votePattern = <?php echo getVotePattern($conn, $user_id); ?>;
+                        const userBehavior = <?php echo getUserBehavior($conn, $user_id); ?>;
                         const fraudData = {
                             time_diff: <?php echo time() - $_SESSION['last_activity']; ?>,
                             votes_per_user: <?php echo getUserVoteCount($conn, $user_id); ?>,
@@ -987,13 +1028,13 @@ try {
                             multiple_logins: <?php echo checkMultipleLogins($conn, $user_id); ?>,
                             session_duration: <?php echo time() - $_SESSION['start_time']; ?>,
                             geo_location: geoLocation,
-                            device_fingerprint: navigator.userAgent,
+                            device_fingerprint: '<?php echo $_SERVER['HTTP_USER_AGENT']; ?>',
                             ip_history: JSON.parse(ipHistory),
                             vote_pattern: votePattern,
-                            user_behavior: userActivityScore
+                            user_behavior: userBehavior
                         };
 
-                        const fraudResponse = await retryOperation(() => fetch('http://localhost:800/predict', {
+                        const fraudResponse = await retryOperation(() => fetch('http://127.0.0.1:8003/predict', {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json'
@@ -1116,7 +1157,6 @@ try {
                         submitButton.disabled = true;
                         submitButton.textContent = 'Vote Cast';
 
-                        // Set session flag for has_voted
                         await fetch('set-voted-flag.php', {
                             method: 'POST',
                             headers: {
