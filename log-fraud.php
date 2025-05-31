@@ -14,7 +14,7 @@ try {
         throw new Exception("Invalid JSON input");
     }
 
-    // Extract fields from input
+    
     $user_id = $input['user_id'] ?? null;
     $voter_id = $input['voter_id'] ?? null;
     $ip_address = $input['ip_address'] ?? null;
@@ -30,7 +30,7 @@ try {
         throw new Exception("Invalid details JSON");
     }
 
-    // Prepare the SQL statement
+    
     $stmt = $conn->prepare(
         "INSERT INTO frauddetectionlogs (
             user_id, election_id, is_fraudulent, confidence, details, 
@@ -79,7 +79,7 @@ try {
     $stmt->close();
     $conn->close();
 
-    // Return success response
+    
     echo json_encode(['success' => true]);
 } catch (Exception $e) {
     // Log the error and return failure response
