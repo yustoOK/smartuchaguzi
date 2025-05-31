@@ -162,10 +162,12 @@ print("Precision-Recall curve saved as 'plots/pr_curve.png'")
 # Feature Importance (Permutation Importance)
 model_np = lambda x: model.predict(x, verbose=0) > 0.5
 result = permutation_importance(model_np, X_test, y_test, n_repeats=10, random_state=42)
+# Access the correct scorer key (usually 'score') in the result dictionary
+scorer_key = list(result.keys())[0]
 feature_importance = pd.DataFrame({
     'Feature': X_test.columns,
-    'Importance': result.importances_mean,
-    'Std': result.importances_std
+    'Importance': result[scorer_key].importances_mean,
+    'Std': result[scorer_key].importances_std
 }).sort_values(by='Importance', ascending=False)
 
 print("\n=== Feature Importance ===")
