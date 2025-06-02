@@ -181,7 +181,7 @@ if (!isset($_SESSION['user_agent']) || $_SESSION['user_agent'] !== $_SERVER['HTT
     exit;
 }
 
-// Store session data in database
+// Storing session data in database
 $user_id = $_SESSION['user_id'];
 if (!isset($_SESSION['session_stored'])) {
     $session_id = session_id();
@@ -313,7 +313,6 @@ try {
             $election_id = $election['election_id'];
             $positions = [];
 
-            // Fixed SQL syntax error: Removed erroneous "CBS"
             $query = "
                 SELECT ep.position_id, ep.name AS position_name, ep.scope, ep.college_id AS position_college_id, ep.hostel_id, ep.is_vice
                 FROM electionpositions ep
