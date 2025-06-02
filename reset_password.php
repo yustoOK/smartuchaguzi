@@ -1,5 +1,53 @@
 <?php 
 date_default_timezone_set('Africa/Dar_es_Salaam');
+
+$host = 'localhost';
+$dbname = 'smartuchaguzi_db';
+$username = 'root';
+$password = 'Leonida1972@@@@'; 
+
+try {
+    $pdo = new PDO("mysql:host=$host;dbname=$dbname", $username, $password);
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+} catch (PDOException $e) {
+    die("Connection failed: " . $e->getMessage());
+}
+
+$token = isset($_GET['token']) ? htmlspecialchars($_GET['token'], ENT_QUOTES, 'UTF-8') : null;
+$error_message = '';
+$success_message = '';
+
+if (!$token) {
+    $error_message = "No reset token provided.";
+} else {
+    $stmt = $pdo->prepare("SELECT * FROM password_resets WHERE token = ? AND expires_at > NOW()");
+    $stmt->execute([$token]);
+    $reset = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$reset) {
+        $error_message = "Invalid or expired reset token.";
+    } elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $password = $_POST['password'];
+        $confirm_password = $_POST['confirm_password'];
+
+        if (empty($password) || empty($confirm_password)) {
+            $error_message = "All fields are required.";
+        } elseif ($password !== $confirm_password) {
+            $error_message = "Passwords do not match.";
+        } else {
+            $password_hash = password_hash($password, PASSWORD_DEFAULT);
+            $stmt = $pdo->prepare("UPDATE users SET password = ? WHERE email = ?");
+            $stmt->execute([$password_hash, $reset['email']]);
+
+            $stmt = $pdo->prepare("DELETE FROM password_resets WHERE token = ?");
+            $stmt->execute([$token]);
+
+            $success_message = "Password reset successfully! Redirecting to login page...";
+            header("Refresh: 3; url=login.php");
+            // No exit here; let the page render with the success message
+        }
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -235,73 +283,29 @@ date_default_timezone_set('Africa/Dar_es_Salaam');
                 <h1>SmartUchaguzi</h1>
             </div>
             <div class="breadcrumb">
-                <a href="index.html">Home</a> / <a href="reset_password.php">Reset Password</a>
+                <a href="index.php">Home</a> / <a href="reset_password.php">Reset Password</a>
             </div>
         </div>
     </div>
     <div class="reset-container">
         <div class="reset-title">Reset Password</div>
-        <?php
-        $host = 'localhost';
-        $dbname = 'smartuchaguzi_db';
-        $username = 'root';
-        $password = 'Leonida1972@@@@'; 
-
-        try {
-            $pdo = new PDO("mysql:host=$host;dbname=$dbname", $username, $password);
-            $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-        } catch (PDOException $e) {
-            die("Connection failed: " . $e->getMessage());
-        }
-
-        $token = isset($_GET['token']) ? htmlspecialchars($_GET['token'], ENT_QUOTES, 'UTF-8') : null;
-
-        if (!$token) {
-            echo '<p class="message error">No reset token provided.</p>';
-            exit;
-        }
-
-        $stmt = $pdo->prepare("SELECT * FROM password_resets WHERE token = ? AND expires_at > NOW()");
-        $stmt->execute([$token]);
-        $reset = $stmt->fetch(PDO::FETCH_ASSOC);
-
-        if (!$reset) {
-            echo '<p class="message error">Invalid or expired reset token.</p>';
-            exit;
-        }
-
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $password = $_POST['password'];
-            $confirm_password = $_POST['confirm_password'];
-
-            if (empty($password) || empty($confirm_password)) {
-                echo '<p class="message error">All fields are required.</p>';
-            } elseif ($password !== $confirm_password) {
-                echo '<p class="message error">Passwords do not match.</p>';
-            } else {
-                $password_hash = password_hash($password, PASSWORD_DEFAULT);
-                $stmt = $pdo->prepare("UPDATE users SET password_hash = ? WHERE email = ?");
-                $stmt->execute([$password_hash, $reset['email']]);
-
-                 $stmt = $pdo->prepare("DELETE FROM password_resets WHERE token = ?");
-                $stmt->execute([$token]);
-
-                echo '<p class="message success">Password reset successfully! <a href="login.html" style="color: #f4a261;">Log in</a></p>';
-                exit;
-            }
-        }
-        ?>
-        <form action="reset_password.php?token=<?php echo htmlspecialchars($token); ?>" method="POST">
-            <div class="input-group">
-                <label for="password"><i class="fas fa-lock"></i></label>
-                <input type="password" id="password" name="password" placeholder="New Password" required>
-            </div>
-            <div class="input-group">
-                <label for="confirm_password"><i class="fas fa-lock"></i></label>
-                <input type="password" id="confirm_password" name="confirm_password" placeholder="Confirm Password" required>
-            </div>
-            <button type="submit" class="submit-btn">Reset Password</button>
-        </form>
+        <?php if ($error_message): ?>
+            <p class="message error"><?php echo $error_message; ?></p>
+        <?php elseif ($success_message): ?>
+            <p class="message success"><?php echo $success_message; ?></p>
+        <?php else: ?>
+            <form action="reset_password.php?token=<?php echo htmlspecialchars($token); ?>" method="POST">
+                <div class="input-group">
+                    <label for="password"><i class="fas fa-lock"></i></label>
+                    <input type="password" id="password" name="password" placeholder="New Password" required>
+                </div>
+                <div class="input-group">
+                    <label for="confirm_password"><i class="fas fa-lock"></i></label>
+                    <input type="password" id="confirm_password" name="confirm_password" placeholder="Confirm Password" required>
+                </div>
+                <button type="submit" class="submit-btn">Reset Password</button>
+            </form>
+        <?php endif; ?>
     </div>
 </body>
 

@@ -37,7 +37,7 @@ function sendVerificationEmail($email, $token)
     $subject = "Verify Your SmartUchaguzi Account";
     $verificationLink = "http://localhost/smartuchaguzi/verify_email.php?token=" . urlencode($token);
     $message = "Hello,\n\nPlease verify your email by clicking the link below:\n$verificationLink\n\nIf you did not register, please ignore this email.\n\nBest regards,\nSmartUchaguzi Team 2025";
-    $headers = "From: smartuchaguzi@gmail.com\r\n";
+    $headers = "From: yustobitalio20@gmail.com\r\n"; // Replace with your Gmail address
 
     return mail($email, $subject, $message, $headers);
 }
@@ -65,7 +65,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $original_pdo = connectToOriginalDB();
     try {
-        $stmt = $original_pdo->prepare("SELECT official_id, email, fname, mname, lname, college, hostel, association, role, is_active FROM all_users WHERE official_id = ? AND email = ?");
+        $stmt = $original_pdo->prepare("SELECT official_id, email, fname, mname, lname, college_id, hostel_id, association, role, active FROM all_users WHERE official_id = ? AND email = ?");
         $stmt->execute([$official_id, $email]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -74,7 +74,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
 
-        if ($user['is_active'] != 1) {
+        if ($user['active'] != 1) {
             header("Location: register.php?error=" . urlencode("User is not active. Please contact support."));
             exit;
         }
@@ -98,41 +98,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     $verification_token = bin2hex(random_bytes(16));
-    $password_hash = password_hash($password, PASSWORD_DEFAULT);
+$password_hash = password_hash($password, PASSWORD_DEFAULT);
+$token_expires_at = date('Y-m-d H:i:s', strtotime('+24 hours')); // Token expires in 24 hours
 
-    try {
-        $stmt = $pdo->prepare(
-            "INSERT INTO users (
-                official_id, 
-                email, 
-                fname, 
-                mname, 
-                lname, 
-                college, 
-                hostel, 
-                association, 
-                password, 
-                verification_token, 
-                is_verified, 
-                role, 
-                last_login, 
-                privacy_consent, 
-                consent_timestamp
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, NULL, 0, NULL)"
-        );
-        $stmt->execute([
-            $official_id,
-            $email,
-            $user['fname'],
-            $user['mname'],
-            $user['lname'],
-            $user['college'],
-            $user['hostel'],
-            $user['association'],
-            $password_hash,
-            $verification_token,
-            $user['role'] ?? 'voter'
-        ]);
+try {
+    $stmt = $pdo->prepare(
+        "INSERT INTO users (
+            official_id, 
+            email, 
+            fname, 
+            mname, 
+            lname, 
+            college_id, 
+            hostel_id, 
+            association, 
+            password, 
+            verification_token, 
+            token_expires_at, 
+            is_verified, 
+            role, 
+            last_login
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, NULL)"
+    );
+    $stmt->execute([
+        $official_id,
+        $email,
+        $user['fname'],
+        $user['mname'],
+        $user['lname'],
+        $user['college_id'],
+        $user['hostel_id'],
+        $user['association'],
+        $password_hash,
+        $verification_token,
+        $token_expires_at,
+        $user['role'] ?? 'voter'
+    ]);
 
         if (sendVerificationEmail($email, $verification_token)) {
             header("Location: login.php?success=" . urlencode("Registration successful! Please check your email to verify your account."));

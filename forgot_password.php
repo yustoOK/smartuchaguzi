@@ -21,7 +21,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    $stmt = $pdo->prepare("SELECT * FROM users WHERE email = ?");
+    // Fetch user details, including user_id, from the users table
+    $stmt = $pdo->prepare("SELECT user_id FROM users WHERE email = ?");
     $stmt->execute([$email]);
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -30,22 +31,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
+    $user_id = $user['user_id']; // Get the user_id
     $token = bin2hex(random_bytes(16));
-    $expires_at = date('Y-m-d H:i:s', strtotime('+1 hour')); // Token expires in 1 hour
+    $expires_at = date('Y-m-d H:i:s', strtotime('+1 hour'));
 
-    // Store token in password_resets table
-    $stmt = $pdo->prepare("INSERT INTO password_resets (email, token, expires_at) VALUES (?, ?, ?)");
-    $stmt->execute([$email, $token, $expires_at]);
+    // Delete any existing reset tokens for this email to avoid duplicates
+    $stmt = $pdo->prepare("DELETE FROM password_resets WHERE email = ?");
+    $stmt->execute([$email]);
 
-    $subject = "Reset Your SmartUchaguzi Password";
-    $resetLink = "http://localhost/smartuchaguzi/reset_password.php?token=" . urlencode($token);
-    $message = "Hello,\n\nYou requested a password reset. Click the link below to reset your password:\n$resetLink\n\nThis link will expire in 1 hour.\nIf you did not request this, kindly ignore the link!. \n\nBest regards,\nSmartUchaguzi Team";
-    $headers = "From: smartuchaguzi1@gmail.com\r\n";
+    // Store new token, including user_id
+    $stmt = $pdo->prepare("INSERT INTO password_resets (user_id, email, token, expires_at) VALUES (?, ?, ?, ?)");
+    if ($stmt->execute([$user_id, $email, $token, $expires_at])) {
+        $subject = "Reset Your SmartUchaguzi Password";
+        $resetLink = "http://localhost/smartuchaguzi/reset_password.php?token=" . urlencode($token);
+        $message = "Hello,\n\nYou requested a password reset. Click the link below to reset your password:\n$resetLink\n\nThis link will expire in 1 hour.\nIf you did not request this, kindly ignore the link!. \n\nBest regards,\nSmartUchaguzi Team";
+        $headers = "From: yustobitalio20@gmail.com\r\n";
 
-    if (mail($email, $subject, $message, $headers)) {
-        header("Location: forgot_password.php?success=" . urlencode("Password reset link sent! Please check your email."));
+        if (mail($email, $subject, $message, $headers)) {
+            header("Location: forgot_password.php?success=" . urlencode("Password reset link sent! Please check your email."));
+        } else {
+            header("Location: forgot_password.php?error=" . urlencode("Failed to send reset email. Please try again."));
+        }
     } else {
-        header("Location: forgot_password.php?error=" . urlencode("Failed to send reset email. Please try again."));
+        header("Location: forgot_password.php?error=" . urlencode("Failed to generate reset link. Please try again."));
     }
     exit;
 }
@@ -57,8 +65,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Forgot Password - SmartUchaguzi</title>
-    <link rel="icon" href="./uploads/Vote.jpeg" type="image/x-icon">
+    <title>Forgot Password | SmartUchaguzi</title>
+    <link rel="icon" href="./images/System Logo.jpg" type="image/x-icon">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         * {
@@ -138,7 +146,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             border-radius: 12px;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
             width: 100%;
-            max-width: 400px;
+            max-width: 600px;
             text-align: center;
             margin-top: 120px;
             border: 1px solid rgba(255, 255, 255, 0.2);
@@ -281,7 +289,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <div class="header">
         <div class="logo-container">
             <div class="logo">
-                <img src="./uploads/Vote.jpeg" alt="SmartUchaguzi Logo">
+                <img src="./images/System Logo.jpg" alt="SmartUchaguzi Logo">
                 <h1>SmartUchaguzi</h1>
             </div>
             <div class="breadcrumb">

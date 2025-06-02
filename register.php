@@ -8,7 +8,7 @@
     <meta name="keywords" content="register, vote, elections, official, ID, email, password">
     <meta name="author" content="We Vote">
     <title>SmartUchaguzi | Register</title>
-    <link rel="icon" href="./uploads/Vote.jpeg" type="image/x-icon">
+    <link rel="icon" href="./images/System Logo.jpg" type="image/x-icon">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         * {
