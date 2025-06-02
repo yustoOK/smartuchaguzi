@@ -2,11 +2,7 @@
 session_start();
 date_default_timezone_set('Africa/Dar_es_Salaam');
 
-// Database connection
-$host = 'localhost';
-$dbname = 'smartuchaguzi_db';
-$username = 'root';
-$password = 'Leonida1972@@@@';
+require_once 'config.php';
 
 try {
     $pdo = new PDO("mysql:host=$host;dbname=$dbname", $username, $password);

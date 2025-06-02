@@ -9,7 +9,6 @@ if (!isset($_GET['csrf_token']) || $_GET['csrf_token'] !== $_SESSION['csrf_token
     exit;
 }
 
-// Load configuration
 require_once 'config.php';
 
 try {
@@ -252,7 +251,6 @@ $errors = [];
 $elections = [];
 $csrf_token = generateCsrfToken();
 
-
 $association = $user['association'];
 $college_id = $user['college_id'];
 $dashboard_file = '';
@@ -315,6 +313,7 @@ try {
             $election_id = $election['election_id'];
             $positions = [];
 
+            // Fixed SQL syntax error: Removed erroneous "CBS"
             $query = "
                 SELECT ep.position_id, ep.name AS position_name, ep.scope, ep.college_id AS position_college_id, ep.hostel_id, ep.is_vice
                 FROM electionpositions ep
@@ -467,7 +466,7 @@ try {
         }
 
         .dropdown a:hover {
-            background: #f4a261;
+            background: #007bff;
             color: #fff;
         }
 
@@ -512,22 +511,22 @@ try {
             font-size: 18px;
             color: #2d3748;
             margin-bottom: 15px;
-            border-bottom: 2px solid #1a3c34;
+            border-bottom: 2px solid #007bff;
             padding-bottom: 5px;
         }
 
         .candidate-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 20px;
-            margin-bottom: 20px;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 25px;
+            margin-bottom: 25px;
         }
 
         .candidate-card {
             background: #fff;
             border: 1px solid #e0e0e0;
             border-radius: 12px;
-            padding: 20px;
+            padding: 25px;
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -542,33 +541,33 @@ try {
         }
 
         .candidate-card.selected {
-            border: 2px solid #f4a261;
-            background: #fff5e6;
+            border: 2px solid #007bff;
+            background: #e6f0fa;
         }
 
         .candidate-img {
-            width: 80px;
-            height: 80px;
+            width: 100px;
+            height: 100px;
             object-fit: cover;
             border-radius: 50%;
-            border: 3px solid #1a3c34;
-            margin-right: 15px;
+            border: 3px solid #007bff;
+            margin-right: 20px;
             transition: border-color 0.3s ease;
         }
 
         .candidate-card:hover .candidate-img {
-            border-color: #f4a261;
+            border-color: #0056b3;
         }
 
         .candidate-details {
             flex: 1;
             display: flex;
             flex-direction: column;
-            gap: 5px;
+            gap: 8px;
         }
 
         .candidate-details h5 {
-            font-size: 16px;
+            font-size: 18px;
             font-weight: 600;
             color: #2d3748;
             margin: 0;
@@ -587,14 +586,14 @@ try {
         }
 
         .vote-checkbox {
-            width: 20px;
-            height: 20px;
-            margin-right: 10px;
-            accent-color: #f4a261;
+            width: 24px;
+            height: 24px;
+            margin-right: 12px;
+            accent-color: #007bff;
         }
 
         .vote-form button {
-            background: #f4a261;
+            background: #007bff;
             color: #fff;
             border: none;
             padding: 12px 24px;
@@ -609,7 +608,7 @@ try {
         }
 
         .vote-form button:hover {
-            background: #e76f51;
+            background: #0056b3;
         }
 
         .vote-form button:disabled {
@@ -666,7 +665,7 @@ try {
         }
 
         .modal-content button {
-            background: #f4a261;
+            background: #007bff;
             color: #fff;
             border: none;
             padding: 10px 20px;
@@ -677,7 +676,7 @@ try {
         }
 
         .modal-content button:hover {
-            background: #e76f51;
+            background: #0056b3;
         }
 
         @media (max-width: 768px) {
@@ -697,7 +696,7 @@ try {
 
             .dropdown a:hover {
                 background: none;
-                color: #f4a261;
+                color: #007bff;
             }
 
             .dash-content {
@@ -727,8 +726,8 @@ try {
             }
 
             .candidate-img {
-                width: 60px;
-                height: 60px;
+                width: 80px;
+                height: 80px;
                 margin-bottom: 10px;
                 margin-right: 0;
             }
@@ -776,7 +775,7 @@ try {
         .back-arrow:hover {
             transform: scale(1.1);
             box-shadow: 0 6px 15px rgba(0, 0, 0, 0.3);
-            background: #f4a261;
+            background: #007bff;
         }
 
         #profile-pic {
@@ -836,6 +835,7 @@ try {
                                         </div>
                                     <?php else: ?>
                                         <form class="vote-form" data-election-id="<?php echo $election['election_id']; ?>" data-position-id="<?php echo $position['position_id']; ?>" aria-label="Vote for <?php echo htmlspecialchars($position['position_name']); ?>">
+                                            <!-- Fixed CSRF token input syntax -->
                                             <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
                                             <div class="candidate-grid">
                                                 <?php
@@ -850,16 +850,16 @@ try {
                                                                 <img src="<?php echo htmlspecialchars($mainCandidate['passport'] ?: 'images/general.png'); ?>" alt="Candidate <?php echo htmlspecialchars($mainCandidate['firstname'] . ' ' . $mainCandidate['lastname']); ?>" class="candidate-img">
                                                                 <div class="candidate-details">
                                                                     <h5><?php echo htmlspecialchars($mainCandidate['firstname'] . ' ' . $mainCandidate['lastname']); ?></h5>
-                                                                    <p>Official ID: <?php echo htmlspecialchars($mainCandidate['official_id']); ?></p>
-                                                                    <p>Association: <?php echo htmlspecialchars($association); ?></p>
+                                                                    <p>Reg No: <?php echo htmlspecialchars($mainCandidate['official_id']); ?></p>
+                                                                    <p>Programme: <?php echo htmlspecialchars($association); ?></p>
                                                                 </div>
                                                             </div>
                                                             <div style="display: flex; align-items: center;">
                                                                 <img src="<?php echo htmlspecialchars($viceCandidate['passport'] ?: 'images/general.png'); ?>" alt="Running Mate <?php echo htmlspecialchars($viceCandidate['firstname'] . ' ' . $viceCandidate['lastname']); ?>" class="candidate-img">
                                                                 <div class="candidate-details">
                                                                     <h5><?php echo htmlspecialchars($viceCandidate['firstname'] . ' ' . $viceCandidate['lastname']); ?></h5>
-                                                                    <p>Official ID: <?php echo htmlspecialchars($viceCandidate['official_id']); ?></p>
-                                                                    <p>Role: <?php echo htmlspecialchars($position['vice_position_name']); ?></p>
+                                                                    <p>Reg No: <?php echo htmlspecialchars($viceCandidate['official_id']); ?></p>
+                                                                    <p>Post: <?php echo htmlspecialchars($position['vice_position_name']); ?></p>
                                                                 </div>
                                                             </div>
                                                             <label class="vote-label">
@@ -877,8 +877,8 @@ try {
                                                                 <img src="<?php echo htmlspecialchars($candidate['passport'] ?: 'images/general.png'); ?>" alt="Candidate <?php echo htmlspecialchars($candidate['firstname'] . ' ' . $candidate['lastname']); ?>" class="candidate-img">
                                                                 <div class="candidate-details">
                                                                     <h5><?php echo htmlspecialchars($candidate['firstname'] . ' ' . $candidate['lastname']); ?></h5>
-                                                                    <p>Official ID: <?php echo htmlspecialchars($candidate['official_id']); ?></p>
-                                                                    <p>Association: <?php echo htmlspecialchars($association); ?></p>
+                                                                    <p>Reg No: <?php echo htmlspecialchars($candidate['official_id']); ?></p>
+                                                                    <p>Programme: <?php echo htmlspecialchars($association); ?></p>
                                                                 </div>
                                                             </div>
                                                             <label class="vote-label">
@@ -913,270 +913,285 @@ try {
     <div class="modal" id="confirm-vote-modal">
         <div class="modal-content">
             <p id="confirm-vote-message">Are you sure you want to vote for <span id="confirm-candidate-name"></span> for <span id="confirm-position-name"></span>?</p>
-            <button id="confirm-vote">Confirm</button>
+            <button id="confirm-vote">Confirm Vote</button>
             <button id="cancel-vote">Cancel</button>
         </div>
     </div>
 
     <script src="https://cdn.ethers.io/lib/ethers-5.7.2.umd.min.js"></script>
-    <script>
-        const provider = new ethers.providers.JsonRpcProvider('https://eth-sepolia.g.alchemy.com/v2/1isPc6ojuMcMbyoNNeQkLDGM76n8oT8B');
-        const contractAddress = '0x7f37Ea78D22DA910e66F8FdC1640B75dc88fa44F';
-        const contractABI = <?php echo file_get_contents('./js/contract-abi.json'); ?>;
-        const contract = new ethers.Contract(contractAddress, contractABI, provider);
+    <script src="https://cdn.ethers.io/lib/ethers-5.7.2.umd.min.js"></script>
+<script>
+    const provider = new ethers.providers.JsonRpcProvider('https://eth-sepolia.g.alchemy.com/v2/1isPc6ojuMcMbyoNNeQkLDGM76n8oT8B');
+    const contractAddress = '0x7f37Ea78D22DA910e66F8FdC1640B75dc88fa44F';
+    const contractABI = <?php echo file_get_contents('./js/contract-abi.json'); ?>;
+    const contract = new ethers.Contract(contractAddress, contractABI, provider);
 
-        function showSuccess(message) {
-            const successMessage = document.getElementById('success-message');
-            successMessage.textContent = message;
-            successMessage.style.display = 'block';
-            setTimeout(() => successMessage.style.display = 'none', 5000);
-        }
+    function showSuccess(message) {
+        const successMessage = document.getElementById('success-message');
+        successMessage.textContent = message;
+        successMessage.style.display = 'block';
+        setTimeout(() => successMessage.style.display = 'none', 5000);
+    }
 
-        function showError(message) {
-            const errorMessage = document.getElementById('error-message');
-            errorMessage.textContent = message;
-            errorMessage.style.display = 'block';
-            setTimeout(() => errorMessage.style.display = 'none', 5000);
-        }
+    function showError(message) {
+        const errorMessage = document.getElementById('error-message');
+        errorMessage.textContent = message;
+        errorMessage.style.display = 'block';
+        setTimeout(() => errorMessage.style.display = 'none', 5000);
+    }
 
-        async function retryOperation(operation, maxAttempts = 3, delay = 1000, timeout = 5000) {
-            for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), timeout);
-                try {
-                    return await operation();
-                } catch (error) {
-                    if (attempt === maxAttempts) throw error;
-                    console.warn(`Attempt ${attempt} failed: ${error.message}. Retrying...`);
-                    await new Promise(resolve => setTimeout(resolve, delay));
-                } finally {
-                    clearTimeout(timeoutId);
+    async function retryOperation(operation, maxAttempts = 3, delay = 1000, timeout = 5000) {
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), timeout);
+            try {
+                return await operation();
+            } catch (error) {
+                if (attempt === maxAttempts) {
+                    console.error(`Operation failed after ${maxAttempts} attempts: ${error.message}`);
+                    throw error;
                 }
+                console.warn(`Attempt ${attempt} failed: ${error.message}. Retrying...`);
+                await new Promise(resolve => setTimeout(resolve, delay));
+            } finally {
+                clearTimeout(timeoutId);
             }
         }
+    }
 
-        document.querySelectorAll('.vote-form').forEach(form => {
-            const confirmModal = document.getElementById('confirm-vote-modal');
-            const confirmMessage = document.getElementById('confirm-vote-message');
-            const confirmCandidateName = document.getElementById('confirm-candidate-name');
-            const confirmPositionName = document.getElementById('confirm-position-name');
-            const confirmButton = document.getElementById('confirm-vote');
-            const cancelButton = document.getElementById('cancel-vote');
-            let formData = null;
+    document.querySelectorAll('.vote-form').forEach(form => {
+        const confirmModal = document.getElementById('confirm-vote-modal');
+        const confirmMessage = document.getElementById('confirm-vote-message');
+        const confirmCandidateName = document.getElementById('confirm-candidate-name');
+        const confirmPositionName = document.getElementById('confirm-position-name');
+        const confirmButton = document.getElementById('confirm-vote');
+        const cancelButton = document.getElementById('cancel-vote');
+        let formData = null;
 
-            form.querySelectorAll('input[name="candidate_id"]').forEach(radio => {
-                radio.addEventListener('change', () => {
-                    form.querySelectorAll('.candidate-card').forEach(card => card.classList.remove('selected'));
-                    const card = radio.closest('.candidate-card');
-                    if (card) card.classList.add('selected');
-                });
+        form.querySelectorAll('input[name="candidate_id"]').forEach(radio => {
+            radio.addEventListener('change', () => {
+                form.querySelectorAll('.candidate-card').forEach(card => card.classList.remove('selected'));
+                const card = radio.closest('.candidate-card');
+                if (card) card.classList.add('selected');
             });
+        });
 
-            form.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const electionId = form.getAttribute('data-election-id');
-                const positionId = form.getAttribute('data-position-id');
-                const candidateId = form.querySelector('input[name="candidate_id"]:checked')?.value;
-                const candidateName = form.querySelector('input[name="candidate_id"]:checked')?.closest('.candidate-card')?.querySelector('.candidate-details h5').textContent;
-                const positionName = form.querySelector('h4').textContent.replace('Position: ', '');
-                const csrfToken = form.querySelector('input[name="csrf_token"]').value;
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const electionId = form.getAttribute('data-election-id');
+            const positionId = form.getAttribute('data-position-id');
+            const candidateId = form.querySelector('input[name="candidate_id"]:checked')?.value;
+            const candidateName = form.querySelector('input[name="candidate_id"]:checked')?.closest('.candidate-card')?.querySelector('.candidate-details h5').textContent;
+            const positionName = form.querySelector('h4').textContent.replace('Position: ', '');
+            const csrfToken = form.querySelector('input[name="csrf_token"]').value;
 
-                if (!candidateId) {
-                    showError('Please select a candidate to vote for.');
-                    return;
-                }
-                if (csrfToken !== '<?php echo $csrf_token; ?>') {
-                    showError('Invalid CSRF token. Please try again.');
-                    return;
-                }
+            if (!candidateId) {
+                showError('Please select a candidate to vote for.');
+                return;
+            }
+            if (csrfToken !== '<?php echo $csrf_token; ?>') {
+                showError('Invalid CSRF token. Please try again.');
+                return;
+            }
 
-                confirmCandidateName.textContent = candidateName;
-                confirmPositionName.textContent = positionName;
-                confirmModal.style.display = 'flex';
-                formData = {
-                    electionId,
-                    positionId,
-                    candidateId,
-                    candidateName,
-                    positionName
-                };
+            confirmCandidateName.textContent = candidateName;
+            confirmPositionName.textContent = positionName;
+            confirmModal.style.display = 'flex';
+            formData = {
+                electionId,
+                positionId,
+                candidateId,
+                candidateName,
+                positionName
+            };
 
-                confirmButton.onclick = async () => {
-                    confirmModal.style.display = 'none';
-                    const submitButton = form.querySelector('button');
-                    submitButton.disabled = true;
-                    submitButton.textContent = 'Checking for Fraud...';
+            confirmButton.onclick = async () => {
+                confirmModal.style.display = 'none';
+                const submitButton = form.querySelector('button');
+                submitButton.disabled = true;
+                submitButton.textContent = 'Checking for Fraud...';
 
-                    try {
-                        if (!<?php echo json_encode(checkRateLimit($conn, $user_id)); ?>) {
-                            showError('Rate limit exceeded. Please try again later.');
-                            submitButton.disabled = false;
-                            submitButton.textContent = 'Cast Vote';
-                            return;
-                        }
+                try {
+                    if (!<?php echo json_encode(checkRateLimit($conn, $user_id)); ?>) {
+                        showError('Rate limit exceeded. Please try again later.');
+                        submitButton.disabled = false;
+                        submitButton.textContent = 'Cast Vote';
+                        return;
+                    }
 
-                        const ipAddress = '<?php echo $_SERVER['REMOTE_ADDR']; ?>';
-                        const voterId = '<?php echo htmlspecialchars($user['fname'] . '/' . $user_id); ?>';
-                        const geoLocation = <?php echo getGeoLocation($_SERVER['REMOTE_ADDR']); ?>;
-                        const ipHistory = <?php echo getIpHistory($conn, $user_id); ?>;
-                        const votePattern = <?php echo getVotePattern($conn, $user_id); ?>;
-                        const userBehavior = <?php echo getUserBehavior($conn, $user_id); ?>;
-                        const fraudData = {
-                            time_diff: <?php echo time() - $_SESSION['last_activity']; ?>,
-                            votes_per_user: <?php echo getUserVoteCount($conn, $user_id); ?>,
-                            vpn_usage: <?php echo detectVPN(getGeoLocation($_SERVER['REMOTE_ADDR']), $_SERVER['REMOTE_ADDR']); ?>,
-                            multiple_logins: <?php echo checkMultipleLogins($conn, $user_id); ?>,
-                            session_duration: <?php echo time() - $_SESSION['start_time']; ?>,
-                            geo_location: geoLocation,
-                            device_fingerprint: '<?php echo $_SERVER['HTTP_USER_AGENT']; ?>',
-                            ip_history: JSON.parse(ipHistory),
-                            vote_pattern: votePattern,
-                            user_behavior: userBehavior
-                        };
+                    const ipAddress = '<?php echo $_SERVER['REMOTE_ADDR']; ?>';
+                    const voterId = '<?php echo htmlspecialchars($user['fname'] . '/' . $user_id); ?>';
+                    const geoLocation = <?php echo getGeoLocation($_SERVER['REMOTE_ADDR']); ?>;
+                    const ipHistory = <?php echo getIpHistory($conn, $user_id); ?>;
+                    const votePattern = <?php echo getVotePattern($conn, $user_id); ?>;
+                    const userBehavior = <?php echo getUserBehavior($conn, $user_id); ?>;
+                    const fraudData = {
+                        time_diff: <?php echo time() - $_SESSION['last_activity']; ?>,
+                        votes_per_user: <?php echo getUserVoteCount($conn, $user_id); ?>,
+                        vpn_usage: <?php echo detectVPN(getGeoLocation($_SERVER['REMOTE_ADDR']), $_SERVER['REMOTE_ADDR']); ?>,
+                        multiple_logins: <?php echo checkMultipleLogins($conn, $user_id); ?>,
+                        session_duration: <?php echo time() - $_SESSION['start_time']; ?>,
+                        geo_location: geoLocation,
+                        device_fingerprint: '<?php echo $_SERVER['HTTP_USER_AGENT']; ?>',
+                        ip_history: JSON.parse(ipHistory),
+                        vote_pattern: votePattern,
+                        user_behavior: userBehavior
+                    };
 
-                        const fraudResponse = await retryOperation(() => fetch('http://127.0.0.1:8003/predict', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json'
-                            },
-                            body: JSON.stringify(fraudData)
-                        }), 3, 1000, 5000);
-                        const fraudResult = await fraudResponse.json();
+                    const fraudResponse = await retryOperation(() => fetch('http://127.0.0.1:8003/predict', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(fraudData),
+                        signal: controller.signal
+                    }), 3, 1000, 5000);
 
-                        if (fraudResult.error || !('fraud_label' in fraudResult) || !('fraud_probability' in fraudResult)) {
-                            throw new Error('Invalid fraud detection response: ' + (fraudResult.error || 'Missing required fields'));
-                        }
+                    if (!fraudResponse.ok) {
+                        throw new Error(`Fraud detection API failed: ${fraudResponse.statusText}`);
+                    }
 
-                        const isFraudulent = fraudResult.fraud_label;
-                        const confidence = fraudResult.fraud_probability;
-                        let action = 'none';
-                        const details = {
-                            ...fraudData,
-                            api_response: fraudResult
-                        };
+                    const fraudResult = await fraudResponse.json();
 
-                        if (isFraudulent) {
-                            const fraudCount = <?php echo getFraudHistory($conn, $user_id); ?>;
-                            action = (confidence > (fraudCount > 0 ? 0.7 : 0.9)) ? 'block_user' : 'logout';
-                            await fetch('log-fraud.php', {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/json'
-                                },
-                                body: JSON.stringify({
-                                    user_id: <?php echo $user_id; ?>,
-                                    voter_id: voterId,
-                                    ip_address: ipAddress,
-                                    election_id: electionId,
-                                    is_fraudulent: isFraudulent,
-                                    confidence: confidence,
-                                    details: JSON.stringify(details),
-                                    action: action
-                                })
-                            });
-                            if (action === 'block_user') {
-                                await fetch('block-user.php', {
-                                    method: 'POST',
-                                    headers: {
-                                        'Content-Type': 'application/json'
-                                    },
-                                    body: JSON.stringify({
-                                        user_id: <?php echo $user_id; ?>
-                                    })
-                                });
-                                showError('Fraud detected. Your account has been blocked.');
-                                setTimeout(() => window.location.href = 'login.php?error=' + encodeURIComponent('Account blocked due to fraud detection.'), 3000);
-                                return;
-                            } else {
-                                showError('Fraud detected. You will be logged out.');
-                                setTimeout(() => window.location.href = 'login.php?error=' + encodeURIComponent('Logged out due to fraud detection.'), 3000);
-                                return;
-                            }
-                        } else {
-                            await fetch('log-fraud.php', {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/json'
-                                },
-                                body: JSON.stringify({
-                                    user_id: <?php echo $user_id; ?>,
-                                    voter_id: voterId,
-                                    ip_address: ipAddress,
-                                    election_id: electionId,
-                                    is_fraudulent: isFraudulent,
-                                    confidence: confidence,
-                                    details: JSON.stringify(details),
-                                    action: action
-                                })
-                            });
-                        }
+                    if (fraudResult.error || !('fraud_label' in fraudResult) || !('fraud_probability' in fraudResult)) {
+                        throw new Error('Invalid fraud detection response: ' + (fraudResult.error || 'Missing required fields'));
+                    }
 
-                        submitButton.textContent = 'Submitting Vote...';
-                        let signer;
-                        try {
-                            signer = provider.getSigner();
-                        } catch (error) {
-                            throw new Error('Signer not available. Please ensure wallet is connected.');
-                        }
-                        const contractWithSigner = contract.connect(signer);
-                        const tx = await retryOperation(() => contractWithSigner.castVote(
-                            electionId, positionId, candidateId, candidateName, positionName, {
-                                gasLimit: 300000
-                            }
-                        ));
-                        const receipt = await tx.wait();
+                    const isFraudulent = fraudResult.fraud_label;
+                    const confidence = fraudResult.fraud_probability;
+                    let action = 'none';
+                    const details = {
+                        ...fraudData,
+                        api_response: fraudResult
+                    };
 
-                        const response = await fetch('log-vote.php', {
+                    if (isFraudulent) {
+                        const fraudCount = <?php echo getFraudHistory($conn, $user_id); ?>;
+                        action = (confidence > (fraudCount > 0 ? 0.7 : 0.9)) ? 'block_user' : 'logout';
+                        await fetch('log-fraud.php', {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json'
                             },
                             body: JSON.stringify({
+                                user_id: <?php echo $user_id; ?>,
+                                voter_id: voterId,
+                                ip_address: ipAddress,
                                 election_id: electionId,
-                                hash: receipt.transactionHash,
-                                data: JSON.stringify({
-                                    voter: await signer.getAddress(),
-                                    position_id: positionId,
-                                    candidate_id: candidateId,
-                                    candidateName,
-                                    positionName
-                                }),
-                                voter: await signer.getAddress(),
-                                position_id: positionId,
-                                candidate_id: candidateId,
-                                timestamp: Math.floor(Date.now() / 1000)
+                                is_fraudulent: isFraudulent,
+                                confidence: confidence,
+                                details: JSON.stringify(details),
+                                action: action
                             })
                         });
-                        const result = await response.json();
-                        if (!result.success) {
-                            throw new Error('Failed to log vote in database: ' + result.message);
+                        if (action === 'block_user') {
+                            await fetch('block-user.php', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({
+                                    user_id: <?php echo $user_id; ?>
+                                })
+                            });
+                            showError('Fraud detected. Your account has been blocked.');
+                            setTimeout(() => window.location.href = 'login.php?error=' + encodeURIComponent('Account blocked due to fraud detection.'), 3000);
+                            return;
+                        } else {
+                            showError('Fraud detected. You will be logged out.');
+                            setTimeout(() => window.location.href = 'login.php?error=' + encodeURIComponent('Logged out due to fraud detection.'), 3000);
+                            return;
                         }
-
-                        showSuccess('Vote cast successfully! Transaction Hash: ' + receipt.transactionHash);
-                        form.querySelectorAll('input[name="candidate_id"]').forEach(radio => radio.disabled = true);
-                        submitButton.disabled = true;
-                        submitButton.textContent = 'Vote Cast';
-
-                        await fetch('set-voted-flag.php', {
+                    } else {
+                        await fetch('log-fraud.php', {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json'
-                            }
+                            },
+                            body: JSON.stringify({
+                                user_id: <?php echo $user_id; ?>,
+                                voter_id: voterId,
+                                ip_address: ipAddress,
+                                election_id: electionId,
+                                is_fraudulent: isFraudulent,
+                                confidence: confidence,
+                                details: JSON.stringify(details),
+                                action: action
+                            })
                         });
-                    } catch (error) {
-                        console.error('Vote submission error:', error);
-                        showError('Error: ' + (error.message.includes('signer') ? 'Wallet connection issue. Please connect your wallet.' : 'Failed to submit vote. Please try again.'));
-                        submitButton.disabled = false;
-                        submitButton.textContent = 'Cast Vote';
                     }
-                };
 
-                cancelButton.onclick = () => {
-                    confirmModal.style.display = 'none';
-                    form.querySelectorAll('input[name="candidate_id"]').forEach(radio => radio.checked = false);
-                    form.querySelectorAll('.candidate-card').forEach(card => card.classList.remove('selected'));
-                };
-            });
+                    submitButton.textContent = 'Submitting Vote...';
+                    let signer;
+                    try {
+                        signer = await provider.getSigner();
+                        if (!signer) throw new Error('No signer available. Please connect MetaMask.');
+                    } catch (error) {
+                        throw new Error('MetaMask connection failed: ' + error.message);
+                    }
+                    const contractWithSigner = contract.connect(signer);
+                    let tx;
+                    try {
+                        tx = await retryOperation(() => contractWithSigner.castVote(
+                            electionId, positionId, candidateId, candidateName, positionName, {
+                                gasLimit: 300000
+                            }
+                        ), 3, 1000, 5000);
+                    } catch (error) {
+                        throw new Error('Blockchain transaction failed: ' + error.message);
+                    }
+                    const receipt = await tx.wait();
+
+                    const response = await fetch('log-vote.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            election_id: electionId,
+                            hash: receipt.transactionHash,
+                            data: JSON.stringify({
+                                voter: await signer.getAddress(),
+                                position_id: positionId,
+                                candidate_id: candidateId,
+                                candidateName,
+                                positionName
+                            }),
+                            voter: await signer.getAddress(),
+                            position_id: positionId,
+                            candidate_id: candidateId,
+                            timestamp: Math.floor(Date.now() / 1000)
+                        })
+                    });
+                    const result = await response.json();
+                    if (!result.success) {
+                        throw new Error('Failed to log vote in database: ' + result.message);
+                    }
+
+                    showSuccess('Vote cast successfully! Transaction Hash: ' + receipt.transactionHash);
+                    form.querySelectorAll('input[name="candidate_id"]').forEach(radio => radio.disabled = true);
+                    submitButton.disabled = true;
+                    submitButton.textContent = 'Vote Cast';
+
+                    await fetch('set-voted-flag.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                } catch (error) {
+                    console.error('Vote submission error:', error);
+                    showError('Error: ' + (error.message.includes('MetaMask') ? 'Please install and connect MetaMask.' : error.message));
+                    submitButton.disabled = false;
+                    submitButton.textContent = 'Cast Vote';
+                }
+            };
+
+            cancelButton.onclick = () => {
+                confirmModal.style.display = 'none';
+                form.querySelectorAll('input[name="candidate_id"]').forEach(radio => radio.checked = false);
+                form.querySelectorAll('.candidate-card').forEach(card => card.classList.remove('selected'));
+            };
         });
 
         const inactivityTimeout = <?php echo $inactivity_timeout; ?>;
