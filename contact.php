@@ -18,7 +18,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $message = 'Please enter a valid email address.';
         $status = 'error';
     } else {
-        $to = 'smartuchaguzi1@gmail.com';
+        $to = 'smartuchaguzi255@gmail.com';
         $email_subject = "SmartUchaguzi Contact Form: $subject";
         $email_body = "You have received a new message from the SmartUchaguzi contact form.\n\n";
         $email_body .= "Name: $name\n";
@@ -46,8 +46,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Contact Us - SmartUchaguzi</title>
-    <link rel="icon" href="./uploads/Vote.jpeg" type="image/x-icon">
+    <title>Contact Us | SmartUchaguzi</title>
+    <link rel="icon" href="./images/System Logo.jpg" type="image/x-icon">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
@@ -391,7 +391,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <div class="header">
         <div class="logo-container">
             <div class="logo">
-                <img src="./uploads/Vote.jpeg" alt="SmartUchaguzi Logo">
+                <img src="./images/System Logo.jpg" alt="SmartUchaguzi Logo">
                 <h1>SmartUchaguzi</h1>
             </div>
             <div class="breadcrumb">
