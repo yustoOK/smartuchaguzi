@@ -8,9 +8,8 @@ try {
         echo json_encode(['error' => 'Invalid election ID']);
         exit;
     }
-
-    // HTML to execute JavaScript for blockchain interaction
     ?>
+    <!-- HTML and JavaScript to fetch votes from the blockchain -->
     <!DOCTYPE html>
     <html>
     <head>
