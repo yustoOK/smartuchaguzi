@@ -108,7 +108,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_candidate'])) {
         $errors[] = "Please enter a valid position ID.";
     }
     if ($hostel_id === false) {
-        $hostel_id = null; // Allow NULL for hostel_id
+        $hostel_id = null; 
     }
 
     if (empty($errors)) {
@@ -126,7 +126,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_candidate'])) {
     }
 }
 
-// Delete candidate
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_candidate'])) {
     $candidate_id = filter_var($_POST['candidate_id'], FILTER_VALIDATE_INT);
     try {
