@@ -21,7 +21,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    // Fetch user details, including user_id, from the users table
     $stmt = $pdo->prepare("SELECT user_id FROM users WHERE email = ?");
     $stmt->execute([$email]);
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -31,15 +30,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    $user_id = $user['user_id']; // Get the user_id
+    $user_id = $user['user_id']; 
     $token = bin2hex(random_bytes(16));
     $expires_at = date('Y-m-d H:i:s', strtotime('+1 hour'));
 
-    // Delete any existing reset tokens for this email to avoid duplicates
-    $stmt = $pdo->prepare("DELETE FROM password_resets WHERE email = ?");
+     $stmt = $pdo->prepare("DELETE FROM password_resets WHERE email = ?");
     $stmt->execute([$email]);
 
-    // Store new token, including user_id
     $stmt = $pdo->prepare("INSERT INTO password_resets (user_id, email, token, expires_at) VALUES (?, ?, ?, ?)");
     if ($stmt->execute([$user_id, $email, $token, $expires_at])) {
         $subject = "Reset Your SmartUchaguzi Password";
