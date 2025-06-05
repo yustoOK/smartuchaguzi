@@ -1298,7 +1298,7 @@ try {
         async function loadMyVotes() {
             const voterAddress = '<?php echo $_SESSION['wallet_address'] ?? '0x0000000000000000000000000000000000000000'; ?>';
             try {
-                const allVotes = await contract.methods.getVotesByElection(1).call(); // Adjust electionId dynamically if needed
+                const allVotes = await contract.methods.getVotesByElection(1).call();
                 let myVotesHtml = '';
                 for (let i = 0; i < allVotes.length; i++) {
                     if (allVotes[i].voter === voterAddress) {

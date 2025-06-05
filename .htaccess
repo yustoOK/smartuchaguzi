@@ -1,0 +1,1 @@
+Header set Content-Security-Policy "script-src 'self' 'unsafe-eval' https://cdn.jsdelivr.net;"
