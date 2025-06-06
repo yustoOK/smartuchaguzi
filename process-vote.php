@@ -861,15 +861,15 @@ try {
                                                                 <img src="<?php echo htmlspecialchars($mainCandidate['passport'] ?: 'images/general.png'); ?>" alt="Candidate <?php echo htmlspecialchars($mainCandidate['firstname'] . ' ' . $mainCandidate['lastname']); ?>" class="candidate-img">
                                                                 <div class="candidate-details">
                                                                     <h5><?php echo htmlspecialchars($mainCandidate['firstname'] . ' ' . $mainCandidate['lastname']); ?></h5>
-                                                                    <p>Reg No: <?php echo htmlspecialchars($mainCandidate['official_id']); ?></p>
-                                                                    <p>Programme: <?php echo htmlspecialchars($association); ?></p>
+                                                                    <p>Identity: <?php echo htmlspecialchars($mainCandidate['official_id']); ?></p>
+                                                                    <p>Association: <?php echo htmlspecialchars($association); ?></p>
                                                                 </div>
                                                             </div>
                                                             <div style="display: flex; align-items: center;">
                                                                 <img src="<?php echo htmlspecialchars($viceCandidate['passport'] ?: 'images/general.png'); ?>" alt="Running Mate <?php echo htmlspecialchars($viceCandidate['firstname'] . ' ' . $viceCandidate['lastname']); ?>" class="candidate-img">
                                                                 <div class="candidate-details">
                                                                     <h5><?php echo htmlspecialchars($viceCandidate['firstname'] . ' ' . $viceCandidate['lastname']); ?></h5>
-                                                                    <p>Reg No: <?php echo htmlspecialchars($viceCandidate['official_id']); ?></p>
+                                                                    <p>Identity: <?php echo htmlspecialchars($viceCandidate['official_id']); ?></p>
                                                                     <p>Post: <?php echo htmlspecialchars($position['vice_position_name']); ?></p>
                                                                 </div>
                                                             </div>
@@ -888,8 +888,8 @@ try {
                                                                 <img src="<?php echo htmlspecialchars($candidate['passport'] ?: 'images/general.png'); ?>" alt="Candidate <?php echo htmlspecialchars($candidate['firstname'] . ' ' . $candidate['lastname']); ?>" class="candidate-img">
                                                                 <div class="candidate-details">
                                                                     <h5><?php echo htmlspecialchars($candidate['firstname'] . ' ' . $candidate['lastname']); ?></h5>
-                                                                    <p>Reg No: <?php echo htmlspecialchars($candidate['official_id']); ?></p>
-                                                                    <p>Programme: <?php echo htmlspecialchars($association); ?></p>
+                                                                    <p>Identity: <?php echo htmlspecialchars($candidate['official_id']); ?></p>
+                                                                    <p>Association: <?php echo htmlspecialchars($association); ?></p>
                                                                 </div>
                                                             </div>
                                                             <label class="vote-label">
