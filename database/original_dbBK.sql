@@ -27,16 +27,20 @@ CREATE TABLE `all_users` (
   `email` varchar(100) NOT NULL,
   `association` varchar(10) NOT NULL,
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  `last_updated` timestamp NULL DEFAULT NULL,
-  `role` varchar(30) DEFAULT 'voter',
-  `is_active` tinyint(1) DEFAULT '1',
+  `last_login` timestamp NULL DEFAULT NULL,
+  `role` enum('voter','admin','none') DEFAULT 'voter',
+  `active` tinyint(1) NOT NULL DEFAULT '1',
   `fname` varchar(30) DEFAULT NULL,
   `mname` varchar(30) DEFAULT NULL,
   `lname` varchar(30) DEFAULT NULL,
-  `hostel` int DEFAULT NULL,
-  `college` int DEFAULT NULL,
+  `hostel_id` int DEFAULT NULL,
+  `college_id` int DEFAULT NULL,
   PRIMARY KEY (`official_id`),
-  UNIQUE KEY `email` (`email`)
+  UNIQUE KEY `email` (`email`),
+  KEY `fk_colleges` (`college_id`),
+  KEY `fk_hostels` (`hostel_id`),
+  CONSTRAINT `fk_colleges` FOREIGN KEY (`college_id`) REFERENCES `colleges` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_hostels` FOREIGN KEY (`hostel_id`) REFERENCES `hostels` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -46,8 +50,56 @@ CREATE TABLE `all_users` (
 
 LOCK TABLES `all_users` WRITE;
 /*!40000 ALTER TABLE `all_users` DISABLE KEYS */;
-INSERT INTO `all_users` VALUES ('ADMIN001','yustobitalio24@gmail.com','ADMIN','2025-04-06 05:31:53',NULL,'admin',1,'Admin',NULL,'admin',NULL,NULL),('T22-03-00002','shadamu96@gmail.com','UDOMASA','2025-04-06 05:31:53',NULL,'teacher-voter',1,'sheyla',NULL,'adamu',NULL,1),('T22-03-06448','ashamkuto2@gmail.com','UDOSO','2025-04-06 05:31:53',NULL,'voter',1,'asha',NULL,'mkuto',2,3),('T22-03-06449','student2@udom.ac.tz','UDOSO','2025-04-06 05:31:53',NULL,'voter',1,NULL,NULL,NULL,NULL,NULL),('T22-03-06450','student3@udom.ac.tz','UDOSO','2025-04-06 05:31:53',NULL,'voter',1,NULL,NULL,NULL,NULL,NULL),('ZU-01','observer@udom.ac.tz','none','2025-04-10 09:44:03',NULL,'observer',1,NULL,NULL,NULL,NULL,NULL);
 /*!40000 ALTER TABLE `all_users` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `colleges`
+--
+
+DROP TABLE IF EXISTS `colleges`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `colleges` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `name` varchar(100) NOT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `colleges`
+--
+
+LOCK TABLES `colleges` WRITE;
+/*!40000 ALTER TABLE `colleges` DISABLE KEYS */;
+/*!40000 ALTER TABLE `colleges` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `hostels`
+--
+
+DROP TABLE IF EXISTS `hostels`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `hostels` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `name` varchar(50) NOT NULL,
+  `college_id` int DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `college_id` (`college_id`),
+  CONSTRAINT `hostels_ibfk_1` FOREIGN KEY (`college_id`) REFERENCES `colleges` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `hostels`
+--
+
+LOCK TABLES `hostels` WRITE;
+/*!40000 ALTER TABLE `hostels` DISABLE KEYS */;
+/*!40000 ALTER TABLE `hostels` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
@@ -59,4 +111,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-04-19 11:48:15
+-- Dump completed on 2025-06-06 18:38:15
