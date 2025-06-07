@@ -15,32 +15,16 @@ try {
     die("Database connection failed.");
 }
 
-function redirectUser($role, $college_id, $association) {
-    if ($role === 'admin') {
-        header('Location: admin-dashboard.php');
-    } elseif ($role === 'voter' && $association === 'UDOSO') {
-        if ($college_id === 1) { // CIVE
-            header('Location: cive-students.php');
-        } elseif ($college_id === 3) { // CNMS
-            header('Location: cnms-students.php');
-        } elseif ($college_id === 2) { // COED
-            header('Location: coed-students.php'); 
-        } else {
-            header('Location: login.php');
-        }
-    } elseif ($role === 'voter' && $association === 'UDOMASA') {
-        if ($college_id === 1) { // CIVE
-            header('Location: cive-teachers.php');
-        } elseif ($college_id === 3) { // CNMS
-            header('Location: cnms-teachers.php');
-        } elseif ($college_id === 2) { // CoED
-            header('Location: coed-teachers.php'); 
-        } else {
-            header('Location: login.php');
-        }
-    } else {
-        header('Location: login.php'); // Default location if everything fails
+function generateCsrfToken() {
+    if (!isset($_SESSION['csrf_token'])) {
+        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
     }
+    return $_SESSION['csrf_token'];
+}
+
+function redirectUser($role, $college_id, $association) {
+    $csrf_token = generateCsrfToken();
+    header('Location: post-login.php?role=' . urlencode($role) . '&college_id=' . urlencode($college_id ?? '') . '&association=' . urlencode($association ?? '') . '&csrf_token=' . urlencode($csrf_token));
     exit;
 }
 
@@ -65,7 +49,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     try {
-        $stmt = $pdo->prepare("SELECT user_id, email, password, role, college_id, association, is_verified FROM users WHERE email = ?");
+        $stmt = $pdo->prepare("SELECT user_id, email, password, role, college_id, association, is_verified, wallet_address FROM users WHERE email = ?");
         $stmt->execute([$email]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -85,6 +69,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['user_agent'] = $_SERVER['HTTP_USER_AGENT'];
             $_SESSION['start_time'] = time();
             $_SESSION['last_activity'] = time();
+            $_SESSION['wallet_address'] = $user['wallet_address'] ?? null; // Loading existing wallet address, if any
+
+            // Generate CSRF token
+            $csrf_token = generateCsrfToken();
 
             // Store session data in the sessions table
             $session_token = bin2hex(random_bytes(32));

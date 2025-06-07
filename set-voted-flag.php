@@ -9,14 +9,23 @@ try {
         throw new Exception("Database connection failed: " . $conn->connect_error);
     }
 
-    
     if (!isset($_SESSION['user_id'])) {
         throw new Exception("User not logged in");
     }
 
     $user_id = $_SESSION['user_id'];
 
-    
+    // Checking if already voted
+    $check_stmt = $conn->prepare("SELECT has_voted FROM users WHERE user_id = ?");
+    $check_stmt->bind_param("i", $user_id);
+    $check_stmt->execute();
+    $result = $check_stmt->get_result()->fetch_assoc();
+    $check_stmt->close();
+
+    if ($result && $result['has_voted']) {
+        throw new Exception("User has already voted");
+    }
+
     $stmt = $conn->prepare("UPDATE users SET has_voted = 1 WHERE user_id = ?");
     $stmt->bind_param("i", $user_id);
     if (!$stmt->execute()) {
@@ -26,7 +35,6 @@ try {
     $stmt->close();
     $conn->close();
 
-    
     echo json_encode(['success' => true]);
 } catch (Exception $e) {
     error_log("set-voted-flag.php error: " . $e->getMessage());
