@@ -11,140 +11,121 @@ try {
     $pdo = new PDO("mysql:host=$host;dbname=$dbname", $username, $password);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 } catch (PDOException $e) {
-    error_log("Connection to smartuchaguzi_db failed: " . $e->getMessage());
-    die("Connection failed. Please try again later.");
+    error_log("Database connection failed: " . $e->getMessage());
+    die("Database connection failed.");
 }
 
-function connectToOriginalDB()
+function redirectUser($role, $college_id, $association)
 {
-    $host = 'localhost';
-    $dbname = 'original_db';
-    $username = 'root';
-    $password = 'Leonida1972@@@@';
-
-    try {
-        $pdo = new PDO("mysql:host=$host;dbname=$dbname", $username, $password);
-        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-        return $pdo;
-    } catch (PDOException $e) {
-        error_log("Connection to original_db failed: " . $e->getMessage());
-        die("Connection to original_db failed. Please try again later.");
+    if ($role === 'admin') {
+        header('Location: admin-dashboard.php');
+    } elseif ($role === 'voter' && $association === 'UDOSO') {
+        if ($college_id === 1) { // CIVE
+            header('Location: cive-students.php');
+        } elseif ($college_id === 3) { // CNMS
+            header('Location: cnms-students.php');
+        } elseif ($college_id === 2) { // COED
+            header('Location: coed-students.php');
+        } else {
+            header('Location: login.php');
+        }
+    } elseif ($role === 'voter' && $association === 'UDOMASA') {
+        if ($college_id === 1) { // CIVE
+            header('Location: cive-teachers.php');
+        } elseif ($college_id === 3) { // CNMS
+            header('Location: cnms-teachers.php');
+        } elseif ($college_id === 2) { // CoED
+            header('Location: coed-teachers.php');
+        } else {
+            header('Location: login.php');
+        }
+    } else {
+        header('Location: login.php');
     }
+    exit;
 }
 
-function sendVerificationEmail($email, $token)
-{
-    $subject = "Verify Your SmartUchaguzi Account";
-    $verificationLink = "http://localhost/smartuchaguzi/verify_email.php?token=" . urlencode($token);
-    $message = "Hello,\n\nPlease verify your email by clicking the link below:\n$verificationLink\n\nIf you did not register, please ignore this email.\n\nBest regards,\nSmartUchaguzi Team 2025";
-    $headers = "From: yustobitalio20@gmail.com\r\n"; // Replace with your Gmail address
-
-    return mail($email, $subject, $message, $headers);
+if (isset($_SESSION['user_id'])) {
+    error_log("Existing session found: " . print_r($_SESSION, true));
+    redirectUser($_SESSION['role'], $_SESSION['college_id'] ?? null, $_SESSION['association'] ?? null);
+    exit;
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $official_id = filter_input(INPUT_POST, 'official_id', FILTER_SANITIZE_FULL_SPECIAL_CHARS);
     $email = filter_input(INPUT_POST, 'email', FILTER_SANITIZE_EMAIL);
     $password = $_POST['password'] ?? '';
-    $confirm_password = $_POST['confirm_password'] ?? '';
+    $remember = isset($_POST['remember']) ? true : false;
 
-    if (empty($official_id) || empty($email) || empty($password) || empty($confirm_password)) {
-        header("Location: register.php?error=" . urlencode("All fields are required."));
+    if (empty($email) || empty($password)) {
+        header("Location: login.php?error=" . urlencode("All fields are required."));
         exit;
     }
 
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        header("Location: register.php?error=" . urlencode("Invalid email format."));
+        header("Location: login.php?error=" . urlencode("Invalid email format."));
         exit;
     }
 
-    if ($password !== $confirm_password) {
-        header("Location: register.php?error=" . urlencode("Passwords do not match."));
-        exit;
-    }
-
-    $original_pdo = connectToOriginalDB();
     try {
-        $stmt = $original_pdo->prepare("SELECT official_id, email, fname, mname, lname, college_id, hostel_id, association, role, active FROM all_users WHERE official_id = ? AND email = ?");
-        $stmt->execute([$official_id, $email]);
+        $stmt = $pdo->prepare("SELECT user_id, email, password, role, college_id, association, is_verified FROM users WHERE email = ?");
+        $stmt->execute([$email]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        if (!$user) {
-            header("Location: register.php?error=" . urlencode("User not found or email does not match official ID."));
-            exit;
-        }
+        if ($user && password_verify($password, $user['password'])) {
+            if ($user['is_verified'] == 0) {
+                header("Location: login.php?error=" . urlencode("Please verify your email."));
+                exit;
+            }
 
-        if ($user['active'] != 1) {
-            header("Location: register.php?error=" . urlencode("User is not active. Please contact support."));
-            exit;
-        }
-    } catch (PDOException $e) {
-        error_log("Query to original_db failed: " . $e->getMessage());
-        header("Location: register.php?error=" . urlencode("Failed to verify user in original database. Please try again."));
-        exit;
-    }
+            session_regenerate_id(true);
 
-    try {
-        $stmt = $pdo->prepare("SELECT * FROM users WHERE official_id = ? OR email = ?");
-        $stmt->execute([$official_id, $email]);
-        if ($stmt->fetch()) {
-            header("Location: register.php?error=" . urlencode("User already registered."));
-            exit;
-        }
-    } catch (PDOException $e) {
-        error_log("Check for existing user in smartuchaguzi_db failed: " . $e->getMessage());
-        header("Location: register.php?error=" . urlencode("Failed to check existing user. Please try again."));
-        exit;
-    }
+            $_SESSION['user_id'] = $user['user_id'];
+            $_SESSION['email'] = $user['email'];
+            $_SESSION['role'] = $user['role'];
+            $_SESSION['college_id'] = $user['college_id'] ?? null;
+            $_SESSION['association'] = $user['association'] ?? null;
+            $_SESSION['user_agent'] = $_SERVER['HTTP_USER_AGENT'];
+            $_SESSION['start_time'] = time();
+            $_SESSION['last_activity'] = time();
 
-    $verification_token = bin2hex(random_bytes(16));
-$password_hash = password_hash($password, PASSWORD_DEFAULT);
-$token_expires_at = date('Y-m-d H:i:s', strtotime('+24 hours')); // Token expires in 24 hours
+            // Store session data in the sessions table
+            $session_token = bin2hex(random_bytes(32));
+            $ip_address = $_SERVER['REMOTE_ADDR'] ?? 'Unknown';
+            $stmt = $pdo->prepare("INSERT INTO sessions (user_id, session_token, ip_address, login_time, last_activity) VALUES (?, ?, ?, NOW(), NOW())");
+            $stmt->execute([$user['user_id'], $session_token, $ip_address]);
 
-try {
-    $stmt = $pdo->prepare(
-        "INSERT INTO users (
-            official_id, 
-            email, 
-            fname, 
-            mname, 
-            lname, 
-            college_id, 
-            hostel_id, 
-            association, 
-            password, 
-            verification_token, 
-            token_expires_at, 
-            is_verified, 
-            role, 
-            last_login
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, NULL)"
-    );
-    $stmt->execute([
-        $official_id,
-        $email,
-        $user['fname'],
-        $user['mname'],
-        $user['lname'],
-        $user['college_id'],
-        $user['hostel_id'],
-        $user['association'],
-        $password_hash,
-        $verification_token,
-        $token_expires_at,
-        $user['role'] ?? 'voter'
-    ]);
+            // Handle "Remember Me" functionality
+            if ($remember) {
+                $remember_token = bin2hex(random_bytes(32));
+                $expiry = date('Y-m-d H:i:s', time() + 30 * 24 * 60 * 60); // 30 days expiry
+                $stmt = $pdo->prepare("UPDATE users SET remember_token = ?, token_expiry = ? WHERE user_id = ?");
+                $stmt->execute([$remember_token, $expiry, $user['user_id']]);
 
-        if (sendVerificationEmail($email, $verification_token)) {
-            header("Location: login.php?success=" . urlencode("Registration successful! Please check your email to verify your account."));
+                // Set cookies (non-secure for development)
+                setcookie('remember_user', $remember_token, time() + 30 * 24 * 60 * 60, '/', '', false, true); // Secure=false, HttpOnly=true
+                setcookie('remember_email', $email, time() + 30 * 24 * 60 * 60, '/', '', false, true);
+            } else {
+                // Clear cookies if "Remember Me" is not checked
+                setcookie('remember_user', '', time() - 3600, '/', '', false, true);
+                setcookie('remember_email', '', time() - 3600, '/', '', false, true);
+                $stmt = $pdo->prepare("UPDATE users SET remember_token = NULL, token_expiry = NULL WHERE user_id = ?");
+                $stmt->execute([$user['user_id']]);
+            }
+
+            error_log("Session set success after login: " . print_r($_SESSION, true));
+
+            $action = "User logged in: {$user['email']}";
+            $stmt = $pdo->prepare("INSERT INTO auditlogs (user_id, action, ip_address, timestamp) VALUES (?, ?, ?, NOW())");
+            $stmt->execute([$user['user_id'], $action, $ip_address]);
+
+            redirectUser($user['role'], $user['college_id'] ?? null, $user['association'] ?? null);
         } else {
-            header("Location: register.php?error=" . urlencode("Failed to send verification email. Please try again."));
+            header("Location: login.php?error=" . urlencode("Invalid email or password."));
+            exit;
         }
     } catch (PDOException $e) {
-        error_log("Insert into smartuchaguzi_db failed: " . $e->getMessage());
-        header("Location: register.php?error=" . urlencode("Registration failed due to a server error. Please try again."));
+        error_log("Login query failed: " . $e->getMessage());
+        header("Location: login.php?error=" . urlencode("Login failed due to a server error."));
         exit;
     }
-    exit;
 }
-?>

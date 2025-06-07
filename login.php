@@ -1,6 +1,48 @@
+<?php
+session_start();
+date_default_timezone_set('Africa/Dar_es_Salaam');
+
+// Checking for existing remember me cookie
+if (isset($_COOKIE['remember_user']) && !isset($_SESSION['user_id'])) {
+    $token = $_COOKIE['remember_user'];
+    try {
+        $pdo = new PDO("mysql:host=localhost;dbname=smartuchaguzi_db", "root", "Leonida1972@@@@");
+        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        
+        $stmt = $pdo->prepare("SELECT user_id, email, role, college_id, association FROM users WHERE remember_token = ? AND token_expiry > NOW()");
+        $stmt->execute([$token]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($user) {
+            session_regenerate_id(true);
+            $_SESSION['user_id'] = $user['user_id'];
+            $_SESSION['email'] = $user['email'];
+            $_SESSION['role'] = $user['role'];
+            $_SESSION['college_id'] = $user['college_id'] ?? null;
+            $_SESSION['association'] = $user['association'] ?? null;
+            $_SESSION['user_agent'] = $_SERVER['HTTP_USER_AGENT'];
+            $_SESSION['start_time'] = time();
+            $_SESSION['last_activity'] = time();
+            
+            $session_token = bin2hex(random_bytes(32));
+            $ip_address = $_SERVER['REMOTE_ADDR'] ?? 'Unknown';
+            $stmt = $pdo->prepare("INSERT INTO sessions (user_id, session_token, ip_address, login_time, last_activity) VALUES (?, ?, ?, NOW(), NOW())");
+            $stmt->execute([$user['user_id'], $session_token, $ip_address]);
+            
+            $action = "User auto-logged in : {$user['email']}";
+            $stmt = $pdo->prepare("INSERT INTO auditlogs (user_id, action, ip_address, timestamp) VALUES (?, ?, ?, NOW())");
+            $stmt->execute([$user['user_id'], $action, $ip_address]);
+            
+            redirectUser($user['role'], $user['college_id'] ?? null, $user['association'] ?? null);
+        }
+    } catch (PDOException $e) {
+        error_log("Auto-login failed: " . $e->getMessage());
+    }
+}
+?>
+
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -41,14 +83,8 @@
         }
 
         @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
         .login-title {
@@ -168,8 +204,7 @@
             color: #e76f51;
         }
 
-        .login-btn,
-        .signup-btn {
+        .login-btn, .signup-btn {
             background: linear-gradient(135deg, #f4a261, #e76f51);
             border: none;
             color: #fff;
@@ -184,14 +219,12 @@
             transition: all 0.3s ease;
         }
 
-        .login-btn:hover,
-        .signup-btn:hover {
+        .login-btn:hover, .signup-btn:hover {
             transform: scale(1.05);
             box-shadow: 0 0 15px rgba(244, 162, 97, 0.5);
         }
 
-        .login-btn::before,
-        .signup-btn::before {
+        .login-btn::before, .signup-btn::before {
             content: '';
             position: absolute;
             top: 50%;
@@ -204,8 +237,7 @@
             transition: width 0.6s ease, height 0.6s ease;
         }
 
-        .login-btn:hover::before,
-        .signup-btn:hover::before {
+        .login-btn:hover::before, .signup-btn:hover::before {
             width: 300px;
             height: 300px;
         }
@@ -233,7 +265,6 @@
                 width: 90%;
                 padding: 20px;
             }
-
             .login-title {
                 font-size: 24px;
                 padding: 6px 12px;
@@ -241,7 +272,6 @@
         }
     </style>
 </head>
-
 <body>
     <div class="login-container">
         <div class="login-title">SmartUchaguzi Login</div>
@@ -265,14 +295,14 @@
         <form class="login-form" action="login_process.php" method="POST" onsubmit="return validateForm()">
             <div class="input-group">
                 <label for="email" aria-label="Email Address"><i class="fas fa-user"></i></label>
-                <input type="email" id="email" name="email" placeholder="Email ID" required>
+                <input type="email" id="email" name="email" placeholder="Email ID" value="<?php echo isset($_COOKIE['remember_email']) ? htmlspecialchars($_COOKIE['remember_email']) : ''; ?>" required>
             </div>
             <div class="input-group">
                 <label for="password" aria-label="Password"><i class="fas fa-lock"></i></label>
                 <input type="password" id="password" name="password" placeholder="Password" required>
             </div>
             <div class="options">
-                <label><input type="checkbox" name="remember"> Remember me</label>
+                <label><input type="checkbox" name="remember" <?php echo isset($_COOKIE['remember_user']) ? 'checked' : ''; ?>> Remember me</label>
                 <a href="forgot_password.php">Forgot Password?</a>
             </div>
             <button type="submit" class="login-btn">Login</button>
@@ -283,13 +313,11 @@
     <script>
         function validateForm() {
             const email = document.getElementById('email').value;
-
             const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
             if (!emailPattern.test(email)) {
                 alert('Enter a valid email address.');
                 return false;
             }
-
             return true;
         }
     </script>

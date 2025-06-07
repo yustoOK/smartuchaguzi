@@ -5,10 +5,10 @@ contract VoteContract {
     address public admin;
     
     // Mapping to track if a voter has voted for a position in an election
-    mapping(address => mapping(uint256 => mapping(uint256 => bool))) public hasVoted;
+    mapping(address => mapping(uint256 => mapping(string => bool))) public hasVoted;
     
     // Mapping to store vote counts for each candidate per position
-    mapping(uint256 => mapping(uint256 => uint256)) public voteCount;
+    mapping(uint256 => mapping(string => uint256)) public voteCount;
     
     // Array to store all votes
     Vote[] public votes;
@@ -18,14 +18,14 @@ contract VoteContract {
         uint256 electionId;
         address voter;
         uint256 positionId;
-        uint256 candidateId;
+        string candidateId; // Changed from uint256 to string
         uint256 timestamp;
         string candidateName; 
         string positionName;  
     }
 
     // Events for logging
-    event VoteCast(uint256 electionId, address indexed voter, uint256 positionId, uint256 candidateId, string candidateName, string positionName);
+    event VoteCast(uint256 electionId, address indexed voter, uint256 positionId, string candidateId, string candidateName, string positionName);
 
     // Modifiers
     modifier onlyAdmin() {
@@ -41,23 +41,21 @@ contract VoteContract {
     function castVote(
         uint256 electionId,
         uint256 positionId,
-        uint256 candidateId,
+        string memory candidateId, 
         string memory candidateName,
         string memory positionName
     ) external {
-        // To ensure voter hasn't voted for this position in this election
-        require(!hasVoted[msg.sender][electionId][positionId], "Already voted for this position");
-        
-        require(positionId >= 1 && positionId <= 5, "Invalid position ID (must be 1 to 5)");
+        // Ensure voter hasn't voted for this position in this election
+        require(!hasVoted[msg.sender][electionId][candidateId], "Already voted for this position");
 
-        hasVoted[msg.sender][electionId][positionId] = true;
+        hasVoted[msg.sender][electionId][candidateId] = true;
         voteCount[positionId][candidateId]++;
         votes.push(Vote(electionId, msg.sender, positionId, candidateId, block.timestamp, candidateName, positionName));
         emit VoteCast(electionId, msg.sender, positionId, candidateId, candidateName, positionName);
     }
 
     // Function to get the vote count for a candidate in a position
-    function getVoteCount(uint256 positionId, uint256 candidateId) external view returns (uint256) {
+    function getVoteCount(uint256 positionId, string memory candidateId) external view returns (uint256) {
         return voteCount[positionId][candidateId];
     }
 

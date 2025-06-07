@@ -500,7 +500,7 @@ try {
         const myVotesSection = document.getElementById('my-votes');
         const castVoteLink = document.getElementById('cast-vote-link');
 
-        const contractAddress = '0x7f37Ea78D22DA910e66F8FdC1640B75dc88fa44F';
+        const contractAddress = '0xC046c854C85e56DB6AF41dF3934DD671831d9d09';
         const abi = [
     {
       "inputs": [],
@@ -530,9 +530,9 @@ try {
         },
         {
           "indexed": false,
-          "internalType": "uint256",
+          "internalType": "string",
           "name": "candidateId",
-          "type": "uint256"
+          "type": "string"
         },
         {
           "indexed": false,
@@ -576,9 +576,9 @@ try {
           "type": "uint256"
         },
         {
-          "internalType": "uint256",
+          "internalType": "string",
           "name": "candidateId",
-          "type": "uint256"
+          "type": "string"
         },
         {
           "internalType": "string",
@@ -604,9 +604,9 @@ try {
           "type": "uint256"
         },
         {
-          "internalType": "uint256",
+          "internalType": "string",
           "name": "candidateId",
-          "type": "uint256"
+          "type": "string"
         }
       ],
       "name": "getVoteCount",
@@ -648,9 +648,9 @@ try {
               "type": "uint256"
             },
             {
-              "internalType": "uint256",
+              "internalType": "string",
               "name": "candidateId",
-              "type": "uint256"
+              "type": "string"
             },
             {
               "internalType": "uint256",
@@ -689,9 +689,9 @@ try {
           "type": "uint256"
         },
         {
-          "internalType": "uint256",
+          "internalType": "string",
           "name": "",
-          "type": "uint256"
+          "type": "string"
         }
       ],
       "name": "hasVoted",
@@ -713,9 +713,9 @@ try {
           "type": "uint256"
         },
         {
-          "internalType": "uint256",
+          "internalType": "string",
           "name": "",
-          "type": "uint256"
+          "type": "string"
         }
       ],
       "name": "voteCount",
@@ -755,9 +755,9 @@ try {
           "type": "uint256"
         },
         {
-          "internalType": "uint256",
+          "internalType": "string",
           "name": "candidateId",
-          "type": "uint256"
+          "type": "string"
         },
         {
           "internalType": "uint256",
@@ -779,7 +779,8 @@ try {
       "type": "function"
     }
   ];
-        const alchemyApiKey = '1isPc6ojuMcMbyoNNeQkLDGM76n8oT8B';
+        
+  const alchemyApiKey = '1isPc6ojuMcMbyoNNeQkLDGM76n8oT8B';
         const provider = new Web3.providers.HttpProvider(`https://eth-sepolia.g.alchemy.com/v2/${alchemyApiKey}`);
         const web3 = new Web3(provider);
         const contract = new web3.eth.Contract(abi, contractAddress);
@@ -965,7 +966,7 @@ try {
         async function loadMyVotes() {
             const voterAddress = '<?php echo $_SESSION['wallet_address'] ?? '0x0000000000000000000000000000000000000000'; ?>';
             try {
-                const allVotes = await contract.methods.getVotesByElection(1).call(); // Adjust electionId dynamically if needed
+                const allVotes = await contract.methods.getVotesByElection(1).call();
                 let myVotesHtml = '';
                 for (let i = 0; i < allVotes.length; i++) {
                     if (allVotes[i].voter === voterAddress) {

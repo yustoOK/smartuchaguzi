@@ -846,7 +846,7 @@ try {
                                         </div>
                                     <?php else: ?>
                                         <form class="vote-form" data-election-id="<?php echo $election['election_id']; ?>" data-position-id="<?php echo $position['position_id']; ?>" aria-label="Vote for <?php echo htmlspecialchars($position['position_name']); ?>">
-                                            <!-- Fixed CSRF token input syntax -->
+                                            
                                             <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
                                             <div class="candidate-grid">
                                                 <?php
@@ -941,7 +941,7 @@ try {
     }
 
     const provider = new ethers.providers.Web3Provider(window.ethereum); 
-    const contractAddress = '0x7f37Ea78D22DA910e66F8FdC1640B75dc88fa44F';
+    const contractAddress = '0xC046c854C85e56DB6AF41dF3934DD671831d9d09';
 
     // Fetching the ABI from a file
     let contract;
