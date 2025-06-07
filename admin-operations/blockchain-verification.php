@@ -394,8 +394,9 @@ if ($user['college_id']) {
             <p>© 2025 SmartUchaguzi | University of Dodoma</p>
         </footer>
     </main>
+<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
 
-    <script>
+    <script> 
         // Initialize provider and contract variables
         const provider = new ethers.providers.JsonRpcProvider('https://eth-sepolia.g.alchemy.com/v2/1isPc6ojuMcMbyoNNeQkLDGM76n8oT8B');
         const contractAddress = '0xC046c854C85e56DB6AF41dF3934DD671831d9d09';
