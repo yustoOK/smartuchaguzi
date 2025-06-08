@@ -682,7 +682,7 @@ try {
             <h1>SmartUchaguzi</h1>
         </div>
         <div class="nav">
-            <a href="process-vote.php?csrf_token=<?php echo htmlspecialchars($csrf_token); ?>" id="cast-vote-link">Cast Vote</a>
+            <a href="process-vote.php" id="cast-vote-link">Cast Vote</a>
             <a href="#" id="verify-vote-link">Verify Vote</a>
             <a href="#" id="results-link">Results</a>
         </div>
@@ -1400,7 +1400,7 @@ try {
 
     castVoteLink.addEventListener('click', (e) => {
         e.preventDefault();
-        window.location.href = `process-vote.php?csrf_token=<?php echo htmlspecialchars($csrf_token); ?>&election_id=<?php echo htmlspecialchars($_SESSION['association'] === 'UDOSO' ? 1 : ($_SESSION['association'] === 'UDOMASA' ? 2 : 1)); ?>`;
+        window.location.href = `process-vote.php`;
     });
 
     window.addEventListener('load', async () => {

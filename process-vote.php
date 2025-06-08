@@ -2,13 +2,6 @@
 session_start();
 date_default_timezone_set('Africa/Dar_es_Salaam');
 
-// CSRF Token Validation
-if (!isset($_GET['csrf_token']) || $_GET['csrf_token'] !== $_SESSION['csrf_token']) {
-    error_log("CSRF token validation failed for user_id: " . ($_SESSION['user_id'] ?? 'unknown'));
-    header('Location: login.php?error=' . urlencode('Invalid CSRF token.'));
-    exit;
-}
-
 require_once 'config.php';
 
 try {
@@ -22,14 +15,16 @@ try {
 }
 
 // Helper Functions
-function logUserActivity($conn, $user_id, $action) {
+function logUserActivity($conn, $user_id, $action)
+{
     $stmt = $conn->prepare("INSERT INTO user_activity (user_id, action, timestamp) VALUES (?, ?, NOW())");
     $stmt->bind_param("is", $user_id, $action);
     $stmt->execute();
     $stmt->close();
 }
 
-function getUserVoteCount($conn, $user_id) {
+function getUserVoteCount($conn, $user_id)
+{
     $stmt = $conn->prepare("SELECT COUNT(*) as vote_count FROM blockchainrecords WHERE voter = ? AND timestamp >= NOW() - INTERVAL 24 HOUR");
     $stmt->bind_param("i", $user_id);
     $stmt->execute();
@@ -38,7 +33,8 @@ function getUserVoteCount($conn, $user_id) {
     return $result['vote_count'] ?: 0;
 }
 
-function checkMultipleLogins($conn, $user_id) {
+function checkMultipleLogins($conn, $user_id)
+{
     $stmt = $conn->prepare("SELECT COUNT(*) as login_count FROM sessions WHERE user_id = ? AND login_time >= NOW() - INTERVAL 24 HOUR");
     $stmt->bind_param("i", $user_id);
     $stmt->execute();
@@ -47,7 +43,8 @@ function checkMultipleLogins($conn, $user_id) {
     return $result['login_count'] > 1 ? 1 : 0;
 }
 
-function getGeoLocation($ip) {
+function getGeoLocation($ip)
+{
     $ipParts = explode('.', $ip);
     if (count($ipParts) < 4) return 4; // Default to 'Other' if IP is invalid
     if ($ipParts[0] == 41 || $ipParts[0] == 102) return 0; // Tanzania
@@ -57,14 +54,16 @@ function getGeoLocation($ip) {
     return 4; // Other
 }
 
-function detectVPN($geo_location, $ip) {
+function detectVPN($geo_location, $ip)
+{
     $ipParts = explode('.', $ip);
     $isNonLocal = ($geo_location > 0 || (count($ipParts) >= 1 && $ipParts[0] > 200));
     $randomFactor = random_int(0, 100);
     return $isNonLocal ? ($randomFactor < 80 ? 1 : 0) : ($randomFactor < 5 ? 1 : 0);
 }
 
-function logFraud($conn, $user_id, $voter_id, $ip_address, $election_id, $is_fraudulent, $confidence, $details, $action) {
+function logFraud($conn, $user_id, $voter_id, $ip_address, $election_id, $is_fraudulent, $confidence, $details, $action)
+{
     $description = $is_fraudulent ? "Fraud detected with confidence $confidence" : "No fraud detected";
     $details_array = json_decode($details, true) ?: [];
     $stmt = $conn->prepare(
@@ -94,14 +93,16 @@ function logFraud($conn, $user_id, $voter_id, $ip_address, $election_id, $is_fra
     $stmt->close();
 }
 
-function blockUser($conn, $user_id) {
+function blockUser($conn, $user_id)
+{
     $stmt = $conn->prepare("UPDATE users SET active = 0 WHERE user_id = ?");
     $stmt->bind_param("i", $user_id);
     $stmt->execute();
     $stmt->close();
 }
 
-function checkRateLimit($conn, $user_id) {
+function checkRateLimit($conn, $user_id)
+{
     $stmt = $conn->prepare("SELECT COUNT(*) as attempts FROM blockchainrecords WHERE voter = ? AND timestamp >= NOW() - INTERVAL 1 HOUR");
     $stmt->bind_param("i", $user_id);
     $stmt->execute();
@@ -110,7 +111,8 @@ function checkRateLimit($conn, $user_id) {
     return $result['attempts'] < 5;
 }
 
-function getFraudHistory($conn, $user_id) {
+function getFraudHistory($conn, $user_id)
+{
     $stmt = $conn->prepare("SELECT COUNT(*) as fraud_count FROM frauddetectionlogs WHERE user_id = ? AND is_fraudulent = 1 AND confidence > 0.9 AND created_at >= NOW() - INTERVAL 24 HOUR");
     $stmt->bind_param("i", $user_id);
     $stmt->execute();
@@ -119,7 +121,8 @@ function getFraudHistory($conn, $user_id) {
     return $result['fraud_count'];
 }
 
-function getVotePattern($conn, $user_id) {
+function getVotePattern($conn, $user_id)
+{
     $stmt = $conn->prepare(
         "SELECT AVG(UNIX_TIMESTAMP(timestamp) - UNIX_TIMESTAMP(LAG(timestamp) OVER (ORDER BY timestamp))) as avg_interval 
          FROM blockchainrecords 
@@ -132,7 +135,8 @@ function getVotePattern($conn, $user_id) {
     return $result['avg_interval'] ?: 600; // Default to non-fraud-like value
 }
 
-function getIpHistory($conn, $user_id) {
+function getIpHistory($conn, $user_id)
+{
     $stmt = $conn->prepare(
         "SELECT DISTINCT ip_address 
          FROM sessions 
@@ -146,7 +150,8 @@ function getIpHistory($conn, $user_id) {
     return json_encode($ip_list ?: [$_SERVER['REMOTE_ADDR']]);
 }
 
-function getUserActivityCount($conn, $user_id) {
+function getUserActivityCount($conn, $user_id)
+{
     $stmt = $conn->prepare(
         "SELECT COUNT(*) as activity_count 
          FROM user_activity 
@@ -157,13 +162,6 @@ function getUserActivityCount($conn, $user_id) {
     $result = $stmt->get_result()->fetch_assoc();
     $stmt->close();
     return $result['activity_count'] ?: 0;
-}
-
-function generateCsrfToken() {
-    if (!isset($_SESSION['csrf_token'])) {
-        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-    }
-    return $_SESSION['csrf_token'];
 }
 
 // Session Validation
@@ -257,7 +255,6 @@ try {
 $profile_picture = 'uploads/passports/general.png';
 $errors = [];
 $elections = [];
-$csrf_token = generateCsrfToken();
 
 $association = $user['association'];
 $college_id = $user['college_id'];
@@ -432,6 +429,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['vote_data'])) {
     $position_name = $vote_data['position_name'];
     $wallet_address = $_SESSION['wallet_address'] ?? null;
 
+    // Validate against database to prevent nulls
+    $stmt = $conn->prepare("SELECT id, firstname, lastname FROM candidates WHERE id = ? AND election_id = ?");
+    $stmt->bind_param("ii", $candidate_id, $election_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $candidate = $result->fetch_assoc();
+    $stmt->close();
+    if ($candidate) {
+        $candidate_name = $candidate['firstname'] . ' ' . $candidate['lastname'];
+    }
+
+    $stmt = $conn->prepare("SELECT name FROM electionpositions WHERE position_id = ? AND election_id = ?");
+    $stmt->bind_param("ii", $position_id, $election_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $position = $result->fetch_assoc();
+    $stmt->close();
+    if ($position) {
+        $position_name = $position['name'];
+    }
+
     if (!$wallet_address) {
         error_log("No wallet address in session for user_id: " . $user_id);
         echo json_encode(['success' => false, 'message' => 'Wallet address not set in session']);
@@ -508,6 +526,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['vote_data'])) {
         logFraud($conn, $user_id, $user['fname'] . '/' . $user_id, $ip_address, $election_id, $is_fraudulent, $confidence, json_encode(array_merge($fraud_data, ['api_response' => $fraud_result ?? []])), $action);
     }
 
+    // Store vote in blockchainrecords
+    $stmt = $conn->prepare("INSERT INTO blockchainrecords (election_id, voter, hash, timestamp, vote, candidate_id, position_id) VALUES (?, ?, ?, NOW(), ?, ?, ?)");
+    $hash = hash('sha256', $wallet_address . $candidate_id . $position_id . $election_id);
+    $stmt->bind_param("isssi", $election_id, $user_id, $hash, $candidate_id, $position_id);
+    $stmt->execute();
+    $stmt->close();
+
     logUserActivity($conn, $user_id, 'vote_cast');
     echo json_encode(['success' => true, 'message' => 'Vote processed successfully', 'wallet_address' => $wallet_address]);
     exit;
@@ -518,10 +543,11 @@ $conn->close();
 
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cast Vote | SmartUchaguzi</title>
+    <title>Vote Casting | SmartUchaguzi</title>
     <link rel="icon" href="./images/System Logo.jpg" type="image/x-icon">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -883,6 +909,7 @@ $conn->close();
         }
     </style>
 </head>
+
 <body>
     <div style="position: fixed; top: 20px; left: 20px; z-index: 1000;">
         <a href="<?php echo htmlspecialchars($dashboard_file); ?>" class="back-arrow">←</a>
@@ -928,8 +955,7 @@ $conn->close();
                                             <p>No candidates available for this position.</p>
                                         </div>
                                     <?php else: ?>
-                                        <form class="vote-form" data-election-id="<?php echo $election['election_id']; ?>" data-position-id="<?php echo $position['position_id']; ?>" aria-label="Vote for <?php echo htmlspecialchars($position['position_name']); ?>">
-                                            <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
+                                        <form class="vote-form" data-election-id="<?php echo $election['election_id']; ?>" data-position-id="<?php echo $position['position_id']; ?>" data-position-name="<?php echo htmlspecialchars($position['position_name']); ?>" aria-label="Vote for <?php echo htmlspecialchars($position['position_name']); ?>">
                                             <div class="candidate-grid">
                                                 <?php
                                                 foreach ($position['candidates'] as $key => $candidateGroup) {
@@ -1087,24 +1113,25 @@ $conn->close();
 
                 const electionId = form.getAttribute('data-election-id');
                 const positionId = form.getAttribute('data-position-id');
+                const positionName = form.getAttribute('data-position-name') || 'Unknown Position';
                 const candidateId = form.querySelector('input[name="candidate_id"]:checked')?.value;
-                const candidateName = form.querySelector('input[name="candidate_id"]:checked')?.closest('.candidate-card')?.querySelector('.candidate-details h5').textContent;
-                const positionName = form.querySelector('h4').textContent.replace('Position: ', '');
-                const csrfToken = form.querySelector('input[name="csrf_token"]').value;
+                const candidateName = form.querySelector('input[name="candidate_id"]:checked')?.closest('.candidate-card')?.querySelector('.candidate-details h5')?.textContent || 'Unknown Candidate';
 
                 if (!candidateId) {
                     showError('Please select a candidate to vote for.');
-                    return;
-                }
-                if (csrfToken !== '<?php echo $csrf_token; ?>') {
-                    showError('Invalid CSRF token. Please try again.');
                     return;
                 }
 
                 confirmCandidateName.textContent = candidateName;
                 confirmPositionName.textContent = positionName;
                 confirmModal.style.display = 'flex';
-                formData = { electionId, positionId, candidateId, candidateName, positionName };
+                formData = {
+                    electionId,
+                    positionId,
+                    candidateId,
+                    candidateName,
+                    positionName
+                };
 
                 confirmButton.onclick = async () => {
                     confirmModal.style.display = 'none';
@@ -1115,8 +1142,12 @@ $conn->close();
                     try {
                         const response = await fetch('process-vote.php', {
                             method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ vote_data: formData })
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                vote_data: formData
+                            })
                         });
 
                         const result = await response.json();
@@ -1183,7 +1214,12 @@ $conn->close();
                 }
             });
         });
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // Ensure DOM is fully loaded before running scripts
+        });
     </script>
 </body>
+
 </html>
 <?php $conn->close(); ?>

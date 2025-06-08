@@ -22,6 +22,7 @@ $csrf_token = $_GET['csrf_token'] ?? $_SESSION['csrf_token'];
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Post-Login Verification</title>
+    <link rel="icon" href="./images/System Logo.jpg" type="image/x-icon">
     <script src="https://cdn.jsdelivr.net/npm/web3@1.10.0/dist/web3.min.js"></script>
 </head>
 <body>
