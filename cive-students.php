@@ -1221,7 +1221,7 @@ try {
             const result = await response.json();
             if (result.success) {
                 console.log('Session wallet address updated to:', walletAddress);
-                location.reload(); // Reload to reflect the updated session
+                location.reload(); 
             } else {
                 console.error('Failed to update session wallet address:', result.error);
                 alert('Failed to update session: ' + result.error);
@@ -1295,7 +1295,7 @@ try {
     async function verifyVote() {
         const electionId = document.getElementById('verify-election-id').value;
         const positionId = document.getElementById('verify-position-id').value;
-        const candidateId = document.getElementById('verify-candidate-id').value; // Ensured as string
+        const candidateId = document.getElementById('verify-candidate-id').value;
         const voterAddress = await getWalletAddress();
 
         if (!voterAddress) {
@@ -1304,7 +1304,6 @@ try {
         }
 
         try {
-            // Ensure electionId and positionId are treated as numbers, candidateId as string
             const hasVoted = await contract.methods.hasVoted(voterAddress, parseInt(electionId), candidateId).call();
             if (hasVoted) {
                 const votes = await contract.methods.getVotesByElection(parseInt(electionId)).call();
