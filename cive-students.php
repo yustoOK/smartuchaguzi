@@ -1281,7 +1281,7 @@ try {
             }
 
             if (myVotesHtml === '') {
-                myVotesHtml = `<p>No votes cast by you in the ${association} election (ID: ${electionId}) yet. Check other elections or cast a vote.</p>`;
+                myVotesHtml = `<p>No votes cast by you</p>`;
             } else {
                 myVotesHtml = '<h3>My Votes</h3>' + myVotesHtml;
             }
@@ -1311,7 +1311,7 @@ try {
                 for (let i = 0; i < votes.length; i++) {
                     if (votes[i].voter.toLowerCase() === voterAddress.toLowerCase() && 
                         parseInt(votes[i].positionId) === parseInt(positionId) && 
-                        votes[i].candidateId === candidateId) { // Strict string comparison
+                        votes[i].candidateId === candidateId) { 
                         document.getElementById('verify-result').textContent = 
                             `Vote verified! You voted for ${votes[i].candidateName} in position ${votes[i].positionName} on ${new Date(votes[i].timestamp * 1000).toLocaleString()}.`;
                         found = true;

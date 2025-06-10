@@ -18,7 +18,7 @@ contract VoteContract {
         uint256 electionId;
         address voter;
         uint256 positionId;
-        string candidateId; // Changed from uint256 to string
+        string candidateId;
         uint256 timestamp;
         string candidateName; 
         string positionName;  
@@ -45,7 +45,6 @@ contract VoteContract {
         string memory candidateName,
         string memory positionName
     ) external {
-        // Ensure voter hasn't voted for this position in this election
         require(!hasVoted[msg.sender][electionId][candidateId], "Already voted for this position");
 
         hasVoted[msg.sender][electionId][candidateId] = true;

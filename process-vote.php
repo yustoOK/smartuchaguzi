@@ -14,17 +14,14 @@ try {
     die("Unable to connect to the database. Please try again later.");
 }
 
-// Helper Functions
-function logUserActivity($conn, $user_id, $action)
-{
+function logUserActivity($conn, $user_id, $action) {
     $stmt = $conn->prepare("INSERT INTO user_activity (user_id, action, timestamp) VALUES (?, ?, NOW())");
     $stmt->bind_param("is", $user_id, $action);
     $stmt->execute();
     $stmt->close();
 }
 
-function getUserVoteCount($conn, $user_id)
-{
+function getUserVoteCount($conn, $user_id) {
     $stmt = $conn->prepare("SELECT COUNT(*) as vote_count FROM blockchainrecords WHERE voter = ? AND timestamp >= NOW() - INTERVAL 24 HOUR");
     $stmt->bind_param("i", $user_id);
     $stmt->execute();
@@ -33,8 +30,7 @@ function getUserVoteCount($conn, $user_id)
     return $result['vote_count'] ?: 0;
 }
 
-function checkMultipleLogins($conn, $user_id)
-{
+function checkMultipleLogins($conn, $user_id) {
     $stmt = $conn->prepare("SELECT COUNT(*) as login_count FROM sessions WHERE user_id = ? AND login_time >= NOW() - INTERVAL 24 HOUR");
     $stmt->bind_param("i", $user_id);
     $stmt->execute();
@@ -43,8 +39,7 @@ function checkMultipleLogins($conn, $user_id)
     return $result['login_count'] > 1 ? 1 : 0;
 }
 
-function getGeoLocation($ip)
-{
+function getGeoLocation($ip) {
     $ipParts = explode('.', $ip);
     if (count($ipParts) < 4) return 4; // Default to 'Other' if IP is invalid
     if ($ipParts[0] == 41 || $ipParts[0] == 102) return 0; // Tanzania
@@ -54,16 +49,14 @@ function getGeoLocation($ip)
     return 4; // Other
 }
 
-function detectVPN($geo_location, $ip)
-{
+function detectVPN($geo_location, $ip) {
     $ipParts = explode('.', $ip);
     $isNonLocal = ($geo_location > 0 || (count($ipParts) >= 1 && $ipParts[0] > 200));
     $randomFactor = random_int(0, 100);
     return $isNonLocal ? ($randomFactor < 80 ? 1 : 0) : ($randomFactor < 5 ? 1 : 0);
 }
 
-function logFraud($conn, $user_id, $voter_id, $ip_address, $election_id, $is_fraudulent, $confidence, $details, $action)
-{
+function logFraud($conn, $user_id, $voter_id, $ip_address, $election_id, $is_fraudulent, $confidence, $details, $action) {
     $description = $is_fraudulent ? "Fraud detected with confidence $confidence" : "No fraud detected";
     $details_array = json_decode($details, true) ?: [];
     $stmt = $conn->prepare(
@@ -93,16 +86,14 @@ function logFraud($conn, $user_id, $voter_id, $ip_address, $election_id, $is_fra
     $stmt->close();
 }
 
-function blockUser($conn, $user_id)
-{
+function blockUser($conn, $user_id) {
     $stmt = $conn->prepare("UPDATE users SET active = 0 WHERE user_id = ?");
     $stmt->bind_param("i", $user_id);
     $stmt->execute();
     $stmt->close();
 }
 
-function checkRateLimit($conn, $user_id)
-{
+function checkRateLimit($conn, $user_id) {
     $stmt = $conn->prepare("SELECT COUNT(*) as attempts FROM blockchainrecords WHERE voter = ? AND timestamp >= NOW() - INTERVAL 1 HOUR");
     $stmt->bind_param("i", $user_id);
     $stmt->execute();
@@ -111,8 +102,7 @@ function checkRateLimit($conn, $user_id)
     return $result['attempts'] < 5;
 }
 
-function getFraudHistory($conn, $user_id)
-{
+function getFraudHistory($conn, $user_id) {
     $stmt = $conn->prepare("SELECT COUNT(*) as fraud_count FROM frauddetectionlogs WHERE user_id = ? AND is_fraudulent = 1 AND confidence > 0.9 AND created_at >= NOW() - INTERVAL 24 HOUR");
     $stmt->bind_param("i", $user_id);
     $stmt->execute();
@@ -121,8 +111,7 @@ function getFraudHistory($conn, $user_id)
     return $result['fraud_count'];
 }
 
-function getVotePattern($conn, $user_id)
-{
+function getVotePattern($conn, $user_id) {
     $stmt = $conn->prepare(
         "SELECT AVG(UNIX_TIMESTAMP(timestamp) - UNIX_TIMESTAMP(LAG(timestamp) OVER (ORDER BY timestamp))) as avg_interval 
          FROM blockchainrecords 
@@ -132,11 +121,10 @@ function getVotePattern($conn, $user_id)
     $stmt->execute();
     $result = $stmt->get_result()->fetch_assoc();
     $stmt->close();
-    return $result['avg_interval'] ?: 600; // Default to non-fraud-like value
+    return $result['avg_interval'] ?: 600; 
 }
 
-function getIpHistory($conn, $user_id)
-{
+function getIpHistory($conn, $user_id) {
     $stmt = $conn->prepare(
         "SELECT DISTINCT ip_address 
          FROM sessions 
@@ -150,8 +138,7 @@ function getIpHistory($conn, $user_id)
     return json_encode($ip_list ?: [$_SERVER['REMOTE_ADDR']]);
 }
 
-function getUserActivityCount($conn, $user_id)
-{
+function getUserActivityCount($conn, $user_id) {
     $stmt = $conn->prepare(
         "SELECT COUNT(*) as activity_count 
          FROM user_activity 
@@ -164,7 +151,6 @@ function getUserActivityCount($conn, $user_id)
     return $result['activity_count'] ?: 0;
 }
 
-// Session Validation
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['role']) || $_SESSION['role'] !== 'voter') {
     error_log("Session validation failed for user_id: " . ($_SESSION['user_id'] ?? 'unknown'));
     session_unset();
@@ -179,14 +165,13 @@ if (!isset($_SESSION['2fa_verified']) || $_SESSION['2fa_verified'] !== true) {
 }
 
 if (!isset($_SESSION['user_agent']) || $_SESSION['user_agent'] !== $_SERVER['HTTP_USER_AGENT']) {
-    error_log("User agent mismatch for user_id: " . ($_SESSION['user_id'] ?? 'unknown') . "; possible session hijacking attempt.");
+    error_log("User agent mismatch for user_id: " . ($_SESSION['user_id'] ?? 'unknown'));
     session_unset();
     session_destroy();
     header('Location: login.php?error=' . urlencode('Session validation failed.'));
     exit;
 }
 
-// Storing session data in database
 $user_id = $_SESSION['user_id'];
 if (!isset($_SESSION['session_stored'])) {
     $session_id = session_id();
@@ -413,137 +398,11 @@ try {
     $errors[] = "Failed to load elections due to a server error.";
 }
 
-// Process Vote Submission (via POST from JS)
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['vote_data'])) {
-    $vote_data = json_decode($_POST['vote_data'], true);
-    if (!$vote_data || !isset($vote_data['election_id'], $vote_data['position_id'], $vote_data['candidate_id'], $vote_data['candidate_name'], $vote_data['position_name'])) {
-        error_log("Invalid vote data received for user_id: " . $user_id);
-        echo json_encode(['success' => false, 'message' => 'Invalid vote data']);
-        exit;
-    }
-
-    $election_id = $vote_data['election_id'];
-    $position_id = $vote_data['position_id'];
-    $candidate_id = $vote_data['candidate_id'];
-    $candidate_name = $vote_data['candidate_name'];
-    $position_name = $vote_data['position_name'];
-    $wallet_address = $_SESSION['wallet_address'] ?? null;
-
-    // Validate against database to prevent nulls
-    $stmt = $conn->prepare("SELECT id, firstname, lastname FROM candidates WHERE id = ? AND election_id = ?");
-    $stmt->bind_param("ii", $candidate_id, $election_id);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    $candidate = $result->fetch_assoc();
-    $stmt->close();
-    if ($candidate) {
-        $candidate_name = $candidate['firstname'] . ' ' . $candidate['lastname'];
-    }
-
-    $stmt = $conn->prepare("SELECT name FROM electionpositions WHERE position_id = ? AND election_id = ?");
-    $stmt->bind_param("ii", $position_id, $election_id);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    $position = $result->fetch_assoc();
-    $stmt->close();
-    if ($position) {
-        $position_name = $position['name'];
-    }
-
-    if (!$wallet_address) {
-        error_log("No wallet address in session for user_id: " . $user_id);
-        echo json_encode(['success' => false, 'message' => 'Wallet address not set in session']);
-        exit;
-    }
-
-    logUserActivity($conn, $user_id, 'vote_attempt');
-
-    if (!checkRateLimit($conn, $user_id)) {
-        logUserActivity($conn, $user_id, 'rate_limit_exceeded');
-        logFraud($conn, $user_id, $user['fname'] . '/' . $user_id, $_SERVER['REMOTE_ADDR'], $election_id, 1, 0.95, json_encode(['reason' => 'Rate limit exceeded']), 'block_user');
-        blockUser($conn, $user_id);
-        echo json_encode(['success' => false, 'message' => 'Rate limit exceeded. Account blocked.']);
-        exit;
-    }
-
-    $ip_address = $_SERVER['REMOTE_ADDR'];
-    $geo_location = getGeoLocation($ip_address);
-    $ip_history = getIpHistory($conn, $user_id);
-    $vote_pattern = getVotePattern($conn, $user_id);
-    $user_behavior = getUserActivityCount($conn, $user_id) * 10; // Scale to 0-100
-    $fraud_data = [
-        'time_diff' => time() - $_SESSION['last_activity'],
-        'votes_per_user' => getUserVoteCount($conn, $user_id),
-        'vpn_usage' => detectVPN($geo_location, $ip_address),
-        'multiple_logins' => checkMultipleLogins($conn, $user_id),
-        'session_duration' => time() - $_SESSION['start_time'],
-        'geo_location' => $geo_location,
-        'device_fingerprint' => $_SERVER['HTTP_USER_AGENT'],
-        'ip_history' => json_decode($ip_history, true),
-        'vote_pattern' => $vote_pattern,
-        'user_behavior' => min($user_behavior, 100)
-    ];
-
-    $fraud_response = @file_get_contents("http://127.0.0.1:8003/predict", false, stream_context_create([
-        'http' => [
-            'method' => 'POST',
-            'header' => 'Content-Type: application/json',
-            'content' => json_encode($fraud_data),
-            'timeout' => 5
-        ]
-    ]));
-
-    if ($fraud_response === false) {
-        error_log("Fraud detection API failed for user_id: " . $user_id . " - Connection error");
-        $is_fraudulent = 0;
-        $confidence = 0.0;
-    } else {
-        $fraud_result = json_decode($fraud_response, true);
-        if (json_last_error() !== JSON_ERROR_NONE || !isset($fraud_result['fraud_label'], $fraud_result['fraud_probability'])) {
-            error_log("Invalid fraud detection response for user_id: " . $user_id . " - " . json_last_error_msg());
-            $is_fraudulent = 0;
-            $confidence = 0.0;
-        } else {
-            $is_fraudulent = $fraud_result['fraud_label'];
-            $confidence = floatval($fraud_result['fraud_probability']);
-        }
-    }
-
-    $action = 'none';
-    if ($is_fraudulent) {
-        $fraud_count = getFraudHistory($conn, $user_id);
-        $action = ($confidence > ($fraud_count > 0 ? 0.7 : 0.9)) ? 'block_user' : 'logout';
-        logFraud($conn, $user_id, $user['fname'] . '/' . $user_id, $ip_address, $election_id, $is_fraudulent, $confidence, json_encode(array_merge($fraud_data, ['api_response' => $fraud_result ?? []])), $action);
-        if ($action === 'block_user') {
-            blockUser($conn, $user_id);
-            echo json_encode(['success' => false, 'message' => 'Fraud detected. Account blocked.']);
-            exit;
-        } elseif ($action === 'logout') {
-            echo json_encode(['success' => false, 'message' => 'Fraud detected. Logging out.']);
-            exit;
-        }
-    } else {
-        logFraud($conn, $user_id, $user['fname'] . '/' . $user_id, $ip_address, $election_id, $is_fraudulent, $confidence, json_encode(array_merge($fraud_data, ['api_response' => $fraud_result ?? []])), $action);
-    }
-
-    // Store vote in blockchainrecords
-    $stmt = $conn->prepare("INSERT INTO blockchainrecords (election_id, voter, hash, timestamp, vote, candidate_id, position_id) VALUES (?, ?, ?, NOW(), ?, ?, ?)");
-    $hash = hash('sha256', $wallet_address . $candidate_id . $position_id . $election_id);
-    $stmt->bind_param("isssi", $election_id, $user_id, $hash, $candidate_id, $position_id);
-    $stmt->execute();
-    $stmt->close();
-
-    logUserActivity($conn, $user_id, 'vote_cast');
-    echo json_encode(['success' => true, 'message' => 'Vote processed successfully', 'wallet_address' => $wallet_address]);
-    exit;
-}
-
 $conn->close();
 ?>
 
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -909,7 +768,6 @@ $conn->close();
         }
     </style>
 </head>
-
 <body>
     <div style="position: fixed; top: 20px; left: 20px; z-index: 1000;">
         <a href="<?php echo htmlspecialchars($dashboard_file); ?>" class="back-arrow">←</a>
@@ -955,7 +813,7 @@ $conn->close();
                                             <p>No candidates available for this position.</p>
                                         </div>
                                     <?php else: ?>
-                                        <form class="vote-form" data-election-id="<?php echo $election['election_id']; ?>" data-position-id="<?php echo $position['position_id']; ?>" data-position-name="<?php echo htmlspecialchars($position['position_name']); ?>" aria-label="Vote for <?php echo htmlspecialchars($position['position_name']); ?>">
+                                        <form class="vote-form" data-election-id="<?php echo htmlspecialchars($election['election_id']); ?>" data-position-id="<?php echo htmlspecialchars($position['position_id']); ?>" data-position-name="<?php echo htmlspecialchars($position['position_name']); ?>" aria-label="Vote for <?php echo htmlspecialchars($position['position_name']); ?>">
                                             <div class="candidate-grid">
                                                 <?php
                                                 foreach ($position['candidates'] as $key => $candidateGroup) {
@@ -964,7 +822,7 @@ $conn->close();
                                                         $viceCandidate = $candidateGroup[0]['is_vice'] == 1 ? $candidateGroup[0] : $candidateGroup[1];
                                                         $pair_id = $mainCandidate['pair_id'];
                                                 ?>
-                                                        <div class="candidate-card" data-candidate-id="<?php echo $mainCandidate['id']; ?>">
+                                                        <div class="candidate-card" data-candidate-id="<?php echo htmlspecialchars($mainCandidate['id']); ?>">
                                                             <div style="display: flex; align-items: center;">
                                                                 <img src="<?php echo htmlspecialchars($mainCandidate['passport'] ?: 'images/general.png'); ?>" alt="Candidate <?php echo htmlspecialchars($mainCandidate['firstname'] . ' ' . $mainCandidate['lastname']); ?>" class="candidate-img">
                                                                 <div class="candidate-details">
@@ -982,7 +840,7 @@ $conn->close();
                                                                 </div>
                                                             </div>
                                                             <label class="vote-label">
-                                                                <input type="radio" name="candidate_id" value="<?php echo $pair_id; ?>" id="candidate_<?php echo $mainCandidate['id']; ?>" required aria-label="Vote for <?php echo htmlspecialchars($mainCandidate['firstname'] . ' ' . $mainCandidate['lastname'] . ' and ' . $viceCandidate['firstname'] . ' ' . $viceCandidate['lastname']); ?>">
+                                                                <input type="radio" name="candidate_id" value="<?php echo htmlspecialchars($pair_id); ?>" id="candidate_<?php echo htmlspecialchars($mainCandidate['id']); ?>" required aria-label="Vote for <?php echo htmlspecialchars($mainCandidate['firstname'] . ' ' . $mainCandidate['lastname'] . ' and ' . $viceCandidate['firstname'] . ' ' . $viceCandidate['lastname']); ?>">
                                                                 <span class="vote-checkmark"></span>
                                                             </label>
                                                         </div>
@@ -991,7 +849,7 @@ $conn->close();
                                                         $candidate = $candidateGroup[0];
                                                         $candidate_id = $candidate['id'];
                                                     ?>
-                                                        <div class="candidate-card" data-candidate-id="<?php echo $candidate_id; ?>">
+                                                        <div class="candidate-card" data-candidate-id="<?php echo htmlspecialchars($candidate_id); ?>">
                                                             <div style="display: flex; align-items: center;">
                                                                 <img src="<?php echo htmlspecialchars($candidate['passport'] ?: 'images/general.png'); ?>" alt="Candidate <?php echo htmlspecialchars($candidate['firstname'] . ' ' . $candidate['lastname']); ?>" class="candidate-img">
                                                                 <div class="candidate-details">
@@ -1001,11 +859,11 @@ $conn->close();
                                                                 </div>
                                                             </div>
                                                             <label class="vote-label">
-                                                                <input type="radio" name="candidate_id" value="<?php echo $candidate_id; ?>" id="candidate_<?php echo $candidate_id; ?>" required aria-label="Vote for <?php echo htmlspecialchars($candidate['firstname'] . ' ' . $candidate['lastname']); ?>">
+                                                                <input type="radio" name="candidate_id" value="<?php echo htmlspecialchars($candidate_id); ?>" id="candidate_<?php echo htmlspecialchars($candidate_id); ?>" required aria-label="Vote for <?php echo htmlspecialchars($candidate['firstname'] . ' ' . $candidate['lastname']); ?>">
                                                                 <span class="vote-checkmark"></span>
                                                             </label>
                                                         </div>
-                                                <?php
+                                                    <?php
                                                     }
                                                 }
                                                 ?>
@@ -1039,24 +897,28 @@ $conn->close();
 
     <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
     <script>
-        // Initialize MetaMask provider (for gas estimation only)
-        const provider = new ethers.providers.Web3Provider(window.ethereum);
+        // Initialize MetaMask provider
+        let provider, signer, contract;
         const contractAddress = '0xC046c854C85e56DB6AF41dF3934DD671831d9d09';
 
-        let contract;
-        fetch('./js/contract-abi.json')
-            .then(response => {
+        async function initContract() {
+            if (!window.ethereum) {
+                showError('MetaMask is not installed');
+                return;
+            }
+            provider = new ethers.providers.Web3Provider(window.ethereum);
+            signer = provider.getSigner();
+            try {
+                const response = await fetch('./js/contract-abi.json');
                 if (!response.ok) throw new Error('Failed to fetch ABI');
-                return response.json();
-            })
-            .then(abi => {
-                contract = new ethers.Contract(contractAddress, abi, provider.getSigner());
+                const abi = await response.json();
+                contract = new ethers.Contract(contractAddress, abi, signer);
                 console.log('Contract initialized');
-            })
-            .catch(error => {
+            } catch (error) {
                 console.error('Error loading ABI:', error);
                 showError('Unable to load voting contract. Please contact support.');
-            });
+            }
+        }
 
         function showSuccess(message) {
             const successMessage = document.getElementById('success-message');
@@ -1094,7 +956,7 @@ $conn->close();
             const confirmPositionName = document.getElementById('confirm-position-name');
             const confirmButton = document.getElementById('confirm-vote');
             const cancelButton = document.getElementById('cancel-vote');
-            let formData = null;
+            let formData;
 
             form.querySelectorAll('input[name="candidate_id"]').forEach(radio => {
                 radio.addEventListener('change', () => {
@@ -1111,10 +973,10 @@ $conn->close();
                     return;
                 }
 
-                const electionId = form.getAttribute('data-election-id');
-                const positionId = form.getAttribute('data-position-id');
+                const electionId = parseInt(form.getAttribute('data-election-id'));
+                const positionId = parseInt(form.getAttribute('data-position-id'));
                 const positionName = form.getAttribute('data-position-name') || 'Unknown Position';
-                const candidateId = form.querySelector('input[name="candidate_id"]:checked')?.value;
+                const candidateId = form.querySelector('input[name="candidate_id"]:checked')?.value?.toString();
                 const candidateName = form.querySelector('input[name="candidate_id"]:checked')?.closest('.candidate-card')?.querySelector('.candidate-details h5')?.textContent || 'Unknown Candidate';
 
                 if (!candidateId) {
@@ -1140,7 +1002,18 @@ $conn->close();
                     submitButton.textContent = 'Submitting Vote...';
 
                     try {
-                        const response = await fetch('process-vote.php', {
+                        await window.ethereum.request({ method: 'eth_requestAccounts' });
+
+                        const tx = await contract.castVote(
+                            formData.electionId,
+                            formData.positionId,
+                            formData.candidateId,
+                            formData.candidateName,
+                            formData.positionName
+                        );
+                        const receipt = await tx.wait();
+
+                        const response = await fetch('api_process_vote.php', {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json'
@@ -1153,13 +1026,13 @@ $conn->close();
                         const result = await response.json();
                         if (!result.success) throw new Error(result.message);
 
-                        showSuccess(result.message + ' Wallet used: ' + result.wallet_address);
+                        showSuccess(`Vote cast successfully. Transaction ID: ${tx.hash}`);
                         form.querySelectorAll('input[name="candidate_id"]').forEach(radio => radio.disabled = true);
                         submitButton.disabled = true;
                         submitButton.textContent = 'Vote Cast';
                     } catch (error) {
                         console.error('Vote submission error:', error);
-                        showError(error.message);
+                        showError(error.message || 'Failed to cast vote');
                         submitButton.disabled = false;
                         submitButton.textContent = 'Cast Vote';
                     }
@@ -1171,55 +1044,51 @@ $conn->close();
                     form.querySelectorAll('.candidate-card').forEach(card => card.classList.remove('selected'));
                 };
             });
+        });
 
-            const inactivityTimeout = <?php echo $inactivity_timeout; ?>;
-            const warningTime = <?php echo $warning_time; ?>;
-            let inactivityTimer;
-            let warningTimer;
-            const timeoutModal = document.getElementById('timeout-modal');
-            const timeoutMessage = document.getElementById('timeout-message');
-            const extendSessionButton = document.getElementById('extend-session');
+        const inactivityTimeout = <?php echo isset($inactivity_timeout) ? $inactivity_timeout : 10800; ?>;
+        const warningTime = <?php echo isset($warning_time) ? $warning_time : 60; ?>;
+        let inactivityTimer;
+        let warningTimer;
+        const timeoutModal = document.getElementById('timeout-modal');
+        const timeoutMessage = document.getElementById('timeout-message');
+        const extendSessionButton = document.getElementById('extend-session');
 
-            function resetInactivityTimer() {
-                clearTimeout(inactivityTimer);
-                clearTimeout(warningTimer);
-                timeoutModal.style.display = 'none';
-                warningTimer = setTimeout(() => {
-                    timeoutMessage.textContent = 'You will be logged out in 1 minute due to inactivity.';
-                    timeoutModal.style.display = 'flex';
-                }, (inactivityTimeout - warningTime) * 1000);
-                inactivityTimer = setTimeout(() => {
-                    window.location.href = 'login.php?error=' + encodeURIComponent('Session expired due to inactivity.');
-                }, inactivityTimeout * 1000);
-            }
+        function resetInactivityTimer() {
+            clearTimeout(inactivityTimer);
+            clearTimeout(warningTimer);
+            timeoutModal.style.display = 'none';
+            warningTimer = setTimeout(() => {
+                timeoutMessage.textContent = 'You will be logged out in 1 minute due to inactivity.';
+                timeoutModal.style.display = 'flex';
+            }, (inactivityTimeout - warningTime) * 1000);
+            inactivityTimer = setTimeout(() => {
+                window.location.href = 'login.php?error=' + encodeURIComponent('Session expired due to inactivity.');
+            }, inactivityTimeout * 1000);
+        }
 
-            document.addEventListener('mousemove', resetInactivityTimer);
-            document.addEventListener('keypress', resetInactivityTimer);
-            document.addEventListener('click', resetInactivityTimer);
-            document.addEventListener('scroll', resetInactivityTimer);
-            extendSessionButton.addEventListener('click', () => {
-                resetInactivityTimer();
-                logUserActivity(<?php echo $user_id; ?>, 'session_extended');
-            });
+        document.addEventListener('mousemove', resetInactivityTimer);
+        document.addEventListener('keypress', resetInactivityTimer);
+        document.addEventListener('click', resetInactivityTimer);
+        document.addEventListener('scroll', resetInactivityTimer);
+        extendSessionButton.addEventListener('click', () => {
             resetInactivityTimer();
+            console.log('Session extended for user_id: <?php echo json_encode($user_id); ?>');
+        });
+        resetInactivityTimer();
 
-            const profilePic = document.getElementById('profile-pic');
-            const userDropdown = document.getElementById('user-dropdown');
-            profilePic.addEventListener('click', () => {
-                userDropdown.style.display = userDropdown.style.display === 'block' ? 'none' : 'block';
-            });
-            document.addEventListener('click', (e) => {
-                if (!profilePic.contains(e.target) && !userDropdown.contains(e.target)) {
-                    userDropdown.style.display = 'none';
-                }
-            });
+        const profilePic = document.getElementById('profile-pic');
+        const userDropdown = document.getElementById('user-dropdown');
+        profilePic.addEventListener('click', () => {
+            userDropdown.style.display = userDropdown.style.display === 'block' ? 'none' : 'block';
+        });
+        document.addEventListener('click', (e) => {
+            if (!profilePic.contains(e.target) && !userDropdown.contains(e.target)) {
+                userDropdown.style.display = 'none';
+            }
         });
 
-        document.addEventListener('DOMContentLoaded', () => {
-            // Ensure DOM is fully loaded before running scripts
-        });
+        document.addEventListener('DOMContentLoaded', initContract);
     </script>
 </body>
-
 </html>
-<?php $conn->close(); ?>
