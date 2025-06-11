@@ -10,6 +10,7 @@ $password = 'Leonida1972@@@@';
 try {
     $pdo = new PDO("mysql:host=$host;dbname=$dbname", $username, $password);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    error_log("Connected to $host/$dbname with user $username");
 } catch (PDOException $e) {
     error_log("Database connection failed: " . $e->getMessage());
     die("Database connection failed.");
@@ -49,8 +50,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     try {
-        $stmt = $pdo->prepare("SELECT user_id, email, password, role, college_id, association, is_verified, wallet_address FROM users WHERE email = ?");
+        $stmt = $pdo->prepare("SELECT user_id, email, password, role, college_id, association, is_verified FROM users WHERE email = ?");
         $stmt->execute([$email]);
+        error_log("Query executed for email: $email, rows returned: " . $stmt->rowCount());
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if ($user && password_verify($password, $user['password'])) {
@@ -69,18 +71,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['user_agent'] = $_SERVER['HTTP_USER_AGENT'];
             $_SESSION['start_time'] = time();
             $_SESSION['last_activity'] = time();
-            $_SESSION['wallet_address'] = $user['wallet_address'] ?? null; // Loading existing wallet address, if any
 
-            // Generate CSRF token
             $csrf_token = generateCsrfToken();
 
-            // Store session data in the sessions table
             $session_token = bin2hex(random_bytes(32));
             $ip_address = $_SERVER['REMOTE_ADDR'] ?? 'Unknown';
             $stmt = $pdo->prepare("INSERT INTO sessions (user_id, session_token, ip_address, login_time, last_activity) VALUES (?, ?, ?, NOW(), NOW())");
             $stmt->execute([$user['user_id'], $session_token, $ip_address]);
-
-            error_log("Session set success after login: " . print_r($_SESSION, true));
+            error_log("Session set success after login for user_id: " . $user['user_id']);
 
             $action = "User logged in: {$user['email']}";
             $stmt = $pdo->prepare("INSERT INTO auditlogs (user_id, action, ip_address, timestamp) VALUES (?, ?, ?, NOW())");
