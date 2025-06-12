@@ -2,7 +2,7 @@
 session_start();
 date_default_timezone_set('Africa/Dar_es_Salaam');
 
-include '../db.php'; // Database connection
+include '../db.php';
 
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
     header('Location: ../login.php?error=' . urlencode('Please log in as admin.'));
@@ -31,7 +31,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_notification'])) 
     $date = filter_input(INPUT_POST, 'date', FILTER_SANITIZE_FULL_SPECIAL_CHARS);
     $description = filter_input(INPUT_POST, 'description', FILTER_SANITIZE_FULL_SPECIAL_CHARS);
 
-    // Validation
     if (empty($title)) {
         $errors[] = "Election title is required.";
     }
@@ -70,7 +69,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_notification']
     $date = filter_input(INPUT_POST, 'date', FILTER_SANITIZE_FULL_SPECIAL_CHARS);
     $description = filter_input(INPUT_POST, 'description', FILTER_SANITIZE_FULL_SPECIAL_CHARS);
 
-    // Validation
     if ($notification_id === false || $notification_id <= 0) {
         $errors[] = "Invalid notification ID.";
     } else {
@@ -116,7 +114,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_notification']
     }
 }
 
-// Handling deleting notification
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_notification'])) {
     $notification_id = filter_var($_POST['notification_id'], FILTER_VALIDATE_INT);
 
