@@ -38,9 +38,9 @@ if (!isset($_SESSION['user_agent'])) {
     exit;
 }
 
-$inactivity_timeout = 12 * 60 * 60; 
-$max_session_duration = 12 * 60 * 60; // 12 hours
-$warning_time = 60;
+$inactivity_timeout = 30 * 60; //30 minutes
+$max_session_duration = 1 * 60 * 60; // 1 hour
+$warning_time = 28;
 
 if (!isset($_SESSION['start_time'])) {
     $_SESSION['start_time'] = time();

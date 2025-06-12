@@ -1,112 +1,119 @@
 <?php
-   session_start();
-   date_default_timezone_set('Africa/Dar_es_Salaam');
+session_start();
+date_default_timezone_set('Africa/Dar_es_Salaam');
 
-   if (!isset($_SESSION['user_id']) || !isset($_SESSION['role']) || !isset($_GET['csrf_token']) || $_GET['csrf_token'] !== $_SESSION['csrf_token']) {
-       error_log("Session or CSRF validation failed: " . print_r($_SESSION, true) . ", GET: " . print_r($_GET, true));
-       session_unset();
-       session_destroy();
-       header('Location: login.php?error=' . urlencode('Session validation failed.'));
-       exit;
-   }
+if (!isset($_SESSION['user_id']) || !isset($_SESSION['role'])) {
+    error_log("Session validation failed in post-login: " . print_r($_SESSION, true));
+    session_unset();
+    session_destroy();
+    header('Location: login.php?error=' . urlencode('Session validation failed. Please log in again.'));
+    exit;
+}
 
-   // Check 2FA status
-   if (!isset($_SESSION['2fa_verified']) || $_SESSION['2fa_verified'] !== true) {
-       header('Location: 2fa.php');
-       exit;
-   }
+if (!isset($_GET['csrf_token']) || (isset($_SESSION['csrf_token']) && $_GET['csrf_token'] !== $_SESSION['csrf_token'])) {
+    error_log("CSRF token mismatch in post-login: GET: " . $_GET['csrf_token'] . ", Session: " . $_SESSION['csrf_token']);
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32)); // Regenerate if mismatch
+    header('Location: login.php?error=' . urlencode('Session validation failed due to CSRF mismatch.'));
+    exit;
+}
 
-   $role = $_GET['role'] ?? null;
-   $college_id = $_GET['college_id'] ?? null;
-   $association = $_GET['association'] ?? null;
-   $csrf_token = $_GET['csrf_token'] ?? $_SESSION['csrf_token'];
-   ?>
+// Checking 2FA status
+if (!isset($_SESSION['2fa_verified']) || $_SESSION['2fa_verified'] !== true) {
+    header('Location: 2fa.php');
+    exit;
+}
 
-   <!DOCTYPE html>
-   <html lang="en">
-   <head>
-       <meta charset="UTF-8">
-       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-       <title>Post-Login Verification</title>
-       <link rel="icon" href="./images/System Logo.jpg" type="image/x-icon">
-       <script src="https://cdn.jsdelivr.net/npm/web3@1.10.0/dist/web3.min.js"></script>
-   </head>
-   <body>
-       <h2>Please Connect Your MetaMask Wallet</h2>
-       <p>Detecting active wallet address...</p>
+$role = $_GET['role'] ?? $_SESSION['role'];
+$college_id = $_GET['college_id'] ?? $_SESSION['college_id'];
+$association = $_GET['association'] ?? $_SESSION['association'];
+$csrf_token = $_GET['csrf_token'] ?? $_SESSION['csrf_token'];
+?>
 
-       <script>
-           async function getWalletAddress() {
-               try {
-                   if (typeof window.ethereum !== 'undefined') {
-                       const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-                       const walletAddress = accounts[0];
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Post-Login Verification</title>
+    <link rel="icon" href="./images/System Logo.jpg" type="image/x-icon">
+    <script src="https://cdn.jsdelivr.net/npm/web3@1.10.0/dist/web3.min.js"></script>
+</head>
+<body>
+    <h2>Please Connect Your MetaMask Wallet</h2>
+    <p>Detecting active wallet address...</p>
 
-                       console.log('Detected Wallet Address:', walletAddress);
-                       alert('Detected Wallet Address: ' + walletAddress);
+    <script>
+        async function getWalletAddress() {
+            try {
+                if (typeof window.ethereum !== 'undefined') {
+                    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+                    const walletAddress = accounts[0];
 
-                       await updateSessionWalletAddress(walletAddress);
-                   } else {
-                       console.error('MetaMask is not installed!');
-                       alert('Please install MetaMask to proceed.');
-                       window.location.href = 'login.php?error=' + encodeURIComponent('MetaMask not detected.');
-                   }
-               } catch (error) {
-                   console.error('Error getting wallet address:', error);
-                   alert('Error connecting to MetaMask: ' + error.message);
-                   window.location.href = 'login.php?error=' + encodeURIComponent('Failed to connect to MetaMask.');
-               }
-           }
+                    console.log('Detected Wallet Address:', walletAddress);
+                    alert('Detected Wallet Address: ' + walletAddress);
 
-           async function updateSessionWalletAddress(walletAddress) {
-               try {
-                   const response = await fetch('update-wallet.php', {
-                       method: 'POST',
-                       headers: {
-                           'Content-Type': 'application/x-www-form-urlencoded'
-                       },
-                       body: 'wallet_address=' + encodeURIComponent(walletAddress) + '&csrf_token=<?php echo htmlspecialchars($csrf_token); ?>'
-                   });
-                   const result = await response.json();
-                   console.log('Update response:', result); // Debug log
-                   if (result.success) {
-                       console.log('Session wallet address updated to:', walletAddress);
-                       window.location.href = getDashboardUrl();
-                   } else {
-                       console.error('Failed to update session wallet address:', result.error);
-                       alert('Failed to update session: ' + result.error);
-                       window.location.href = 'login.php?error=' + encodeURIComponent('Session update failed.');
-                   }
-               } catch (error) {
-                   console.error('Error updating session wallet address:', error);
-                   alert('Error updating session: ' + error.message);
-                   window.location.href = 'login.php?error=' + encodeURIComponent('Session update error.');
-               }
-           }
+                    await updateSessionWalletAddress(walletAddress);
+                } else {
+                    console.error('MetaMask is not installed!');
+                    alert('Please install MetaMask to proceed.');
+                    window.location.href = 'login.php?error=' + encodeURIComponent('MetaMask not detected.');
+                }
+            } catch (error) {
+                console.error('Error getting wallet address:', error);
+                alert('Error connecting to MetaMask: ' + error.message);
+                window.location.href = 'login.php?error=' + encodeURIComponent('Failed to connect to MetaMask.');
+            }
+        }
 
-           function getDashboardUrl() {
-               const role = '<?php echo htmlspecialchars($role); ?>';
-               const collegeId = '<?php echo htmlspecialchars($college_id); ?>';
-               const association = '<?php echo htmlspecialchars($association); ?>';
-               let url = 'login.php?error=' + encodeURIComponent('Invalid role or association');
+        async function updateSessionWalletAddress(walletAddress) {
+            try {
+                const response = await fetch('update-wallet.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: 'wallet_address=' + encodeURIComponent(walletAddress) + '&csrf_token=<?php echo htmlspecialchars($csrf_token); ?>'
+                });
+                const result = await response.json();
+                console.log('Update response:', result);
+                if (result.success) {
+                    console.log('Session wallet address updated to:', walletAddress);
+                    window.location.href = getDashboardUrl();
+                } else {
+                    console.error('Failed to update session wallet address:', result.error);
+                    alert('Failed to update session: ' + result.error);
+                    window.location.href = 'login.php?error=' + encodeURIComponent('Session update failed.');
+                }
+            } catch (error) {
+                console.error('Error updating session wallet address:', error);
+                alert('Error updating session: ' + error.message);
+                window.location.href = 'login.php?error=' + encodeURIComponent('Session update error.');
+            }
+        }
 
-               if (role === 'admin') {
-                   url = 'admin-dashboard.php';
-               } else if (role === 'voter') {
-                   if (association === 'UDOSO') {
-                       if (collegeId === '1') url = 'cive-students.php';
-                       else if (collegeId === '3') url = 'cnms-students.php';
-                       else if (collegeId === '2') url = 'coed-students.php';
-                   } else if (association === 'UDOMASA') {
-                       if (collegeId === '1') url = 'cive-teachers.php';
-                       else if (collegeId === '3') url = 'cnms-teachers.php';
-                       else if (collegeId === '2') url = 'coed-teachers.php';
-                   }
-               }
-               return url + '?csrf_token=<?php echo htmlspecialchars($csrf_token); ?>';
-           }
-           
-           window.addEventListener('load', getWalletAddress);
-       </script>
-   </body>
-   </html>
+        function getDashboardUrl() {
+            const role = '<?php echo htmlspecialchars($role); ?>';
+            const collegeId = '<?php echo htmlspecialchars($college_id); ?>';
+            const association = '<?php echo htmlspecialchars($association); ?>';
+            let url = 'login.php?error=' + encodeURIComponent('Invalid role or association');
+
+            if (role === 'admin') {
+                url = 'admin-dashboard.php';
+            } else if (role === 'voter') {
+                if (association === 'UDOSO') {
+                    if (collegeId === '1') url = 'cive-students.php';
+                    else if (collegeId === '3') url = 'cnms-students.php';
+                    else if (collegeId === '2') url = 'coed-students.php';
+                } else if (association === 'UDOMASA') {
+                    if (collegeId === '1') url = 'cive-teachers.php';
+                    else if (collegeId === '3') url = 'cnms-teachers.php';
+                    else if (collegeId === '2') url = 'coed-teachers.php';
+                }
+            }
+            return url + '?csrf_token=<?php echo htmlspecialchars($csrf_token); ?>';
+        }
+        
+        window.addEventListener('load', getWalletAddress);
+    </script>
+</body>
+</html>

@@ -46,7 +46,7 @@ $college_name = '';
 if ($user['college_id']) {
     try {
         $stmt = $pdo->prepare("SELECT name FROM colleges WHERE college_id = ?");
-        $stmt->execute([$user['college_id']]);
+        $stmt->execute($user['college_id']);
         $college_name = $stmt->fetchColumn() ?: 'Unknown';
     } catch (PDOException $e) {
         error_log("College query failed: " . $e->getMessage());
@@ -67,7 +67,7 @@ if ($user['college_id']) {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.ethers.io/lib/ethers-5.7.2.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js" defer></script>
     <style>
         * {
             margin: 0;
@@ -420,25 +420,6 @@ if ($user['college_id']) {
     </main>
 
     <script>
-        // Initializing provider and contract variables
-        const provider = new ethers.providers.JsonRpcProvider('https://eth-sepolia.g.alchemy.com/v2/1isPc6ojuMcMbyoNNeQkLDGM76n8oT8B');
-        const contractAddress = '0xC046c854C85e56DB6AF41dF3934DD671831d9d09';
-
-        // Fetching ABI 
-        async function loadContract() {
-            try {
-                const response = await fetch('../js/contract-abi.json');
-                if (!response.ok) {
-                    throw new Error('Failed to load ABI');
-                }
-                const contractABI = await response.json();
-                return new ethers.Contract(contractAddress, contractABI, provider);
-            } catch (error) {
-                console.error('Error loading ABI:', error);
-                throw error;
-            }
-        }
-
         document.addEventListener('DOMContentLoaded', async () => {
             const menuToggle = document.querySelector('.menu-toggle');
             const sidebar = document.querySelector('.sidebar');
@@ -449,13 +430,273 @@ if ($user['college_id']) {
             const downloadButton = document.getElementById('download-report');
             const reportElectionId = document.getElementById('report-election-id');
 
-            let contract;
-            try {
-                contract = await loadContract();
-            } catch (error) {
-                voteAnalytics.innerHTML = `<p class="error">Failed to initialize contract: ${error.message}</p>`;
+            // Check if ethers is available
+            if (typeof ethers === 'undefined') {
+                voteAnalytics.innerHTML = '<p class="error">Failed to load ethers library. Please check your internet connection or script source.</p>';
                 return;
             }
+
+            const provider = new ethers.providers.JsonRpcProvider('https://eth-sepolia.g.alchemy.com/v2/1isPc6ojuMcMbyoNNeQkLDGM76n8oT8B');
+            const contractAddress = '0xC046c854C85e56DB6AF41dF3934DD671831d9d09';
+
+            // Directly include the ABI
+            const contractABI = [{
+                "inputs": [],
+                "stateMutability": "nonpayable",
+                "type": "constructor"
+            },
+            {
+                "anonymous": false,
+                "inputs": [{
+                        "indexed": false,
+                        "internalType": "uint256",
+                        "name": "electionId",
+                        "type": "uint256"
+                    },
+                    {
+                        "indexed": true,
+                        "internalType": "address",
+                        "name": "voter",
+                        "type": "address"
+                    },
+                    {
+                        "indexed": false,
+                        "internalType": "uint256",
+                        "name": "positionId",
+                        "type": "uint256"
+                    },
+                    {
+                        "indexed": false,
+                        "internalType": "string",
+                        "name": "candidateId",
+                        "type": "string"
+                    },
+                    {
+                        "indexed": false,
+                        "internalType": "string",
+                        "name": "candidateName",
+                        "type": "string"
+                    },
+                    {
+                        "indexed": false,
+                        "internalType": "string",
+                        "name": "positionName",
+                        "type": "string"
+                    }
+                ],
+                "name": "VoteCast",
+                "type": "event"
+            },
+            {
+                "inputs": [],
+                "name": "admin",
+                "outputs": [{
+                    "internalType": "address",
+                    "name": "",
+                    "type": "address"
+                }],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [{
+                        "internalType": "uint256",
+                        "name": "electionId",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "positionId",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "string",
+                        "name": "candidateId",
+                        "type": "string"
+                    },
+                    {
+                        "internalType": "string",
+                        "name": "candidateName",
+                        "type": "string"
+                    },
+                    {
+                        "internalType": "string",
+                        "name": "positionName",
+                        "type": "string"
+                    }
+                ],
+                "name": "castVote",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [{
+                        "internalType": "uint256",
+                        "name": "positionId",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "string",
+                        "name": "candidateId",
+                        "type": "string"
+                    }
+                ],
+                "name": "getVoteCount",
+                "outputs": [{
+                    "internalType": "uint256",
+                    "name": "",
+                    "type": "uint256"
+                }],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [{
+                    "internalType": "uint256",
+                    "name": "electionId",
+                    "type": "uint256"
+                }],
+                "name": "getVotesByElection",
+                "outputs": [{
+                    "components": [{
+                            "internalType": "uint256",
+                            "name": "electionId",
+                            "type": "uint256"
+                        },
+                        {
+                            "internalType": "address",
+                            "name": "voter",
+                            "type": "address"
+                        },
+                        {
+                            "internalType": "uint256",
+                            "name": "positionId",
+                            "type": "uint256"
+                        },
+                        {
+                            "internalType": "string",
+                            "name": "candidateId",
+                            "type": "string"
+                        },
+                        {
+                            "internalType": "uint256",
+                            "name": "timestamp",
+                            "type": "uint256"
+                        },
+                        {
+                            "internalType": "string",
+                            "name": "candidateName",
+                            "type": "string"
+                        },
+                        {
+                            "internalType": "string",
+                            "name": "positionName",
+                            "type": "string"
+                        }
+                    ],
+                    "internalType": "struct VoteContract.Vote[]",
+                    "name": "",
+                    "type": "tuple[]"
+                }],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [{
+                        "internalType": "address",
+                        "name": "",
+                        "type": "address"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "string",
+                        "name": "",
+                        "type": "string"
+                    }
+                ],
+                "name": "hasVoted",
+                "outputs": [{
+                    "internalType": "bool",
+                    "name": "",
+                    "type": "bool"
+                }],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [{
+                        "internalType": "uint256",
+                        "name": "",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "string",
+                        "name": "",
+                        "type": "string"
+                    }
+                ],
+                "name": "voteCount",
+                "outputs": [{
+                    "internalType": "uint256",
+                    "name": "",
+                    "type": "uint256"
+                }],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [{
+                    "internalType": "uint256",
+                    "name": "",
+                    "type": "uint256"
+                }],
+                "name": "votes",
+                "outputs": [{
+                        "internalType": "uint256",
+                        "name": "electionId",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "address",
+                        "name": "voter",
+                        "type": "address"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "positionId",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "string",
+                        "name": "candidateId",
+                        "type": "string"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "timestamp",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "string",
+                        "name": "candidateName",
+                        "type": "string"
+                    },
+                    {
+                        "internalType": "string",
+                        "name": "positionName",
+                        "type": "string"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            }];
+
+            const contract = new ethers.Contract(contractAddress, contractABI, provider);
 
             menuToggle.addEventListener('click', () => {
                 sidebar.classList.toggle('active');

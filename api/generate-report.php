@@ -16,7 +16,6 @@ try {
         die('Invalid election ID');
     }
 
-    // Fetch election details
     $stmt = $conn->prepare("SELECT association, start_time FROM elections WHERE election_id = ?");
     $stmt->execute([$election_id]);
     $election = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -24,8 +23,7 @@ try {
         die('Election not found');
     }
 
-    // Fetch votes from the blockchain via an API endpoint
-    $voteResponse = file_get_contents("http://localhost/smartuchaguzi/api/fetch-blockchain-votes.php?election_id=$election_id");
+     $voteResponse = file_get_contents("http://localhost/smartuchaguzi/api/fetch-blockchain-votes.php?election_id=$election_id");
     $voteData = json_decode($voteResponse, true);
     if (isset($voteData['error'])) {
         die('Error fetching votes: ' . $voteData['error']);
