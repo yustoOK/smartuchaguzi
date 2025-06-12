@@ -2,7 +2,6 @@
 session_start();
 date_default_timezone_set('Africa/Dar_es_Salaam');
 
-require_once
 require_once 'config.php';
 
 try {
@@ -59,7 +58,7 @@ if (isset($_SESSION['association']) && $_SESSION['association'] !== 'UDOSO') {
 
 if (isset($_SESSION['user_agent']) && $_SESSION['user_agent'] !== $_SERVER['HTTP_USER_AGENT']) {
     error_log("User agent mismatch detected: Session UA: " . $_SESSION['user_agent'] . ", Current UA: " . $_SERVER['HTTP_USER_AGENT']);
-     $_SESSION['user_agent'] = $_SERVER['HTTP_USER_AGENT'];
+    $_SESSION['user_agent'] = $_SERVER['HTTP_USER_AGENT'];
     error_log("User agent updated in session.");
 }
 
@@ -912,478 +911,460 @@ try {
     </div>
 
     <script>
-    const inactivityTimeout = <?php echo $inactivity_timeout; ?>;
-    const warningTime = <?php echo $warning_time; ?>;
-    const isDevMode = <?php echo json_encode(getenv('DEV_MODE') === 'true' || isset($_GET['dev_mode'])); ?>;
-    let inactivityTimer;
-    let warningTimer;
-    const timeoutModal = document.getElementById('timeout-modal');
-    const timeoutMessage = document.getElementById('timeout-message');
-    const extendSessionButton = document.getElementById('extend-session');
-    const verifyVoteLink = document.getElementById('verify-vote-link');
-    const verifyModal = document.getElementById('verify-modal');
-    const myVotesSection = document.getElementById('my-votes');
-    const castVoteLink = document.getElementById('cast-vote-link');
-    const resultsLink = document.getElementById('results-link');
-    const resultsModal = document.getElementById('results-modal');
-    const resultsContent = document.getElementById('results-content');
+        const inactivityTimeout = <?php echo $inactivity_timeout; ?>;
+        const warningTime = <?php echo $warning_time; ?>;
+        const isDevMode = <?php echo json_encode(getenv('DEV_MODE') === 'true' || isset($_GET['dev_mode'])); ?>;
+        let inactivityTimer;
+        let warningTimer;
+        const timeoutModal = document.getElementById('timeout-modal');
+        const timeoutMessage = document.getElementById('timeout-message');
+        const extendSessionButton = document.getElementById('extend-session');
+        const verifyVoteLink = document.getElementById('verify-vote-link');
+        const verifyModal = document.getElementById('verify-modal');
+        const myVotesSection = document.getElementById('my-votes');
+        const castVoteLink = document.getElementById('cast-vote-link');
+        const resultsLink = document.getElementById('results-link');
+        const resultsModal = document.getElementById('results-modal');
+        const resultsContent = document.getElementById('results-content');
 
-    const contractAddress = '0xC046c854C85e56DB6AF41dF3934DD671831d9d09';
-    const abi = [
-        {
-          "inputs": [],
-          "stateMutability": "nonpayable",
-          "type": "constructor"
-        },
-        {
-          "anonymous": false,
-          "inputs": [
-            {
-              "indexed": false,
-              "internalType": "uint256",
-              "name": "electionId",
-              "type": "uint256"
+        const contractAddress = '0xC046c854C85e56DB6AF41dF3934DD671831d9d09';
+        const abi = [{
+                "inputs": [],
+                "stateMutability": "nonpayable",
+                "type": "constructor"
             },
             {
-              "indexed": true,
-              "internalType": "address",
-              "name": "voter",
-              "type": "address"
+                "anonymous": false,
+                "inputs": [{
+                        "indexed": false,
+                        "internalType": "uint256",
+                        "name": "electionId",
+                        "type": "uint256"
+                    },
+                    {
+                        "indexed": true,
+                        "internalType": "address",
+                        "name": "voter",
+                        "type": "address"
+                    },
+                    {
+                        "indexed": false,
+                        "internalType": "uint256",
+                        "name": "positionId",
+                        "type": "uint256"
+                    },
+                    {
+                        "indexed": false,
+                        "internalType": "string",
+                        "name": "candidateId",
+                        "type": "string"
+                    },
+                    {
+                        "indexed": false,
+                        "internalType": "string",
+                        "name": "candidateName",
+                        "type": "string"
+                    },
+                    {
+                        "indexed": false,
+                        "internalType": "string",
+                        "name": "positionName",
+                        "type": "string"
+                    }
+                ],
+                "name": "VoteCast",
+                "type": "event"
             },
             {
-              "indexed": false,
-              "internalType": "uint256",
-              "name": "positionId",
-              "type": "uint256"
+                "inputs": [],
+                "name": "admin",
+                "outputs": [{
+                    "internalType": "address",
+                    "name": "",
+                    "type": "address"
+                }],
+                "stateMutability": "view",
+                "type": "function"
             },
             {
-              "indexed": false,
-              "internalType": "string",
-              "name": "candidateId",
-              "type": "string"
+                "inputs": [{
+                        "internalType": "uint256",
+                        "name": "electionId",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "positionId",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "string",
+                        "name": "candidateId",
+                        "type": "string"
+                    },
+                    {
+                        "internalType": "string",
+                        "name": "candidateName",
+                        "type": "string"
+                    },
+                    {
+                        "internalType": "string",
+                        "name": "positionName",
+                        "type": "string"
+                    }
+                ],
+                "name": "castVote",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
             },
             {
-              "indexed": false,
-              "internalType": "string",
-              "name": "candidateName",
-              "type": "string"
+                "inputs": [{
+                        "internalType": "uint256",
+                        "name": "positionId",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "string",
+                        "name": "candidateId",
+                        "type": "string"
+                    }
+                ],
+                "name": "getVoteCount",
+                "outputs": [{
+                    "internalType": "uint256",
+                    "name": "",
+                    "type": "uint256"
+                }],
+                "stateMutability": "view",
+                "type": "function"
             },
             {
-              "indexed": false,
-              "internalType": "string",
-              "name": "positionName",
-              "type": "string"
+                "inputs": [{
+                    "internalType": "uint256",
+                    "name": "electionId",
+                    "type": "uint256"
+                }],
+                "name": "getVotesByElection",
+                "outputs": [{
+                    "components": [{
+                            "internalType": "uint256",
+                            "name": "electionId",
+                            "type": "uint256"
+                        },
+                        {
+                            "internalType": "address",
+                            "name": "voter",
+                            "type": "address"
+                        },
+                        {
+                            "internalType": "uint256",
+                            "name": "positionId",
+                            "type": "uint256"
+                        },
+                        {
+                            "internalType": "string",
+                            "name": "candidateId",
+                            "type": "string"
+                        },
+                        {
+                            "internalType": "uint256",
+                            "name": "timestamp",
+                            "type": "uint256"
+                        },
+                        {
+                            "internalType": "string",
+                            "name": "candidateName",
+                            "type": "string"
+                        },
+                        {
+                            "internalType": "string",
+                            "name": "positionName",
+                            "type": "string"
+                        }
+                    ],
+                    "internalType": "struct VoteContract.Vote[]",
+                    "name": "",
+                    "type": "tuple[]"
+                }],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [{
+                        "internalType": "address",
+                        "name": "",
+                        "type": "address"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "string",
+                        "name": "",
+                        "type": "string"
+                    }
+                ],
+                "name": "hasVoted",
+                "outputs": [{
+                    "internalType": "bool",
+                    "name": "",
+                    "type": "bool"
+                }],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [{
+                        "internalType": "uint256",
+                        "name": "",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "string",
+                        "name": "",
+                        "type": "string"
+                    }
+                ],
+                "name": "voteCount",
+                "outputs": [{
+                    "internalType": "uint256",
+                    "name": "",
+                    "type": "uint256"
+                }],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [{
+                    "internalType": "uint256",
+                    "name": "",
+                    "type": "uint256"
+                }],
+                "name": "votes",
+                "outputs": [{
+                        "internalType": "uint256",
+                        "name": "electionId",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "address",
+                        "name": "voter",
+                        "type": "address"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "positionId",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "string",
+                        "name": "candidateId",
+                        "type": "string"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "timestamp",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "string",
+                        "name": "candidateName",
+                        "type": "string"
+                    },
+                    {
+                        "internalType": "string",
+                        "name": "positionName",
+                        "type": "string"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
             }
-          ],
-          "name": "VoteCast",
-          "type": "event"
-        },
-        {
-          "inputs": [],
-          "name": "admin",
-          "outputs": [
-            {
-              "internalType": "address",
-              "name": "",
-              "type": "address"
-            }
-          ],
-          "stateMutability": "view",
-          "type": "function"
-        },
-        {
-          "inputs": [
-            {
-              "internalType": "uint256",
-              "name": "electionId",
-              "type": "uint256"
-            },
-            {
-              "internalType": "uint256",
-              "name": "positionId",
-              "type": "uint256"
-            },
-            {
-              "internalType": "string",
-              "name": "candidateId",
-              "type": "string"
-            },
-            {
-              "internalType": "string",
-              "name": "candidateName",
-              "type": "string"
-            },
-            {
-              "internalType": "string",
-              "name": "positionName",
-              "type": "string"
-            }
-          ],
-          "name": "castVote",
-          "outputs": [],
-          "stateMutability": "nonpayable",
-          "type": "function"
-        },
-        {
-          "inputs": [
-            {
-              "internalType": "uint256",
-              "name": "positionId",
-              "type": "uint256"
-            },
-            {
-              "internalType": "string",
-              "name": "candidateId",
-              "type": "string"
-            }
-          ],
-          "name": "getVoteCount",
-          "outputs": [
-            {
-              "internalType": "uint256",
-              "name": "",
-              "type": "uint256"
-            }
-          ],
-          "stateMutability": "view",
-          "type": "function"
-        },
-        {
-          "inputs": [
-            {
-              "internalType": "uint256",
-              "name": "electionId",
-              "type": "uint256"
-            }
-          ],
-          "name": "getVotesByElection",
-          "outputs": [
-            {
-              "components": [
-                {
-                  "internalType": "uint256",
-                  "name": "electionId",
-                  "type": "uint256"
-                },
-                {
-                  "internalType": "address",
-                  "name": "voter",
-                  "type": "address"
-                },
-                {
-                  "internalType": "uint256",
-                  "name": "positionId",
-                  "type": "uint256"
-                },
-                {
-                  "internalType": "string",
-                  "name": "candidateId",
-                  "type": "string"
-                },
-                {
-                  "internalType": "uint256",
-                  "name": "timestamp",
-                  "type": "uint256"
-                },
-                {
-                  "internalType": "string",
-                  "name": "candidateName",
-                  "type": "string"
-                },
-                {
-                  "internalType": "string",
-                  "name": "positionName",
-                  "type": "string"
+        ];
+
+        const alchemyApiKey = '1isPc6ojuMcMbyoNNeQkLDGM76n8oT8B';
+        let provider = new Web3.providers.HttpProvider(`https://eth-sepolia.g.alchemy.com/v2/${alchemyApiKey}`);
+        let web3 = new Web3(provider);
+        let contract = new web3.eth.Contract(abi, contractAddress);
+
+        async function getAndValidateWalletAddress() {
+            try {
+                if (typeof window.ethereum === 'undefined') {
+                    console.error('MetaMask is not installed.');
+                    alert('Please install MetaMask to use this voting platform.');
+                    window.location.href = 'login.php?error=' + encodeURIComponent('MetaMask not detected.');
+                    return null;
                 }
-              ],
-              "internalType": "struct VoteContract.Vote[]",
-              "name": "",
-              "type": "tuple[]"
-            }
-          ],
-          "stateMutability": "view",
-          "type": "function"
-        },
-        {
-          "inputs": [
-            {
-              "internalType": "address",
-              "name": "",
-              "type": "address"
-            },
-            {
-              "internalType": "uint256",
-              "name": "",
-              "type": "uint256"
-            },
-            {
-              "internalType": "string",
-              "name": "",
-              "type": "string"
-            }
-          ],
-          "name": "hasVoted",
-          "outputs": [
-            {
-              "internalType": "bool",
-              "name": "",
-              "type": "bool"
-            }
-          ],
-          "stateMutability": "view",
-          "type": "function"
-        },
-        {
-          "inputs": [
-            {
-              "internalType": "uint256",
-              "name": "",
-              "type": "uint256"
-            },
-            {
-              "internalType": "string",
-              "name": "",
-              "type": "string"
-            }
-          ],
-          "name": "voteCount",
-          "outputs": [
-            {
-              "internalType": "uint256",
-              "name": "",
-              "type": "uint256"
-            }
-          ],
-          "stateMutability": "view",
-          "type": "function"
-        },
-        {
-          "inputs": [
-            {
-              "internalType": "uint256",
-              "name": "",
-              "type": "uint256"
-            }
-          ],
-          "name": "votes",
-          "outputs": [
-            {
-              "internalType": "uint256",
-              "name": "electionId",
-              "type": "uint256"
-            },
-            {
-              "internalType": "address",
-              "name": "voter",
-              "type": "address"
-            },
-            {
-              "internalType": "uint256",
-              "name": "positionId",
-              "type": "uint256"
-            },
-            {
-              "internalType": "string",
-              "name": "candidateId",
-              "type": "string"
-            },
-            {
-              "internalType": "uint256",
-              "name": "timestamp",
-              "type": "uint256"
-            },
-            {
-              "internalType": "string",
-              "name": "candidateName",
-              "type": "string"
-            },
-            {
-              "internalType": "string",
-              "name": "positionName",
-              "type": "string"
-            }
-          ],
-          "stateMutability": "view",
-          "type": "function"
-        }
-    ];
 
-    const alchemyApiKey = '1isPc6ojuMcMbyoNNeQkLDGM76n8oT8B';
-    let provider = new Web3.providers.HttpProvider(`https://eth-sepolia.g.alchemy.com/v2/${alchemyApiKey}`);
-    let web3 = new Web3(provider);
-    let contract = new web3.eth.Contract(abi, contractAddress);
+                const accounts = await window.ethereum.request({
+                    method: 'eth_requestAccounts'
+                });
+                if (accounts.length === 0) {
+                    console.error('No MetaMask accounts available.');
+                    alert('Please connect an account in MetaMask.');
+                    window.location.href = 'login.php?error=' + encodeURIComponent('No MetaMask account connected.');
+                    return null;
+                }
 
-    async function getAndValidateWalletAddress() {
-        try {
-            if (typeof window.ethereum === 'undefined') {
-                console.error('MetaMask is not installed.');
-                alert('Please install MetaMask to use this voting platform.');
-                window.location.href = 'login.php?error=' + encodeURIComponent('MetaMask not detected.');
-                return null;
-            }
+                const currentAddress = accounts[0];
+                const sessionAddress = '<?php echo htmlspecialchars($_SESSION['wallet_address'] ?? '0x0'); ?>';
 
-            const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-            if (accounts.length === 0) {
-                console.error('No MetaMask accounts available.');
-                alert('Please connect an account in MetaMask.');
-                window.location.href = 'login.php?error=' + encodeURIComponent('No MetaMask account connected.');
-                return null;
-            }
+                console.log('Current MetaMask Wallet Address:', currentAddress);
+                console.log('Session Wallet Address:', sessionAddress);
 
-            const currentAddress = accounts[0];
-            const sessionAddress = '<?php echo htmlspecialchars($_SESSION['wallet_address'] ?? '0x0'); ?>';
+                if (isDevMode) {
+                    console.warn('Development Mode: Skipping wallet address validation.');
+                    return currentAddress;
+                }
 
-            console.log('Current MetaMask Wallet Address:', currentAddress);
-            console.log('Session Wallet Address:', sessionAddress);
+                if (currentAddress.toLowerCase() !== sessionAddress.toLowerCase()) {
+                    await updateWalletAddress(currentAddress);
+                }
 
-            if (isDevMode) {
-                console.warn('Development Mode: Skipping wallet address validation.');
                 return currentAddress;
+            } catch (error) {
+                console.error('Error accessing MetaMask wallet:', error);
+                alert('Failed to connect to MetaMask: ' + error.message);
+                window.location.href = 'login.php?error=' + encodeURIComponent('MetaMask connection failed.');
+                return null;
             }
-
-            if (currentAddress.toLowerCase() !== sessionAddress.toLowerCase()) {
-                await updateWalletAddress(currentAddress);
-            }
-
-            return currentAddress;
-        } catch (error) {
-            console.error('Error accessing MetaMask wallet:', error);
-            alert('Failed to connect to MetaMask: ' + error.message);
-            window.location.href = 'login.php?error=' + encodeURIComponent('MetaMask connection failed.');
-            return null;
         }
-    }
 
-    if (window.ethereum) {
-        window.ethereum.on('accountsChanged', async (accounts) => {
-            if (accounts.length === 0) {
-                console.error('MetaMask disconnected.');
+        if (window.ethereum) {
+            window.ethereum.on('accountsChanged', async (accounts) => {
+                if (accounts.length === 0) {
+                    console.error('MetaMask disconnected.');
+                    alert('MetaMask has been disconnected. Please reconnect to continue.');
+                    window.location.href = 'login.php?error=' + encodeURIComponent('MetaMask disconnected.');
+                    return;
+                }
+
+                const newAddress = accounts[0];
+                console.log('MetaMask account changed to:', newAddress);
+
+                if (isDevMode) {
+                    console.warn('Development Mode: Auto-updating session wallet address.');
+                    await updateWalletAddress(newAddress);
+                    return;
+                }
+
+                const sessionAddress = '<?php echo htmlspecialchars($_SESSION['wallet_address'] ?? '0x0'); ?>';
+                if (newAddress.toLowerCase() !== sessionAddress.toLowerCase()) {
+                    const confirmUpdate = confirm(`Your MetaMask account has changed to ${newAddress}. Would you like to update your session to use this account? Selecting "Cancel" will log you out.`);
+                    if (confirmUpdate) {
+                        await updateWalletAddress(newAddress);
+                    } else {
+                        window.location.href = 'login.php?error=' + encodeURIComponent('Wallet account changed. Please log in again.');
+                    }
+                }
+            });
+
+            window.ethereum.on('disconnect', () => {
+                console.error('MetaMask provider disconnected.');
                 alert('MetaMask has been disconnected. Please reconnect to continue.');
                 window.location.href = 'login.php?error=' + encodeURIComponent('MetaMask disconnected.');
-                return;
-            }
-
-            const newAddress = accounts[0];
-            console.log('MetaMask account changed to:', newAddress);
-
-            if (isDevMode) {
-                console.warn('Development Mode: Auto-updating session wallet address.');
-                await updateWalletAddress(newAddress);
-                return;
-            }
-
-            const sessionAddress = '<?php echo htmlspecialchars($_SESSION['wallet_address'] ?? '0x0'); ?>';
-            if (newAddress.toLowerCase() !== sessionAddress.toLowerCase()) {
-                const confirmUpdate = confirm(`Your MetaMask account has changed to ${newAddress}. Would you like to update your session to use this account? Selecting "Cancel" will log you out.`);
-                if (confirmUpdate) {
-                    await updateWalletAddress(newAddress);
-                } else {
-                    window.location.href = 'login.php?error=' + encodeURIComponent('Wallet account changed. Please log in again.');
-                }
-            }
-        });
-
-        window.ethereum.on('disconnect', () => {
-            console.error('MetaMask provider disconnected.');
-            alert('MetaMask has been disconnected. Please reconnect to continue.');
-            window.location.href = 'login.php?error=' + encodeURIComponent('MetaMask disconnected.');
-        });
-    }
-
-    async function updateWalletAddress(newAddress) {
-        try {
-            const response = await fetch('update-wallet.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: `wallet_address=${encodeURIComponent(newAddress)}&csrf_token=<?php echo htmlspecialchars($csrf_token); ?>`
             });
-            const result = await response.json();
-            if (result.success) {
-                console.log('Session wallet address updated to:', newAddress);
-                alert('Wallet address updated successfully. The page will now reload.');
-                location.reload();
-            } else {
-                console.error('Failed to update wallet address:', result.error);
-                alert('Failed to update wallet address: ' + result.error);
-                window.location.href = 'login.php?error=' + encodeURIComponent('Wallet update failed.');
+        }
+
+        async function updateWalletAddress(newAddress) {
+            try {
+                const response = await fetch('update-wallet.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: `wallet_address=${encodeURIComponent(newAddress)}&csrf_token=<?php echo htmlspecialchars($csrf_token); ?>`
+                });
+                const result = await response.json();
+                if (result.success) {
+                    console.log('Session wallet address updated to:', newAddress);
+                    alert('Wallet address updated successfully. The page will now reload.');
+                    location.reload();
+                } else {
+                    console.error('Failed to update wallet address:', result.error);
+                    alert('Failed to update wallet address: ' + result.error);
+                    window.location.href = 'login.php?error=' + encodeURIComponent('Wallet update failed.');
+                }
+            } catch (error) {
+                console.error('Error updating wallet address:', error);
+                alert('Error updating wallet address: ' + error.message);
+                window.location.href = 'login.php?error=' + encodeURIComponent('Wallet update error.');
             }
-        } catch (error) {
-            console.error('Error updating wallet address:', error);
-            alert('Error updating wallet address: ' + error.message);
-            window.location.href = 'login.php?error=' + encodeURIComponent('Wallet update error.');
         }
-    }
 
-    async function loadMyVotes() {
-        const voterAddress = await getAndValidateWalletAddress();
-        if (!voterAddress) {
-            myVotesSection.innerHTML = '<p class="error">Unable to load votes: Wallet validation failed.</p>';
-            return;
-        }
-        try {
-            const association = '<?php echo htmlspecialchars($_SESSION['association'] ?? ''); ?>';
-            let electionId = 1; // Default or map based on association
-            if (association === 'UDOMASA') electionId = 2;
+        async function loadMyVotes() {
+            const voterAddress = await getAndValidateWalletAddress();
+            if (!voterAddress) {
+                myVotesSection.innerHTML = '<p class="error">Unable to load votes: Wallet validation failed.</p>';
+                return;
+            }
+            try {
+                const association = '<?php echo htmlspecialchars($_SESSION['association'] ?? ''); ?>';
+                let electionId = 1; // Default or map based on association
+                if (association === 'UDOMASA') electionId = 2;
 
-            const allVotes = await contract.methods.getVotesByElection(electionId).call();
-            let myVotesHtml = '';
-            let hasVotes = false;
+                const allVotes = await contract.methods.getVotesByElection(electionId).call();
+                let myVotesHtml = '';
+                let hasVotes = false;
 
-            for (let vote of allVotes) {
-                if (vote.voter.toLowerCase() === voterAddress.toLowerCase()) {
-                    myVotesHtml += `<div class="vote-item">
+                for (let vote of allVotes) {
+                    if (vote.voter.toLowerCase() === voterAddress.toLowerCase()) {
+                        myVotesHtml += `<div class="vote-item">
                         <p>Election ID: ${vote.electionId}</p>
                         <p>Position: ${vote.positionName}</p>
                         <p>Candidate: ${vote.candidateName}</p>
                         <p>Time: ${new Date(vote.timestamp * 1000).toLocaleString()}</p>
                     </div>`;
-                    hasVotes = true;
+                        hasVotes = true;
+                    }
                 }
-            }
 
-            if (!hasVotes) {
-                myVotesHtml = `<p>No votes cast by you.</p>`;
+                if (!hasVotes) {
+                    myVotesHtml = `<p>No votes cast by you.</p>`;
+                }
+                myVotesSection.innerHTML = '<h3>The Votes Summary</h3>' + myVotesHtml;
+            } catch (error) {
+                console.error('Error loading votes:', error);
+                myVotesSection.innerHTML = '<p class="error">Error loading votes: ' + error.message + '. Please try again later.</p>';
             }
-            myVotesSection.innerHTML = '<h3>The Votes Summary</h3>' + myVotesHtml;
-        } catch (error) {
-            console.error('Error loading votes:', error);
-            myVotesSection.innerHTML = '<p class="error">Error loading votes: ' + error.message + '. Please try again later.</p>';
         }
-    }
 
-    function resetInactivityTimer() {
-        clearTimeout(inactivityTimer);
-        clearTimeout(warningTimer);
-        timeoutModal.style.display = 'none';
+        function resetInactivityTimer() {
+            clearTimeout(inactivityTimer);
+            clearTimeout(warningTimer);
+            timeoutModal.style.display = 'none';
 
-        warningTimer = setTimeout(() => {
-            timeoutMessage.textContent = 'You will be logged out in 1 minute due to inactivity.';
-            timeoutModal.style.display = 'flex';
-        }, (inactivityTimeout - warningTime) * 1000);
+            warningTimer = setTimeout(() => {
+                timeoutMessage.textContent = 'You will be logged out in 1 minute due to inactivity.';
+                timeoutModal.style.display = 'flex';
+            }, (inactivityTimeout - warningTime) * 1000);
 
-        inactivityTimer = setTimeout(() => {
-            window.location.href = 'login.php?error=' + encodeURIComponent('Session expired due to inactivity.');
-        }, inactivityTimeout * 1000);
-    }
+            inactivityTimer = setTimeout(() => {
+                window.location.href = 'login.php?error=' + encodeURIComponent('Session expired due to inactivity.');
+            }, inactivityTimeout * 1000);
+        }
 
-    document.addEventListener('mousemove', resetInactivityTimer);
-    document.addEventListener('keypress', resetInactivityTimer);
-    document.addEventListener('click', resetInactivityTimer);
-    document.addEventListener('scroll', resetInactivityTimer);
+        document.addEventListener('mousemove', resetInactivityTimer);
+        document.addEventListener('keypress', resetInactivityTimer);
+        document.addEventListener('click', resetInactivityTimer);
+        document.addEventListener('scroll', resetInactivityTimer);
 
-    extendSessionButton.addEventListener('click', resetInactivityTimer);
+        extendSessionButton.addEventListener('click', resetInactivityTimer);
 
-    resetInactivityTimer();
+        resetInactivityTimer();
 
-    verifyVoteLink.addEventListener('click', (e) => {
-        e.preventDefault();
-        verifyModal.style.display = 'flex';
-    });
+        verifyVoteLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            verifyModal.style.display = 'flex';
+        });
 
-    resultsLink.addEventListener('click', (e) => {
-        e.preventDefault();
-        resultsModal.style.display = 'flex';
-        resultsContent.innerHTML = `
+        resultsLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            resultsModal.style.display = 'flex';
+            resultsContent.innerHTML = `
             <h3>Election Results</h3>
             <div style="margin-bottom: 20px;">
                 <input type="number" id="election-id-input" placeholder="Search Election ID..." style="padding: 10px; border: 1px solid #e0e0e0; border-radius: 4px; width: 100%; max-width: 300px; font-size: 14px; outline: none;" onfocus="this.style.borderColor='#1a3c34';" onblur="this.style.borderColor='#e0e0e0';">
@@ -1392,83 +1373,85 @@ try {
             <div id="results-display"></div>
         `;
 
-        document.getElementById('fetch-results-btn').addEventListener('click', displayResults);
-    });
+            document.getElementById('fetch-results-btn').addEventListener('click', displayResults);
+        });
 
-    castVoteLink.addEventListener('click', (e) => {
-        e.preventDefault();
-        window.location.href = 'process-vote.php';
-    });
+        castVoteLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            window.location.href = 'process-vote.php';
+        });
 
-    async function verifyVote() {
-        const electionId = document.getElementById('verify-election-id').value;
-        const positionId = document.getElementById('verify-position-id').value;
-        const candidateId = document.getElementById('verify-candidate-id').value;
-        const resultDiv = document.getElementById('verify-result');
+        async function verifyVote() {
+            const electionId = document.getElementById('verify-election-id').value;
+            const positionId = document.getElementById('verify-position-id').value;
+            const candidateId = document.getElementById('verify-candidate-id').value;
+            const resultDiv = document.getElementById('verify-result');
 
-        if (!electionId || !positionId || !candidateId) {
-            resultDiv.innerHTML = '<p class="error">Please fill in all fields.</p>';
-            return;
-        }
-
-        try {
-            const voterAddress = await getAndValidateWalletAddress();
-            if (!voterAddress) {
-                resultDiv.innerHTML = '<p class="error">Wallet validation failed.</p>';
+            if (!electionId || !positionId || !candidateId) {
+                resultDiv.innerHTML = '<p class="error">Please fill in all fields.</p>';
                 return;
             }
 
-            const allVotes = await contract.methods.getVotesByElection(electionId).call();
-            let voteFound = false;
-
-            for (let vote of allVotes) {
-                if (
-                    vote.voter.toLowerCase() === voterAddress.toLowerCase() &&
-                    vote.positionId === positionId &&
-                    vote.candidateId === candidateId
-                ) {
-                    resultDiv.innerHTML = `<p class="success">Vote verified! You voted for Candidate ID ${candidateId} for ${vote.positionName} in Election ID ${electionId} at ${new Date(vote.timestamp * 1000).toLocaleString()}</p>`;
-                    voteFound = true;
-                    break;
+            try {
+                const voterAddress = await getAndValidateWalletAddress();
+                if (!voterAddress) {
+                    resultDiv.innerHTML = '<p class="error">Wallet validation failed.</p>';
+                    return;
                 }
+
+                const allVotes = await contract.methods.getVotesByElection(electionId).call();
+                let voteFound = false;
+
+                for (let vote of allVotes) {
+                    if (
+                        vote.voter.toLowerCase() === voterAddress.toLowerCase() &&
+                        vote.positionId === positionId &&
+                        vote.candidateId === candidateId
+                    ) {
+                        resultDiv.innerHTML = `<p class="success">Vote verified! You voted for Candidate ID ${candidateId} for ${vote.positionName} in Election ID ${electionId} at ${new Date(vote.timestamp * 1000).toLocaleString()}</p>`;
+                        voteFound = true;
+                        break;
+                    }
+                }
+
+                if (!voteFound) {
+                    resultDiv.innerHTML = '<p class="error">No matching vote found for the provided details.</p>';
+                }
+            } catch (error) {
+                console.error('Error verifying vote:', error);
+                resultDiv.innerHTML = '<p class="error">Error verifying vote: ' + error.message + '</p>';
             }
-
-            if (!voteFound) {
-                resultDiv.innerHTML = '<p class="error">No matching vote found for the provided details.</p>';
-            }
-        } catch (error) {
-            console.error('Error verifying vote:', error);
-            resultDiv.innerHTML = '<p class="error">Error verifying vote: ' + error.message + '</p>';
-        }
-    }
-
-    function closeVerifyModal() {
-        verifyModal.style.display = 'none';
-        document.getElementById('verify-election-id').value = '';
-        document.getElementById('verify-position-id').value = '';
-        document.getElementById('verify-candidate-id').value = '';
-        document.getElementById('verify-result').innerHTML = '';
-    }
-
-    async function displayResults() {
-        const electionIdInput = document.getElementById('election-id-input');
-        const electionId = electionIdInput.value.trim();
-        const resultsDisplay = document.getElementById('results-display');
-
-        if (!electionId) {
-            resultsDisplay.innerHTML = '<p class="error">Please enter a valid Election ID.</p>';
-            return;
         }
 
-        try {
-            const voterAddress = await getAndValidateWalletAddress();
-            if (!voterAddress) {
-                resultsDisplay.innerHTML = '<p class="error">Unable to fetch results: Wallet validation failed.</p>';
+        function closeVerifyModal() {
+            verifyModal.style.display = 'none';
+            document.getElementById('verify-election-id').value = '';
+            document.getElementById('verify-position-id').value = '';
+            document.getElementById('verify-candidate-id').value = '';
+            document.getElementById('verify-result').innerHTML = '';
+        }
+
+        async function displayResults() {
+            const electionIdInput = document.getElementById('election-id-input');
+            const electionId = electionIdInput.value.trim();
+            const resultsDisplay = document.getElementById('results-display');
+
+            if (!electionId) {
+                resultsDisplay.innerHTML = '<p class="error">Please enter a valid Election ID.</p>';
                 return;
             }
 
-            const allVotes = await contract.methods.getVotesByElection(electionId).call({ from: voterAddress });
-            let resultsHtml = `
+            try {
+                const voterAddress = await getAndValidateWalletAddress();
+                if (!voterAddress) {
+                    resultsDisplay.innerHTML = '<p class="error">Unable to fetch results: Wallet validation failed.</p>';
+                    return;
+                }
+
+                const allVotes = await contract.methods.getVotesByElection(electionId).call({
+                    from: voterAddress
+                });
+                let resultsHtml = `
                 <h4>Results for Election ID: ${electionId}</h4>
                 <div class="candidate-grid" style="margin-top: 20px;">
                     <div class="candidate-card" style="padding: 20px; border: 1px solid #e0e0e0; border-radius: 12px;">
@@ -1484,15 +1467,19 @@ try {
                             <tbody>
             `;
 
-            const voteCounts = {};
-            allVotes.forEach(vote => {
-                const candidateId = vote.candidateId;
-                voteCounts[candidateId] = voteCounts[candidateId] || { count: 0, name: vote.candidateName, position: vote.positionName };
-                voteCounts[candidateId].count += 1;
-            });
+                const voteCounts = {};
+                allVotes.forEach(vote => {
+                    const candidateId = vote.candidateId;
+                    voteCounts[candidateId] = voteCounts[candidateId] || {
+                        count: 0,
+                        name: vote.candidateName,
+                        position: vote.positionName
+                    };
+                    voteCounts[candidateId].count += 1;
+                });
 
-            for (let candidateId in voteCounts) {
-                resultsHtml += `
+                for (let candidateId in voteCounts) {
+                    resultsHtml += `
                     <tr style="border-bottom: 1px solid #e0e0e0;">
                         <td style="padding: 10px;">${candidateId}</td>
                         <td style="padding: 10px;">${voteCounts[candidateId].name}</td>
@@ -1500,15 +1487,15 @@ try {
                         <td style="padding: 10px;">${voteCounts[candidateId].count} vote(s)</td>
                     </tr>
                 `;
-            }
+                }
 
-            if (Object.keys(voteCounts).length === 0) {
-                resultsHtml += `
+                if (Object.keys(voteCounts).length === 0) {
+                    resultsHtml += `
                     <td colspan="4" style="padding: 10px; text-align: center; color: #e76f51;">No votes recorded yet.</td>
                 </tr>`;
-            }
+                }
 
-            resultsHtml += `
+                resultsHtml += `
                             </tbody>
                         </table>
                         <button onclick="closeResultsModal()" style="margin-top: 20px; padding: 10px 20px; background: #e76f51; color: white; border: none; cursor: pointer; border-radius: 4px; font-size: 14px; transition: background 0.3s;">Close</button>
@@ -1516,41 +1503,41 @@ try {
                 </div>
             `;
 
-            resultsDisplay.innerHTML = resultsHtml;
-        } catch (error) {
-            console.error('Error fetching results:', error);
-            resultsDisplay.innerHTML = '<p class="error">Error fetching results: ' + error.message + '</p>';
+                resultsDisplay.innerHTML = resultsHtml;
+            } catch (error) {
+                console.error('Error fetching results:', error);
+                resultsDisplay.innerHTML = '<p class="error">Error fetching results: ' + error.message + '</p>';
+            }
         }
-    }
 
-    function closeResultsModal() {
-        resultsModal.style.display = 'none';
-    }
-
-    const profilePic = document.getElementById('profile-pic');
-    const userDropdown = document.getElementById('user-dropdown');
-
-    profilePic.addEventListener('click', (e) => {
-        e.preventDefault();
-        const isVisible = userDropdown.style.display === 'block';
-        userDropdown.style.display = isVisible ? 'none' : 'block';
-    });
-
-    document.addEventListener('click', (event) => {
-        if (!profilePic.contains(event.target) && !userDropdown.contains(event.target)) {
-            userDropdown.style.display = 'none';
+        function closeResultsModal() {
+            resultsModal.style.display = 'none';
         }
-    });
 
-    window.addEventListener('load', async () => {
-        const currentAddress = await getAndValidateWalletAddress();
-        if (currentAddress) {
-            await loadMyVotes();
-        } else {
-           await updateWalletAddress(currentAddress);
-            location.reload();
-        }
-    });
+        const profilePic = document.getElementById('profile-pic');
+        const userDropdown = document.getElementById('user-dropdown');
+
+        profilePic.addEventListener('click', (e) => {
+            e.preventDefault();
+            const isVisible = userDropdown.style.display === 'block';
+            userDropdown.style.display = isVisible ? 'none' : 'block';
+        });
+
+        document.addEventListener('click', (event) => {
+            if (!profilePic.contains(event.target) && !userDropdown.contains(event.target)) {
+                userDropdown.style.display = 'none';
+            }
+        });
+
+        window.addEventListener('load', async () => {
+            const currentAddress = await getAndValidateWalletAddress();
+            if (currentAddress) {
+                await loadMyVotes();
+            } else {
+                await updateWalletAddress(currentAddress);
+                location.reload();
+            }
+        });
     </script>
 </body>
 

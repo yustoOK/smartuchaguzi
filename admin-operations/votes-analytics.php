@@ -354,7 +354,7 @@ if ($user['college_id']) {
     <header class="header">
         <div class="logo">
             <i class="fas fa-bars menu-toggle"></i>
-            <img src="../Uploads/Vote.jpeg" alt="SmartUchaguzi Logo">
+            <img src="../images/System Logo.jpg" alt="SmartUchaguzi Logo">
             <h1>SmartUchaguzi</h1>
         </div>
         <div class="user">
