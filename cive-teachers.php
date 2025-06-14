@@ -62,9 +62,9 @@ if (isset($_SESSION['user_agent']) && $_SESSION['user_agent'] !== $_SERVER['HTTP
     error_log("User agent updated in session.");
 }
 
-$inactivity_timeout = 5 * 60 * 60; // 5 hours
-$max_session_duration = 12 * 60 * 60; // 12 hours
-$warning_time = 60;
+$inactivity_timeout = 30 * 60; // 30 minutes
+$max_session_duration = 1 * 60 * 60; // 1 hour
+$warning_time = 28;
 
 if (!isset($_SESSION['start_time'])) {
     $_SESSION['start_time'] = time();
@@ -758,7 +758,6 @@ try {
         <div class="dash-content">
             <h2>The Candidate Details</h2>
 
-            <!-- My Votes Section -->
             <div class="my-votes-section">
                 <h3>Votes</h3>
                 <div id="my-votes"></div>
@@ -1159,7 +1158,7 @@ try {
         ];
 
         const alchemyApiKey = '1isPc6ojuMcMbyoNNeQkLDGM76n8oT8B';
-        let provider = new Web3.providers.HttpProvider(`https://eth-sepolia.g.alchemy.com/v2/${alchemyApiKey}`);
+        let provider = new Web3.providers.WebsocketProvider(`wss://eth-sepolia.g.alchemy.com/v2/${alchemyApiKey}`);
         let web3 = new Web3(provider);
         let contract = new web3.eth.Contract(abi, contractAddress);
 
@@ -1172,9 +1171,7 @@ try {
                     return null;
                 }
 
-                const accounts = await window.ethereum.request({
-                    method: 'eth_requestAccounts'
-                });
+                const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
                 if (accounts.length === 0) {
                     console.error('No MetaMask accounts available.');
                     alert('Please connect an account in MetaMask.');
@@ -1185,16 +1182,11 @@ try {
                 const currentAddress = accounts[0];
                 const sessionAddress = '<?php echo htmlspecialchars($_SESSION['wallet_address'] ?? '0x0'); ?>';
 
-                console.log('Current MetaMask Wallet Address:', currentAddress);
-                console.log('Session Wallet Address:', sessionAddress);
-
-                if (isDevMode) {
-                    console.warn('Development Mode: Skipping wallet address validation.');
-                    return currentAddress;
-                }
-
                 if (currentAddress.toLowerCase() !== sessionAddress.toLowerCase()) {
-                    await updateWalletAddress(currentAddress);
+                    console.error('Wallet address mismatch. Session locked to initial wallet.');
+                    alert('Your MetaMask account does not match the logged-in wallet. Please log in with the correct account.');
+                    window.location.href = 'login.php?error=' + encodeURIComponent('Wallet mismatch detected.');
+                    return null;
                 }
 
                 return currentAddress;
@@ -1203,68 +1195,6 @@ try {
                 alert('Failed to connect to MetaMask: ' + error.message);
                 window.location.href = 'login.php?error=' + encodeURIComponent('MetaMask connection failed.');
                 return null;
-            }
-        }
-
-        if (window.ethereum) {
-            window.ethereum.on('accountsChanged', async (accounts) => {
-                if (accounts.length === 0) {
-                    console.error('MetaMask disconnected.');
-                    alert('MetaMask has been disconnected. Please reconnect to continue.');
-                    window.location.href = 'login.php?error=' + encodeURIComponent('MetaMask disconnected.');
-                    return;
-                }
-
-                const newAddress = accounts[0];
-                console.log('MetaMask account changed to:', newAddress);
-
-                if (isDevMode) {
-                    console.warn('Development Mode: Auto-updating session wallet address.');
-                    await updateWalletAddress(newAddress);
-                    return;
-                }
-
-                const sessionAddress = '<?php echo htmlspecialchars($_SESSION['wallet_address'] ?? '0x0'); ?>';
-                if (newAddress.toLowerCase() !== sessionAddress.toLowerCase()) {
-                    const confirmUpdate = confirm(`Your MetaMask account has changed to ${newAddress}. Would you like to update your session to use this account? Selecting "Cancel" will log you out.`);
-                    if (confirmUpdate) {
-                        await updateWalletAddress(newAddress);
-                    } else {
-                        window.location.href = 'login.php?error=' + encodeURIComponent('Wallet account changed. Please log in again.');
-                    }
-                }
-            });
-
-            window.ethereum.on('disconnect', () => {
-                console.error('MetaMask provider disconnected.');
-                alert('MetaMask has been disconnected. Please reconnect to continue.');
-                window.location.href = 'login.php?error=' + encodeURIComponent('MetaMask disconnected.');
-            });
-        }
-
-        async function updateWalletAddress(newAddress) {
-            try {
-                const response = await fetch('update-wallet.php', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded'
-                    },
-                    body: `wallet_address=${encodeURIComponent(newAddress)}&csrf_token=<?php echo htmlspecialchars($csrf_token); ?>`
-                });
-                const result = await response.json();
-                if (result.success) {
-                    console.log('Session wallet address updated to:', newAddress);
-                    alert('Wallet address updated successfully. The page will now reload.');
-                    location.reload();
-                } else {
-                    console.error('Failed to update wallet address:', result.error);
-                    alert('Failed to update wallet address: ' + result.error);
-                    window.location.href = 'login.php?error=' + encodeURIComponent('Wallet update failed.');
-                }
-            } catch (error) {
-                console.error('Error updating wallet address:', error);
-                alert('Error updating wallet address: ' + error.message);
-                window.location.href = 'login.php?error=' + encodeURIComponent('Wallet update error.');
             }
         }
 
@@ -1277,19 +1207,21 @@ try {
             try {
                 const association = '<?php echo htmlspecialchars($_SESSION['association'] ?? ''); ?>';
                 let electionId = 2; // UDOMASA election ID
+                console.log('Fetching votes for electionId:', electionId, 'voter:', voterAddress);
 
                 const allVotes = await contract.methods.getVotesByElection(electionId).call();
+                console.log('Votes returned:', allVotes);
                 let myVotesHtml = '';
                 let hasVotes = false;
 
                 for (let vote of allVotes) {
-                    if (vote.voter.toLowerCase() === voterAddress.toLowerCase()) {
+                    if (web3.utils.toChecksumAddress(vote.voter) === web3.utils.toChecksumAddress(voterAddress)) {
                         myVotesHtml += `<div class="vote-item">
-                        <p>Election ID: ${vote.electionId}</p>
-                        <p>Position: ${vote.positionName}</p>
-                        <p>Candidate: ${vote.candidateName}</p>
-                        <p>Time: ${new Date(vote.timestamp * 1000).toLocaleString()}</p>
-                    </div>`;
+                            <p>Election ID: ${vote.electionId}</p>
+                            <p>Position: ${vote.positionName}</p>
+                            <p>Candidate: ${vote.candidateName}</p>
+                            <p>Time: ${new Date(vote.timestamp * 1000).toLocaleString()}</p>
+                        </div>`;
                         hasVotes = true;
                     }
                 }
@@ -1299,8 +1231,8 @@ try {
                 }
                 myVotesSection.innerHTML = '<h3>The Votes Summary</h3>' + myVotesHtml;
             } catch (error) {
-                console.error('Error loading votes:', error);
-                myVotesSection.innerHTML = '<p class="error">Error loading votes: ' + error.message + '. Please try again later.</p>';
+                console.error('Error loading votes:', error.code, error.message);
+                myVotesSection.innerHTML = '<p class="error">Error loading votes: ' + (error.message || 'Unknown error') + '. Please try again later.</p>';
             }
         }
 
@@ -1326,7 +1258,10 @@ try {
 
         extendSessionButton.addEventListener('click', resetInactivityTimer);
 
-        resetInactivityTimer();
+        window.addEventListener('load', async () => {
+            await loadMyVotes();
+            resetInactivityTimer();
+        });
 
         verifyVoteLink.addEventListener('click', (e) => {
             e.preventDefault();
@@ -1376,7 +1311,7 @@ try {
 
                 for (let vote of allVotes) {
                     if (
-                        vote.voter.toLowerCase() === voterAddress.toLowerCase() &&
+                        web3.utils.toChecksumAddress(vote.voter) === web3.utils.toChecksumAddress(voterAddress) &&
                         vote.positionId === positionId &&
                         vote.candidateId === candidateId
                     ) {
@@ -1390,8 +1325,8 @@ try {
                     resultDiv.innerHTML = '<p class="error">No matching vote found for the provided details.</p>';
                 }
             } catch (error) {
-                console.error('Error verifying vote:', error);
-                resultDiv.innerHTML = '<p class="error">Error verifying vote: ' + error.message + '</p>';
+                console.error('Error verifying vote:', error.code, error.message);
+                resultDiv.innerHTML = '<p class="error">Error verifying vote: ' + (error.message || 'Unknown error') + '</p>';
             }
         }
 
@@ -1420,9 +1355,7 @@ try {
                     return;
                 }
 
-                const allVotes = await contract.methods.getVotesByElection(electionId).call({
-                    from: voterAddress
-                });
+                const allVotes = await contract.methods.getVotesByElection(electionId).call({ from: voterAddress });
                 let resultsHtml = `
                 <h4>Results for Election ID: ${electionId}</h4>
                 <div class="candidate-grid" style="margin-top: 20px;">
@@ -1442,11 +1375,7 @@ try {
                 const voteCounts = {};
                 allVotes.forEach(vote => {
                     const candidateId = vote.candidateId;
-                    voteCounts[candidateId] = voteCounts[candidateId] || {
-                        count: 0,
-                        name: vote.candidateName,
-                        position: vote.positionName
-                    };
+                    voteCounts[candidateId] = voteCounts[candidateId] || { count: 0, name: vote.candidateName, position: vote.positionName };
                     voteCounts[candidateId].count += 1;
                 });
 
@@ -1477,8 +1406,8 @@ try {
 
                 resultsDisplay.innerHTML = resultsHtml;
             } catch (error) {
-                console.error('Error fetching results:', error);
-                resultsDisplay.innerHTML = '<p class="error">Error fetching results: ' + error.message + '</p>';
+                console.error('Error fetching results:', error.code, error.message);
+                resultsDisplay.innerHTML = '<p class="error">Error fetching results: ' + (error.message || 'Unknown error') + '</p>';
             }
         }
 
@@ -1498,16 +1427,6 @@ try {
         document.addEventListener('click', (event) => {
             if (!profilePic.contains(event.target) && !userDropdown.contains(event.target)) {
                 userDropdown.style.display = 'none';
-            }
-        });
-
-        window.addEventListener('load', async () => {
-            const currentAddress = await getAndValidateWalletAddress();
-            if (currentAddress) {
-                await loadMyVotes();
-            } else {
-                await updateWalletAddress(currentAddress);
-                location.reload();
             }
         });
     </script>

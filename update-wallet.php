@@ -29,21 +29,27 @@ if (!preg_match('/^0x[a-fA-F0-9]{40}$/', $wallet_address)) {
     exit;
 }
 
-$_SESSION['wallet_address'] = $wallet_address;
+// Only set wallet_address if not already set
+if (!isset($_SESSION['wallet_address']) || empty($_SESSION['wallet_address'])) {
+    $_SESSION['wallet_address'] = $wallet_address;
 
-try {
-    $pdo = new PDO("mysql:host=localhost;dbname=smartuchaguzi_db", "root", "Leonida1972@@@@");
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-    $stmt = $pdo->prepare("UPDATE users SET wallet_address = ? WHERE user_id = ?");
-    $stmt->execute([$wallet_address, $_SESSION['user_id']]);
-    error_log("Wallet address updated in database for user_id: {$_SESSION['user_id']}");
-} catch (PDOException $e) {
-    error_log("Database update failed: " . $e->getMessage());
-    
+    try {
+        $pdo = new PDO("mysql:host=localhost;dbname=smartuchaguzi_db", "root", "Leonida1972@@@@");
+        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        $stmt = $pdo->prepare("UPDATE users SET wallet_address = ? WHERE user_id = ?");
+        $stmt->execute([$wallet_address, $_SESSION['user_id']]);
+        error_log("Wallet address set in database for user_id: {$_SESSION['user_id']}");
+    } catch (PDOException $e) {
+        error_log("Database update failed: " . $e->getMessage());
+    }
+} else if ($_SESSION['wallet_address'] !== $wallet_address) {
+    error_log("Attempt to change wallet address detected for user_id: {$_SESSION['user_id']}");
+    echo json_encode(['success' => false, 'error' => 'Wallet address cannot be changed after login']);
+    exit;
 }
 
 $ip_address = $_SERVER['REMOTE_ADDR'] ?? 'Unknown';
-error_log("Session wallet address updated to: $wallet_address for user_id: {$_SESSION['user_id']} from IP: $ip_address at " . date('Y-m-d H:i:s'));
+error_log("Session wallet address confirmed as: $wallet_address for user_id: {$_SESSION['user_id']} from IP: $ip_address at " . date('Y-m-d H:i:s'));
 
-echo json_encode(['success' => true, 'message' => 'Wallet address updated']);
+echo json_encode(['success' => true, 'message' => 'Wallet address confirmed']);
 ?>

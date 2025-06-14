@@ -46,12 +46,10 @@ $csrf_token = $_GET['csrf_token'] ?? $_SESSION['csrf_token'];
         async function getWalletAddress() {
             try {
                 if (typeof window.ethereum !== 'undefined') {
+                    await window.ethereum.request({ method: 'wallet_requestPermissions', params: [{ eth_accounts: {} }] });
                     const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
                     const walletAddress = accounts[0];
-
                     console.log('Detected Wallet Address:', walletAddress);
-                    alert('Detected Wallet Address: ' + walletAddress);
-
                     await updateSessionWalletAddress(walletAddress);
                 } else {
                     console.error('MetaMask is not installed!');
@@ -77,17 +75,17 @@ $csrf_token = $_GET['csrf_token'] ?? $_SESSION['csrf_token'];
                 const result = await response.json();
                 console.log('Update response:', result);
                 if (result.success) {
-                    console.log('Session wallet address updated to:', walletAddress);
+                    console.log('Session wallet address set to:', walletAddress);
                     window.location.href = getDashboardUrl();
                 } else {
-                    console.error('Failed to update session wallet address:', result.error);
-                    alert('Failed to update session: ' + result.error);
-                    window.location.href = 'login.php?error=' + encodeURIComponent('Session update failed.');
+                    console.error('Failed to set wallet address:', result.error);
+                    alert('Failed to set wallet address: ' + result.error);
+                    window.location.href = 'login.php?error=' + encodeURIComponent('Session setup failed.');
                 }
             } catch (error) {
-                console.error('Error updating session wallet address:', error);
-                alert('Error updating session: ' + error.message);
-                window.location.href = 'login.php?error=' + encodeURIComponent('Session update error.');
+                console.error('Error setting session wallet address:', error);
+                alert('Error setting session: ' + error.message);
+                window.location.href = 'login.php?error=' + encodeURIComponent('Session setup error.');
             }
         }
 

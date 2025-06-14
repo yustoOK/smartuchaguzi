@@ -94,18 +94,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt = $pdo->prepare("INSERT INTO sessions (user_id, session_token, ip_address, login_time, last_activity) VALUES (?, ?, ?, NOW(), NOW())");
             $stmt->execute([$user['user_id'], $session_token, $ip_address]);
 
-            // Handle "Remember Me" functionality
             if ($remember) {
                 $remember_token = bin2hex(random_bytes(32));
                 $expiry = date('Y-m-d H:i:s', time() + 30 * 24 * 60 * 60); // 30 days expiry
                 $stmt = $pdo->prepare("UPDATE users SET remember_token = ?, token_expiry = ? WHERE user_id = ?");
                 $stmt->execute([$remember_token, $expiry, $user['user_id']]);
 
-                // Set cookies (non-secure for development)
                 setcookie('remember_user', $remember_token, time() + 30 * 24 * 60 * 60, '/', '', false, true); // Secure=false, HttpOnly=true
                 setcookie('remember_email', $email, time() + 30 * 24 * 60 * 60, '/', '', false, true);
             } else {
-                // Clear cookies if "Remember Me" is not checked
                 setcookie('remember_user', '', time() - 3600, '/', '', false, true);
                 setcookie('remember_email', '', time() - 3600, '/', '', false, true);
                 $stmt = $pdo->prepare("UPDATE users SET remember_token = NULL, token_expiry = NULL WHERE user_id = ?");

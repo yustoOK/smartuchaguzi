@@ -1186,7 +1186,7 @@ try {
         ];
 
         const alchemyApiKey = '1isPc6ojuMcMbyoNNeQkLDGM76n8oT8B';
-        let provider = new Web3.providers.HttpProvider(`https://eth-sepolia.g.alchemy.com/v2/${alchemyApiKey}`);
+        let provider = new Web3.providers.WebsocketProvider(`wss://eth-sepolia.g.alchemy.com/v2/${alchemyApiKey}`);
         let web3 = new Web3(provider);
         let contract = new web3.eth.Contract(abi, contractAddress);
 
@@ -1222,11 +1222,12 @@ try {
 
                 if (currentAddress.toLowerCase() !== sessionAddress.toLowerCase()) {
                     await updateWalletAddress(currentAddress);
+                    location.reload();
                 }
 
                 return currentAddress;
             } catch (error) {
-                console.error('Error accessing MetaMask wallet:', error);
+                console.error('Error accessing MetaMask wallet:', error.code, error.message);
                 alert('Failed to connect to MetaMask: ' + error.message);
                 window.location.href = 'login.php?error=' + encodeURIComponent('MetaMask connection failed.');
                 return null;
@@ -1289,7 +1290,7 @@ try {
                     window.location.href = 'login.php?error=' + encodeURIComponent('Wallet update failed.');
                 }
             } catch (error) {
-                console.error('Error updating wallet address:', error);
+                console.error('Error updating wallet address:', error.code, error.message);
                 alert('Error updating wallet address: ' + error.message);
                 window.location.href = 'login.php?error=' + encodeURIComponent('Wallet update error.');
             }
@@ -1307,17 +1308,18 @@ try {
                 if (association === 'UDOMASA') electionId = 2;
 
                 const allVotes = await contract.methods.getVotesByElection(electionId).call();
+                console.log('Votes returned:', allVotes);
                 let myVotesHtml = '';
                 let hasVotes = false;
 
                 for (let vote of allVotes) {
-                    if (vote.voter.toLowerCase() === voterAddress.toLowerCase()) {
+                    if (web3.utils.toChecksumAddress(vote.voter) === web3.utils.toChecksumAddress(voterAddress)) {
                         myVotesHtml += `<div class="vote-item">
-                        <p>Election ID: ${vote.electionId}</p>
-                        <p>Position: ${vote.positionName}</p>
-                        <p>Candidate: ${vote.candidateName}</p>
-                        <p>Time: ${new Date(vote.timestamp * 1000).toLocaleString()}</p>
-                    </div>`;
+                            <p>Election ID: ${vote.electionId}</p>
+                            <p>Position: ${vote.positionName}</p>
+                            <p>Candidate: ${vote.candidateName}</p>
+                            <p>Time: ${new Date(vote.timestamp * 1000).toLocaleString()}</p>
+                        </div>`;
                         hasVotes = true;
                     }
                 }
@@ -1327,8 +1329,8 @@ try {
                 }
                 myVotesSection.innerHTML = '<h3>The Votes Summary</h3>' + myVotesHtml;
             } catch (error) {
-                console.error('Error loading votes:', error);
-                myVotesSection.innerHTML = '<p class="error">Error loading votes: ' + error.message + '. Please try again later.</p>';
+                console.error('Error loading votes:', error.code, error.message);
+                myVotesSection.innerHTML = '<p class="error">Error loading votes: ' + (error.message || 'Unknown error') + '. Please try again later.</p>';
             }
         }
 
@@ -1354,7 +1356,10 @@ try {
 
         extendSessionButton.addEventListener('click', resetInactivityTimer);
 
-        resetInactivityTimer();
+        window.addEventListener('load', async () => {
+            await loadMyVotes();
+            resetInactivityTimer();
+        });
 
         verifyVoteLink.addEventListener('click', (e) => {
             e.preventDefault();
@@ -1404,7 +1409,7 @@ try {
 
                 for (let vote of allVotes) {
                     if (
-                        vote.voter.toLowerCase() === voterAddress.toLowerCase() &&
+                        web3.utils.toChecksumAddress(vote.voter) === web3.utils.toChecksumAddress(voterAddress) &&
                         vote.positionId === positionId &&
                         vote.candidateId === candidateId
                     ) {
@@ -1418,8 +1423,8 @@ try {
                     resultDiv.innerHTML = '<p class="error">No matching vote found for the provided details.</p>';
                 }
             } catch (error) {
-                console.error('Error verifying vote:', error);
-                resultDiv.innerHTML = '<p class="error">Error verifying vote: ' + error.message + '</p>';
+                console.error('Error verifying vote:', error.code, error.message);
+                resultDiv.innerHTML = '<p class="error">Error verifying vote: ' + (error.message || 'Unknown error') + '</p>';
             }
         }
 
@@ -1452,20 +1457,20 @@ try {
                     from: voterAddress
                 });
                 let resultsHtml = `
-                <h4>Results for Election ID: ${electionId}</h4>
-                <div class="candidate-grid" style="margin-top: 20px;">
-                    <div class="candidate-card" style="padding: 20px; border: 1px solid #e0e0e0; border-radius: 12px;">
-                        <table style="width: 100%; border-collapse: collapse;">
-                            <thead>
-                                <tr style="background: #1a3c34; color: #fff;">
-                                    <th style="padding: 10px; text-align: left;">Candidate ID</th>
-                                    <th style="padding: 10px; text-align: left;">Name</th>
-                                    <th style="padding: 10px; text-align: left;">Position</th>
-                                    <th style="padding: 10px; text-align: left;">Votes</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-            `;
+            <h4>Results for Election ID: ${electionId}</h4>
+            <div class="candidate-grid" style="margin-top: 20px;">
+                <div class="candidate-card" style="padding: 20px; border: 1px solid #e0e0e0; border-radius: 12px;">
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <thead>
+                            <tr style="background: #1a3c34; color: #fff;">
+                                <th style="padding: 10px; text-align: left;">Candidate ID</th>
+                                <th style="padding: 10px; text-align: left;">Name</th>
+                                <th style="padding: 10px; text-align: left;">Position</th>
+                                <th style="padding: 10px; text-align: left;">Votes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+        `;
 
                 const voteCounts = {};
                 allVotes.forEach(vote => {
@@ -1480,33 +1485,35 @@ try {
 
                 for (let candidateId in voteCounts) {
                     resultsHtml += `
-                    <tr style="border-bottom: 1px solid #e0e0e0;">
-                        <td style="padding: 10px;">${candidateId}</td>
-                        <td style="padding: 10px;">${voteCounts[candidateId].name}</td>
-                        <td style="padding: 10px;">${voteCounts[candidateId].position}</td>
-                        <td style="padding: 10px;">${voteCounts[candidateId].count} vote(s)</td>
-                    </tr>
-                `;
+                <tr style="border-bottom: 1px solid #e0e0e0;">
+                    <td style="padding: 10px;">${candidateId}</td>
+                    <td style="padding: 10px;">${voteCounts[candidateId].name}</td>
+                    <td style="padding: 10px;">${voteCounts[candidateId].position}</td>
+                    <td style="padding: 10px;">${voteCounts[candidateId].count} vote(s)</td>
+                </tr>
+            `;
                 }
 
                 if (Object.keys(voteCounts).length === 0) {
                     resultsHtml += `
+                <tr>
                     <td colspan="4" style="padding: 10px; text-align: center; color: #e76f51;">No votes recorded yet.</td>
-                </tr>`;
+                </tr>
+            `;
                 }
 
                 resultsHtml += `
-                            </tbody>
-                        </table>
-                        <button onclick="closeResultsModal()" style="margin-top: 20px; padding: 10px 20px; background: #e76f51; color: white; border: none; cursor: pointer; border-radius: 4px; font-size: 14px; transition: background 0.3s;">Close</button>
-                    </div>
+                        </tbody>
+                    </table>
+                    <button onclick="closeResultsModal()" style="margin-top: 20px; padding: 10px 20px; background: #e76f51; color: white; border: none; cursor: pointer; border-radius: 4px; font-size: 14px; transition: background 0.3s;">Close</button>
                 </div>
-            `;
+            </div>
+        `;
 
                 resultsDisplay.innerHTML = resultsHtml;
             } catch (error) {
-                console.error('Error fetching results:', error);
-                resultsDisplay.innerHTML = '<p class="error">Error fetching results: ' + error.message + '</p>';
+                console.error('Error fetching results:', error.code, error.message);
+                resultsDisplay.innerHTML = '<p class="error">Error fetching results: ' + (error.message || 'Unknown error') + '</p>';
             }
         }
 
@@ -1526,16 +1533,6 @@ try {
         document.addEventListener('click', (event) => {
             if (!profilePic.contains(event.target) && !userDropdown.contains(event.target)) {
                 userDropdown.style.display = 'none';
-            }
-        });
-
-        window.addEventListener('load', async () => {
-            const currentAddress = await getAndValidateWalletAddress();
-            if (currentAddress) {
-                await loadMyVotes();
-            } else {
-                await updateWalletAddress(currentAddress);
-                location.reload();
             }
         });
     </script>
