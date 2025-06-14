@@ -34,9 +34,28 @@ $csrf_token = $_GET['csrf_token'] ?? $_SESSION['csrf_token'];
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Post-Login Verification</title>
+    <title>Post-Login | Verification</title>
     <link rel="icon" href="./images/System Logo.jpg" type="image/x-icon">
     <script src="https://cdn.jsdelivr.net/npm/web3@1.10.0/dist/web3.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            background-image: "uploads/Background.png";
+            color: #333;
+            text-align: center;
+            padding: 50px;
+        }
+        h2 {
+            color: #2c3e50;
+        }
+        p {
+            font-size: 18px;
+        }
+        .error {
+            color: red;
+        }
+    </style>
 </head>
 <body>
     <h2>Please Connect Your MetaMask Wallet</h2>

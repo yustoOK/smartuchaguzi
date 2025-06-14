@@ -39,7 +39,7 @@ if (!isset($_SESSION['user_agent'])) {
 }
 
 $inactivity_timeout = 30 * 60; //30 minutes
-$max_session_duration = 1 * 60 * 60; // 1 hour
+$max_session_duration = 3 * 60 * 60; // 3 hours
 $warning_time = 28;
 
 if (!isset($_SESSION['start_time'])) {
@@ -166,7 +166,7 @@ try {
         }
 
         body {
-            background: linear-gradient(rgba(26, 60, 52, 0.7), rgba(26, 60, 52, 0.7)), url('images/cive.jpeg');
+            background: linear-gradient(rgba(26, 60, 52, 0.7), rgba(26, 60, 52, 0.7)), url('uploads/background.png');
             background-size: cover;
             color: #2d3748;
             min-height: 100vh;
@@ -1022,7 +1022,6 @@ try {
                 });
             }
 
-            // Session Timeout
             const inactivityTimeout = <?php echo $inactivity_timeout; ?> * 1000;
             const maxSessionDuration = <?php echo $max_session_duration; ?> * 1000;
             const warningTime = <?php echo $warning_time; ?> * 1000;

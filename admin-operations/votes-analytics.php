@@ -76,7 +76,7 @@ if ($user['college_id']) {
             font-family: 'Poppins', sans-serif;
         }
         body {
-            background: linear-gradient(rgba(26, 60, 52, 0.7), rgba(26, 60, 52, 0.7)), url('../images/cive.jpeg');
+            background: linear-gradient(rgba(26, 60, 52, 0.7), rgba(26, 60, 52, 0.7)), url('../uploads/background.png');
             background-size: cover;
             color: #2d3748;
             min-height: 100vh;
@@ -272,7 +272,7 @@ if ($user['college_id']) {
             text-align: center;
         }
         .vote-analytics canvas {
-            max-width: 100%;
+            max-width: 600px; /* Wider graphs */
             margin: 20px auto;
             background: #fff;
             padding: 15px;
@@ -430,7 +430,6 @@ if ($user['college_id']) {
             const downloadButton = document.getElementById('download-report');
             const reportElectionId = document.getElementById('report-election-id');
 
-            // Check if ethers is available
             if (typeof ethers === 'undefined') {
                 voteAnalytics.innerHTML = '<p class="error">Failed to load ethers library. Please check your internet connection or script source.</p>';
                 return;
@@ -438,8 +437,6 @@ if ($user['college_id']) {
 
             const provider = new ethers.providers.JsonRpcProvider('https://eth-sepolia.g.alchemy.com/v2/1isPc6ojuMcMbyoNNeQkLDGM76n8oT8B');
             const contractAddress = '0xC046c854C85e56DB6AF41dF3934DD671831d9d09';
-
-            // Directly include the ABI
             const contractABI = [{
                 "inputs": [],
                 "stateMutability": "nonpayable",
@@ -764,7 +761,9 @@ if ($user['college_id']) {
                         html += `
                             <div>
                                 <h4>${pos.name}</h4>
-                                <canvas id="chart-${positionId}" style="max-width: 100%;"></canvas>
+                                <canvas id="bar-chart-${positionId}" style="max-width: 600px;"></canvas>
+                                <canvas id="line-chart-${positionId}" style="max-width: 600px;"></canvas>
+                                <canvas id="pie-chart-${positionId}" style="max-width: 600px;"></canvas>
                                 <p>Total Votes: ${totalVotes}</p>
                                 <p>Winner: ${winner.name} (${winner.votes} votes)</p>
                             </div>
@@ -773,9 +772,11 @@ if ($user['college_id']) {
                     voteAnalytics.innerHTML = html;
 
                     for (const [positionId, pos] of Object.entries(positionsMap)) {
-                        const ctx = document.getElementById(`chart-${positionId}`).getContext('2d');
                         const candidates = Object.values(pos.candidates);
-                        new Chart(ctx, {
+
+                        // Bar Chart
+                        const barCtx = document.getElementById(`bar-chart-${positionId}`).getContext('2d');
+                        new Chart(barCtx, {
                             type: 'bar',
                             data: {
                                 labels: candidates.map(c => c.name),
@@ -794,7 +795,67 @@ if ($user['college_id']) {
                                 plugins: {
                                     title: {
                                         display: true,
-                                        text: `${pos.name} Vote Distribution`,
+                                        text: `${pos.name} Vote Distribution (Bar)`,
+                                        color: '#2d3748',
+                                        font: { size: 14 }
+                                    },
+                                    legend: {
+                                        labels: { color: '#2d3748' }
+                                    }
+                                }
+                            }
+                        });
+
+                        // Line Chart
+                        const lineCtx = document.getElementById(`line-chart-${positionId}`).getContext('2d');
+                        new Chart(lineCtx, {
+                            type: 'line',
+                            data: {
+                                labels: candidates.map(c => c.name),
+                                datasets: [{
+                                    label: 'Votes',
+                                    data: candidates.map(c => c.votes),
+                                    backgroundColor: 'rgba(244, 162, 97, 0.2)',
+                                    borderColor: '#f4a261',
+                                    borderWidth: 2,
+                                    tension: 0.4
+                                }]
+                            },
+                            options: {
+                                scales: {
+                                    y: { beginAtZero: true }
+                                },
+                                plugins: {
+                                    title: {
+                                        display: true,
+                                        text: `${pos.name} Vote Trend (Line)`,
+                                        color: '#2d3748',
+                                        font: { size: 14 }
+                                    },
+                                    legend: {
+                                        labels: { color: '#2d3748' }
+                                    }
+                                }
+                            }
+                        });
+
+                        // Pie Chart
+                        const pieCtx = document.getElementById(`pie-chart-${positionId}`).getContext('2d');
+                        new Chart(pieCtx, {
+                            type: 'pie',
+                            data: {
+                                labels: candidates.map(c => c.name),
+                                datasets: [{
+                                    data: candidates.map(c => c.votes),
+                                    backgroundColor: ['#f4a261', '#e76f51', '#2a9d8f', '#264653', '#e9c46a'],
+                                    borderWidth: 1
+                                }]
+                            },
+                            options: {
+                                plugins: {
+                                    title: {
+                                        display: true,
+                                        text: `${pos.name} Vote Distribution (Pie)`,
                                         color: '#2d3748',
                                         font: { size: 14 }
                                     },

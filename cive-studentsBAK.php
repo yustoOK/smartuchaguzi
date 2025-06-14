@@ -275,11 +275,10 @@ try {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CIVE UDOSO | SmartUchaguzi</title>
+    <title>CIVE UDOSO | Dashboard</title>
     <link rel="icon" href="./images/System Logo.jpg" type="image/x-icon">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/web3@1.10.0/dist/web3.min.js"></script>
     <style>
         * {
@@ -657,25 +656,6 @@ try {
             background: #f4a261;
         }
 
-        .summary-analytics {
-            margin-top: 30px;
-        }
-
-        .summary-analytics h3 {
-            font-size: 22px;
-            color: #2d3748;
-            margin-bottom: 15px;
-        }
-
-        .summary-analytics canvas {
-            max-width: 600px;
-            margin: 20px auto;
-            background: #fff;
-            padding: 15px;
-            border-radius: 10px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-        }
-
         @media (max-width: 768px) {
             .header {
                 flex-direction: column;
@@ -764,10 +744,6 @@ try {
             .candidate-details p {
                 font-size: 12px;
             }
-
-            .summary-analytics canvas {
-                max-width: 100%;
-            }
         }
 
         @media (min-width: 600px) {
@@ -807,7 +783,7 @@ try {
 
     <section class="dashboard">
         <div class="dash-content">
-            <h2>User Analytics</h2>
+            <h2>The Candidate Details</h2>
 
             <!-- My Votes Section -->
             <div class="my-votes-section">
@@ -895,17 +871,11 @@ try {
                     </div>
                 <?php endforeach; ?>
             <?php endif; ?>
-
-            <!-- Summary Analytics Section -->
-            <div class="summary-analytics">
-                <h3>Summary Analytics</h3>
-                <div id="summary-analytics"></div>
-            </div>
         </div>
     </section>
 
     <div class="verify-modal" id="verify-modal">
-        <div class="verify-modal-content">
+        <div class="verify-modal-content" style="background: #fff; padding: 30px; border-radius: 12px; max-width: 500px; width: 90%; box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);">
             <h3 style="font-size: 24px; color: #1a3c34; margin-bottom: 20px;">Verify Your Vote</h3>
             <div style="margin-bottom: 15px;">
                 <label for="verify-election-id" style="display: block; font-size: 14px; color: #2d3748; margin-bottom: 5px;">Election ID:</label>
@@ -952,7 +922,6 @@ try {
         const verifyVoteLink = document.getElementById('verify-vote-link');
         const verifyModal = document.getElementById('verify-modal');
         const myVotesSection = document.getElementById('my-votes');
-        const summaryAnalytics = document.getElementById('summary-analytics');
         const castVoteLink = document.getElementById('cast-vote-link');
         const resultsLink = document.getElementById('results-link');
         const resultsModal = document.getElementById('results-modal');
@@ -1335,7 +1304,7 @@ try {
             }
             try {
                 const association = '<?php echo htmlspecialchars($_SESSION['association'] ?? ''); ?>';
-                let electionId = 1; 
+                let electionId = 1; // Default or map based on association
                 if (association === 'UDOMASA') electionId = 2;
 
                 const allVotes = await contract.methods.getVotesByElection(electionId).call();
@@ -1365,157 +1334,6 @@ try {
             }
         }
 
-        async function loadSummaryAnalytics() {
-            const voterAddress = await getAndValidateWalletAddress();
-            if (!voterAddress) {
-                summaryAnalytics.innerHTML = '<p class="error">Unable to load analytics: Wallet validation failed.</p>';
-                return;
-            }
-            try {
-                const association = '<?php echo htmlspecialchars($_SESSION['association'] ?? ''); ?>';
-                let electionId = 1; 
-                if (association === 'UDOMASA') electionId = 2;
-
-                const allVotes = await contract.methods.getVotesByElection(electionId).call();
-                if (!allVotes || allVotes.length === 0) {
-                    summaryAnalytics.innerHTML = '<p class="error">No votes found for this election.</p>';
-                    return;
-                }
-
-                const positionsMap = {};
-                allVotes.forEach(vote => {
-                    const positionId = vote.positionId.toString();
-                    const candidateId = vote.candidateId.toString();
-                    if (!positionsMap[positionId]) {
-                        positionsMap[positionId] = {
-                            name: vote.positionName,
-                            candidates: {}
-                        };
-                    }
-                    if (!positionsMap[positionId].candidates[candidateId]) {
-                        positionsMap[positionId].candidates[candidateId] = {
-                            name: vote.candidateName,
-                            votes: 0
-                        };
-                    }
-                    positionsMap[positionId].candidates[candidateId].votes++;
-                });
-
-                let html = '';
-                for (const [positionId, pos] of Object.entries(positionsMap)) {
-                    const candidates = Object.values(pos.candidates);
-                    html += `
-                        <div>
-                            <h4>${pos.name}</h4>
-                            <canvas id="bar-chart-${positionId}" style="max-width: 600px;"></canvas>
-                            <canvas id="line-chart-${positionId}" style="max-width: 600px;"></canvas>
-                            <canvas id="pie-chart-${positionId}" style="max-width: 600px;"></canvas>
-                        </div>
-                    `;
-                }
-                summaryAnalytics.innerHTML = html;
-
-                for (const [positionId, pos] of Object.entries(positionsMap)) {
-                    const candidates = Object.values(pos.candidates);
-
-                    // Bar Chart
-                    const barCtx = document.getElementById(`bar-chart-${positionId}`).getContext('2d');
-                    new Chart(barCtx, {
-                        type: 'bar',
-                        data: {
-                            labels: candidates.map(c => c.name),
-                            datasets: [{
-                                label: 'Votes',
-                                data: candidates.map(c => c.votes),
-                                backgroundColor: '#f4a261',
-                                borderColor: '#e76f51',
-                                borderWidth: 1
-                            }]
-                        },
-                        options: {
-                            scales: {
-                                y: { beginAtZero: true }
-                            },
-                            plugins: {
-                                title: {
-                                    display: true,
-                                    text: `${pos.name} Vote Distribution (Bar)`,
-                                    color: '#2d3748',
-                                    font: { size: 14 }
-                                },
-                                legend: {
-                                    labels: { color: '#2d3748' }
-                                }
-                            }
-                        }
-                    });
-
-                    // Line Chart
-                    const lineCtx = document.getElementById(`line-chart-${positionId}`).getContext('2d');
-                    new Chart(lineCtx, {
-                        type: 'line',
-                        data: {
-                            labels: candidates.map(c => c.name),
-                            datasets: [{
-                                label: 'Votes',
-                                data: candidates.map(c => c.votes),
-                                backgroundColor: 'rgba(244, 162, 97, 0.2)',
-                                borderColor: '#f4a261',
-                                borderWidth: 2,
-                                tension: 0.4
-                            }]
-                        },
-                        options: {
-                            scales: {
-                                y: { beginAtZero: true }
-                            },
-                            plugins: {
-                                title: {
-                                    display: true,
-                                    text: `${pos.name} Vote Trend (Line)`,
-                                    color: '#2d3748',
-                                    font: { size: 14 }
-                                },
-                                legend: {
-                                    labels: { color: '#2d3748' }
-                                }
-                            }
-                        }
-                    });
-
-                    // Pie Chart
-                    const pieCtx = document.getElementById(`pie-chart-${positionId}`).getContext('2d');
-                    new Chart(pieCtx, {
-                        type: 'pie',
-                        data: {
-                            labels: candidates.map(c => c.name),
-                            datasets: [{
-                                data: candidates.map(c => c.votes),
-                                backgroundColor: ['#f4a261', '#e76f51', '#2a9d8f', '#264653', '#e9c46a'],
-                                borderWidth: 1
-                            }]
-                        },
-                        options: {
-                            plugins: {
-                                title: {
-                                    display: true,
-                                    text: `${pos.name} Vote Distribution (Pie)`,
-                                    color: '#2d3748',
-                                    font: { size: 14 }
-                                },
-                                legend: {
-                                    labels: { color: '#2d3748' }
-                                }
-                            }
-                        }
-                    });
-                }
-            } catch (error) {
-                console.error('Error loading analytics:', error.code, error.message);
-                summaryAnalytics.innerHTML = '<p class="error">Error loading analytics: ' + (error.message || 'Unknown error') + '</p>';
-            }
-        }
-
         function resetInactivityTimer() {
             clearTimeout(inactivityTimer);
             clearTimeout(warningTimer);
@@ -1540,7 +1358,6 @@ try {
 
         window.addEventListener('load', async () => {
             await loadMyVotes();
-            await loadSummaryAnalytics();
             resetInactivityTimer();
         });
 
@@ -1553,13 +1370,13 @@ try {
             e.preventDefault();
             resultsModal.style.display = 'flex';
             resultsContent.innerHTML = `
-                <h3>Election Results</h3>
-                <div style="margin-bottom: 20px;">
-                    <input type="number" id="election-id-input" placeholder="Search Election ID..." style="padding: 10px; border: 1px solid #e0e0e0; border-radius: 4px; width: 100%; max-width: 300px; font-size: 14px; outline: none;" onfocus="this.style.borderColor='#1a3c34';" onblur="this.style.borderColor='#e0e0e0';">
-                    <button id="fetch-results-btn" style="padding: 10px 20px; background: #1a3c34; color: #fff; border: none; border-radius: 4px; cursor: pointer; margin-left: 10px; font-size: 14px; transition: background 0.3s;">Fetch Results</button>
-                </div>
-                <div id="results-display"></div>
-            `;
+            <h3>Election Results</h3>
+            <div style="margin-bottom: 20px;">
+                <input type="number" id="election-id-input" placeholder="Search Election ID..." style="padding: 10px; border: 1px solid #e0e0e0; border-radius: 4px; width: 100%; max-width: 300px; font-size: 14px; outline: none;" onfocus="this.style.borderColor='#1a3c34';" onblur="this.style.borderColor='#e0e0e0';">
+                <button id="fetch-results-btn" style="padding: 10px 20px; background: #1a3c34; color: #fff; border: none; border-radius: 4px; cursor: pointer; margin-left: 10px; font-size: 14px; transition: background 0.3s;">Fetch Results</button>
+            </div>
+            <div id="results-display"></div>
+        `;
 
             document.getElementById('fetch-results-btn').addEventListener('click', displayResults);
         });
@@ -1640,20 +1457,20 @@ try {
                     from: voterAddress
                 });
                 let resultsHtml = `
-                    <h4>Results for Election ID: ${electionId}</h4>
-                    <div class="candidate-grid" style="margin-top: 20px;">
-                        <div class="candidate-card" style="padding: 20px; border: 1px solid #e0e0e0; border-radius: 12px;">
-                            <table style="width: 100%; border-collapse: collapse;">
-                                <thead>
-                                    <tr style="background: #1a3c34; color: #fff;">
-                                        <th style="padding: 10px; text-align: left;">Candidate ID</th>
-                                        <th style="padding: 10px; text-align: left;">Name</th>
-                                        <th style="padding: 10px; text-align: left;">Position</th>
-                                        <th style="padding: 10px; text-align: left;">Votes</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                `;
+            <h4>Results for Election ID: ${electionId}</h4>
+            <div class="candidate-grid" style="margin-top: 20px;">
+                <div class="candidate-card" style="padding: 20px; border: 1px solid #e0e0e0; border-radius: 12px;">
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <thead>
+                            <tr style="background: #1a3c34; color: #fff;">
+                                <th style="padding: 10px; text-align: left;">Candidate ID</th>
+                                <th style="padding: 10px; text-align: left;">Name</th>
+                                <th style="padding: 10px; text-align: left;">Position</th>
+                                <th style="padding: 10px; text-align: left;">Votes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+        `;
 
                 const voteCounts = {};
                 allVotes.forEach(vote => {
@@ -1668,30 +1485,30 @@ try {
 
                 for (let candidateId in voteCounts) {
                     resultsHtml += `
-                        <tr style="border-bottom: 1px solid #e0e0e0;">
-                            <td style="padding: 10px;">${candidateId}</td>
-                            <td style="padding: 10px;">${voteCounts[candidateId].name}</td>
-                            <td style="padding: 10px;">${voteCounts[candidateId].position}</td>
-                            <td style="padding: 10px;">${voteCounts[candidateId].count} vote(s)</td>
-                        </tr>
-                    `;
+                <tr style="border-bottom: 1px solid #e0e0e0;">
+                    <td style="padding: 10px;">${candidateId}</td>
+                    <td style="padding: 10px;">${voteCounts[candidateId].name}</td>
+                    <td style="padding: 10px;">${voteCounts[candidateId].position}</td>
+                    <td style="padding: 10px;">${voteCounts[candidateId].count} vote(s)</td>
+                </tr>
+            `;
                 }
 
                 if (Object.keys(voteCounts).length === 0) {
                     resultsHtml += `
-                        <tr>
-                            <td colspan="4" style="padding: 10px; text-align: center; color: #e76f51;">No votes recorded yet.</td>
-                        </tr>
-                    `;
+                <tr>
+                    <td colspan="4" style="padding: 10px; text-align: center; color: #e76f51;">No votes recorded yet.</td>
+                </tr>
+            `;
                 }
 
                 resultsHtml += `
-                                </tbody>
-                            </table>
-                            <button onclick="closeResultsModal()" style="margin-top: 20px; padding: 10px 20px; background: #e76f51; color: white; border: none; cursor: pointer; border-radius: 4px; font-size: 14px; transition: background 0.3s;">Close</button>
-                        </div>
-                    </div>
-                `;
+                        </tbody>
+                    </table>
+                    <button onclick="closeResultsModal()" style="margin-top: 20px; padding: 10px 20px; background: #e76f51; color: white; border: none; cursor: pointer; border-radius: 4px; font-size: 14px; transition: background 0.3s;">Close</button>
+                </div>
+            </div>
+        `;
 
                 resultsDisplay.innerHTML = resultsHtml;
             } catch (error) {

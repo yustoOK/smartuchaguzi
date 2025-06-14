@@ -23,33 +23,41 @@ try {
         die('Election not found');
     }
 
-     $voteResponse = file_get_contents("http://localhost/smartuchaguzi/api/fetch-blockchain-votes.php?election_id=$election_id");
+    // Fetch vote data with error handling
+    $voteUrl = "http://localhost/smartuchaguzi/api/fetch-blockchain-votes.php?election_id=$election_id";
+    $voteResponse = @file_get_contents($voteUrl); // Suppress warnings
+    if ($voteResponse === false) {
+        die('Failed to fetch vote data: URL not found or server error');
+    }
+
     $voteData = json_decode($voteResponse, true);
-    if (isset($voteData['error'])) {
-        die('Error fetching votes: ' . $voteData['error']);
+    if (json_last_error() !== JSON_ERROR_NONE || !is_array($voteData) || !isset($voteData['votes'])) {
+        die('Error decoding vote data or invalid response format');
     }
     $votes = $voteData['votes'];
 
     $positionsMap = [];
-    foreach ($votes as $vote) {
-        $positionId = $vote['positionId'];
-        $candidateId = $vote['candidateId'];
-        $candidateName = $vote['candidateName'];
-        $positionName = $vote['positionName'];
+    if (is_array($votes)) {
+        foreach ($votes as $vote) {
+            $positionId = $vote['positionId'] ?? '';
+            $candidateId = $vote['candidateId'] ?? '';
+            $candidateName = $vote['candidateName'] ?? 'Unknown';
+            $positionName = $vote['positionName'] ?? 'Unknown';
 
-        if (!isset($positionsMap[$positionId])) {
-            $positionsMap[$positionId] = [
-                'name' => $positionName,
-                'candidates' => []
-            ];
+            if (!isset($positionsMap[$positionId])) {
+                $positionsMap[$positionId] = [
+                    'name' => $positionName,
+                    'candidates' => []
+                ];
+            }
+            if (!isset($positionsMap[$positionId]['candidates'][$candidateId])) {
+                $positionsMap[$positionId]['candidates'][$candidateId] = [
+                    'name' => $candidateName,
+                    'votes' => 0
+                ];
+            }
+            $positionsMap[$positionId]['candidates'][$candidateId]['votes']++;
         }
-        if (!isset($positionsMap[$positionId]['candidates'][$candidateId])) {
-            $positionsMap[$positionId]['candidates'][$candidateId] = [
-                'name' => $candidateName,
-                'votes' => 0
-            ];
-        }
-        $positionsMap[$positionId]['candidates'][$candidateId]['votes']++;
     }
 
     // Create PDF
