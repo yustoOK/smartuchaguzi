@@ -27,7 +27,7 @@ function getUserVoteCount($conn, $user_id) {
     $stmt->execute();
     $result = $stmt->get_result()->fetch_assoc();
     $stmt->close();
-    return $result['vote_count'] ?: 0;
+    return (int)($result['vote_count'] ?: 0);
 }
 
 function checkMultipleLogins($conn, $user_id) {
@@ -36,12 +36,12 @@ function checkMultipleLogins($conn, $user_id) {
     $stmt->execute();
     $result = $stmt->get_result()->fetch_assoc();
     $stmt->close();
-    return $result['login_count'] > 1 ? 1 : 0;
+    return (int)($result['login_count'] > 1 ? 1 : 0);
 }
 
 function getGeoLocation($ip) {
     $ipParts = explode('.', $ip);
-    if (count($ipParts) < 4) return 4; // Default to 'Other' if IP is invalid
+    if (count($ipParts) < 4) return 4;
     if ($ipParts[0] == 41 || $ipParts[0] == 102) return 0; // Tanzania
     if ($ipParts[0] == 105 || $ipParts[0] == 197) return 1; // Kenya
     if ($ipParts[0] == 154) return 2; // Uganda
@@ -53,7 +53,7 @@ function detectVPN($geo_location, $ip) {
     $ipParts = explode('.', $ip);
     $isNonLocal = ($geo_location > 0 || (count($ipParts) >= 1 && $ipParts[0] > 200));
     $randomFactor = random_int(0, 100);
-    return $isNonLocal ? ($randomFactor < 80 ? 1 : 0) : ($randomFactor < 5 ? 1 : 0);
+    return (int)($isNonLocal ? ($randomFactor < 80 ? 1 : 0) : ($randomFactor < 5 ? 1 : 0));
 }
 
 function logFraud($conn, $user_id, $voter_id, $ip_address, $election_id, $is_fraudulent, $confidence, $details, $action) {
@@ -71,7 +71,7 @@ function logFraud($conn, $user_id, $voter_id, $ip_address, $election_id, $is_fra
         $confidence,
         $details,
         json_encode($details_array['ip_history'] ?? []),
-        $details_array['vote_pattern'] ?? 600,
+        $details_array['vote_pattern'] ?? 3.0,
         $details_array['user_behavior'] ?? 0,
         json_encode($details_array['api_response'] ?? []),
         $description,
@@ -121,7 +121,7 @@ function getVotePattern($conn, $user_id) {
     $stmt->execute();
     $result = $stmt->get_result()->fetch_assoc();
     $stmt->close();
-    return $result['avg_interval'] ?: 600; 
+    return floatval($result['avg_interval'] ?: 3.0);
 }
 
 function getIpHistory($conn, $user_id) {
@@ -135,7 +135,7 @@ function getIpHistory($conn, $user_id) {
     $result = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
     $stmt->close();
     $ip_list = array_column($result, 'ip_address');
-    return json_encode($ip_list ?: [$_SERVER['REMOTE_ADDR']]);
+    return json_encode(array_unique(array_merge($ip_list ?: [], [$_SERVER['REMOTE_ADDR']])));
 }
 
 function getUserActivityCount($conn, $user_id) {
@@ -148,11 +148,20 @@ function getUserActivityCount($conn, $user_id) {
     $stmt->execute();
     $result = $stmt->get_result()->fetch_assoc();
     $stmt->close();
-    return $result['activity_count'] ?: 0;
+    return (int)($result['activity_count'] ?: 0);
+}
+
+function hasVotedForPosition($conn, $user_id, $election_id, $position_id) {
+    $stmt = $conn->prepare("SELECT COUNT(*) as vote_count FROM user_votes WHERE user_id = ? AND election_id = ? AND position_id = ?");
+    $stmt->bind_param("iii", $user_id, $election_id, $position_id);
+    $stmt->execute();
+    $result = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+    return (int)($result['vote_count'] > 0);
 }
 
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['role']) || $_SESSION['role'] !== 'voter') {
-    error_log("Session validation failed for user : " . ($_SESSION['user_id'] ?? 'unknown'));
+    error_log("Session validation failed for user_id: " . ($_SESSION['user_id'] ?? 'unknown'));
     session_unset();
     session_destroy();
     header('Location: login.php?error=' . urlencode('Access Denied.'));
@@ -243,6 +252,8 @@ $elections = [];
 
 $association = $user['association'];
 $college_id = $user['college_id'];
+$hostel_id = $user['hostel_id'] ?: 0;
+
 $dashboard_file = '';
 if ($association === 'UDOSO') {
     if ($college_id == 1) $dashboard_file = 'cive-students.php';
@@ -319,8 +330,10 @@ try {
                 $scope = $position['scope'];
                 $is_vice = $position['is_vice'];
 
-                $candidates = [];
+                // Check if user has voted for this position
+                $position['has_voted'] = hasVotedForPosition($conn, $user_id, $election_id, $position_id);
 
+                $candidates = [];
                 if ($scope === 'hostel') {
                     $cand_stmt = $conn->prepare(
                         "SELECT c.id, c.official_id, c.firstname, c.lastname, c.passport, c.pair_id, c.position_id, ep.is_vice
@@ -868,7 +881,7 @@ $conn->close();
                                                 }
                                                 ?>
                                             </div>
-                                            <button type="submit">Cast Vote</button>
+                                            <button type="submit" <?php echo $position['has_voted'] ? 'disabled' : ''; ?>>Cast Vote</button>
                                         </form>
                                     <?php endif; ?>
                                 </div>
@@ -897,7 +910,6 @@ $conn->close();
 
     <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
     <script>
-        // Initialize MetaMask provider
         let provider, signer, contract;
         const contractAddress = '0xC046c854C85e56DB6AF41dF3934DD671831d9d09';
 
@@ -1026,7 +1038,7 @@ $conn->close();
                         const result = await response.json();
                         if (!result.success) throw new Error(result.message);
 
-                        showSuccess(`Vote cast successfully. Transaction ID: ${tx.hash}`);
+                        showSuccess(`Vote cast successfully for ${positionName}. Transaction ID: ${tx.hash}`);
                         form.querySelectorAll('input[name="candidate_id"]').forEach(radio => radio.disabled = true);
                         submitButton.disabled = true;
                         submitButton.textContent = 'Vote Cast';

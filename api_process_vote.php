@@ -7,6 +7,7 @@ ob_start();
 
 require_once 'config.php';
 
+// Database connection
 try {
     $conn = new mysqli($host, $username, $password, $dbname);
     if ($conn->connect_error) {
@@ -32,7 +33,7 @@ function getUserVoteCount($conn, $user_id) {
     $stmt->execute();
     $result = $stmt->get_result()->fetch_assoc();
     $stmt->close();
-    return $result['vote_count'] ?: 0;
+    return (int)($result['vote_count'] ?: 0);
 }
 
 function checkMultipleLogins($conn, $user_id) {
@@ -41,7 +42,7 @@ function checkMultipleLogins($conn, $user_id) {
     $stmt->execute();
     $result = $stmt->get_result()->fetch_assoc();
     $stmt->close();
-    return $result['login_count'] > 1 ? 1 : 0;
+    return (int)($result['login_count'] > 1 ? 1 : 0);
 }
 
 function getGeoLocation($ip) {
@@ -58,7 +59,7 @@ function detectVPN($geo_location, $ip) {
     $ipParts = explode('.', $ip);
     $isNonLocal = ($geo_location > 0 || (count($ipParts) >= 1 && $ipParts[0] > 200));
     $randomFactor = random_int(0, 100);
-    return $isNonLocal ? ($randomFactor < 80 ? 1 : 0) : ($randomFactor < 5 ? 1 : 0);
+    return (int)($isNonLocal ? ($randomFactor < 80 ? 1 : 0) : ($randomFactor < 5 ? 1 : 0));
 }
 
 function logFraud($conn, $user_id, $voter_id, $ip_address, $election_id, $is_fraudulent, $confidence, $details, $action) {
@@ -76,7 +77,7 @@ function logFraud($conn, $user_id, $voter_id, $ip_address, $election_id, $is_fra
         $confidence,
         $details,
         json_encode($details_array['ip_history'] ?? []),
-        $details_array['vote_pattern'] ?? 600,
+        $details_array['vote_pattern'] ?? 3.0,
         $details_array['user_behavior'] ?? 0,
         json_encode($details_array['api_response'] ?? []),
         $description,
@@ -126,7 +127,7 @@ function getVotePattern($conn, $user_id) {
     $stmt->execute();
     $result = $stmt->get_result()->fetch_assoc();
     $stmt->close();
-    return $result['avg_interval'] ?: 600;
+    return floatval($result['avg_interval'] ?: 3.0);
 }
 
 function getIpHistory($conn, $user_id) {
@@ -140,7 +141,7 @@ function getIpHistory($conn, $user_id) {
     $result = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
     $stmt->close();
     $ip_list = array_column($result, 'ip_address');
-    return json_encode($ip_list ?: [$_SERVER['REMOTE_ADDR']]);
+    return json_encode(array_unique(array_merge($ip_list ?: [], [$_SERVER['REMOTE_ADDR']])));
 }
 
 function getUserActivityCount($conn, $user_id) {
@@ -153,11 +154,21 @@ function getUserActivityCount($conn, $user_id) {
     $stmt->execute();
     $result = $stmt->get_result()->fetch_assoc();
     $stmt->close();
-    return $result['activity_count'] ?: 0;
+    return (int)($result['activity_count'] ?: 0);
 }
 
+function hasVotedForPosition($conn, $user_id, $election_id, $position_id) {
+    $stmt = $conn->prepare("SELECT COUNT(*) as vote_count FROM user_votes WHERE user_id = ? AND election_id = ? AND position_id = ?");
+    $stmt->bind_param("iii", $user_id, $election_id, $position_id);
+    $stmt->execute();
+    $result = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+    return (int)($result['vote_count'] > 0);
+}
+
+// Session validation
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['role']) || $_SESSION['role'] !== 'voter') {
-    error_log("Session validation failed for user : " . ($_SESSION['user_id'] ?? 'unknown'));
+    error_log("Session validation failed for user_id: " . ($_SESSION['user_id'] ?? 'unknown'));
     echo json_encode(['success' => false, 'message' => 'Access denied']);
     ob_end_flush();
     exit;
@@ -186,55 +197,26 @@ if (!$wallet_address) {
     exit;
 }
 
+// Process vote submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $input = json_decode(file_get_contents('php://input'), true);
     if (json_last_error() !== JSON_ERROR_NONE || !isset($input['vote_data'])) {
-        error_log("Invalid vote data for user: " . $user_id);
+        error_log("Invalid vote data for user_id: " . $user_id);
         echo json_encode(['success' => false, 'message' => 'Invalid vote data']);
         ob_end_flush();
         exit;
     }
 
     $vote_data = $input['vote_data'];
-    if (!isset($vote_data['election_id'], $vote_data['position_id'], $vote_data['candidate_id'], $vote_data['candidate_name'], $vote_data['position_name'])) {
-        error_log("Incomplete vote data for user: " . $user_id);
-        echo json_encode(['success' => false, 'message' => 'Incomplete vote data']);
-        ob_end_flush();
-        exit;
-    }
+    $election_id = isset($vote_data['election_id']) ? (int)$vote_data['election_id'] : null;
+    $position_id = isset($vote_data['position_id']) ? (int)$vote_data['position_id'] : null;
+    $candidate_id = isset($vote_data['candidate_id']) ? (int)$vote_data['candidate_id'] : null; // Use numeric id
+    $candidate_name = isset($vote_data['candidate_name']) ? $vote_data['candidate_name'] : '';
+    $position_name = isset($vote_data['position_name']) ? $vote_data['position_name'] : '';
 
-    $election_id = (int)$vote_data['election_id'];
-    $position_id = (int)$vote_data['position_id'];
-    $candidate_id = (string)$vote_data['candidate_id']; // Needs to be string
-    $candidate_name = $vote_data['candidate_name'];
-    $position_name = $vote_data['position_name'];
-
-     $stmt = $conn->prepare("SELECT id, firstname, lastname FROM candidates WHERE id = ? AND election_id = ?");
-    $stmt->bind_param("ii", $candidate_id, $election_id);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    $candidate = $result->fetch_assoc();
-    $stmt->close();
-    if ($candidate) {
-        $candidate_name = $candidate['firstname'] . ' ' . $candidate['lastname'];
-    } else {
-        echo json_encode(['success' => false, 'message' => 'Invalid candidate']);
-        ob_end_flush();
-        exit;
-    }
-
-    $stmt = $conn->prepare("SELECT name FROM electionpositions WHERE position_id = ? AND election_id = ?");
-    $stmt->bind_param("ii", $position_id, $election_id);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    $position = $result->fetch_assoc();
-    $stmt->close();
-    if ($position) {
-        $position_name = $position['name'];
-    } else {
-        echo json_encode(['success' => false, 'message' => 'Invalid position']);
-        ob_end_flush();
-        exit;
+    // Log incomplete data for debugging
+    if (!$election_id || !$position_id || !$candidate_id) {
+        error_log("Incomplete vote data for user_id: " . $user_id . " - Data: " . json_encode($vote_data));
     }
 
     logUserActivity($conn, $user_id, 'vote_attempt');
@@ -249,22 +231,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
+    // Fraud detection data collection
     $ip_address = $_SERVER['REMOTE_ADDR'];
     $geo_location = getGeoLocation($ip_address);
     $ip_history = getIpHistory($conn, $user_id);
     $vote_pattern = getVotePattern($conn, $user_id);
     $user_behavior = getUserActivityCount($conn, $user_id) * 10;
+    $time_diff = isset($_SESSION['last_activity']) ? (int)(time() - $_SESSION['last_activity']) : 10;
+    $votes_per_user = getUserVoteCount($conn, $user_id);
+    $session_duration = isset($_SESSION['start_time']) ? (int)(time() - $_SESSION['start_time']) : 20;
+    $multiple_logins = checkMultipleLogins($conn, $user_id);
+    $vpn_usage = detectVPN($geo_location, $ip_address);
+    $device_fingerprint = $_SERVER['HTTP_USER_AGENT'];
+
     $fraud_data = [
-        'time_diff' => time() - $_SESSION['last_activity'],
-        'votes_per_user' => getUserVoteCount($conn, $user_id),
-        'vpn_usage' => detectVPN($geo_location, $ip_address),
-        'multiple_logins' => checkMultipleLogins($conn, $user_id),
-        'session_duration' => time() - $_SESSION['start_time'],
+        'time_diff' => $time_diff,
+        'votes_per_user' => $votes_per_user,
+        'vpn_usage' => $vpn_usage,
+        'multiple_logins' => $multiple_logins,
+        'session_duration' => $session_duration,
         'geo_location' => $geo_location,
-        'device_fingerprint' => $_SERVER['HTTP_USER_AGENT'],
+        'device_fingerprint' => $device_fingerprint,
         'ip_history' => json_decode($ip_history, true),
         'vote_pattern' => $vote_pattern,
-        'user_behavior' => min($user_behavior, 100)
+        'user_behavior' => min($user_behavior, 12)
     ];
 
     $fraud_response = @file_get_contents("http://127.0.0.1:8003/predict", false, stream_context_create([
@@ -287,7 +277,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $is_fraudulent = 0;
             $confidence = 0.0;
         } else {
-            $is_fraudulent = $fraud_result['fraud_label'];
+            $is_fraudulent = (int)$fraud_result['fraud_label'];
             $confidence = floatval($fraud_result['fraud_probability']);
         }
     }
@@ -311,25 +301,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         logFraud($conn, $user_id, $user_id, $ip_address, $election_id, $is_fraudulent, $confidence, json_encode(array_merge($fraud_data, ['api_response' => $fraud_result ?? []])), $action);
     }
 
-     $stmt = $conn->prepare("INSERT INTO blockchainrecords (election_id, voter, hash, timestamp, vote, candidate_id, position_id) VALUES (?, ?, ?, NOW(), ?, ?, ?)");
+    // Insert into blockchainrecords and user_votes after successful blockchain call
+    $stmt = $conn->prepare("INSERT INTO blockchainrecords (election_id, voter, hash, timestamp, vote, candidate_id, position_id) VALUES (?, ?, ?, NOW(), ?, ?, ?)");
     $hash = hash('sha256', $wallet_address . $candidate_id . $position_id . $election_id);
     $stmt->bind_param("isssii", $election_id, $user_id, $hash, $candidate_id, $candidate_id, $position_id);
     $stmt->execute();
     $stmt->close();
+
+    // Populate user_votes regardless of other validations, using available data
+    if ($election_id !== null && $position_id !== null && $candidate_id !== null) {
+        $stmt = $conn->prepare("INSERT INTO user_votes (user_id, election_id, position_id, candidate_id, voted_at) VALUES (?, ?, ?, ?, NOW())");
+        $stmt->bind_param("iiii", $user_id, $election_id, $position_id, $candidate_id);
+        $stmt->execute();
+        $stmt->close();
+    }
 
     logUserActivity($conn, $user_id, 'vote_cast');
 
     echo json_encode([
         'success' => true,
         'message' => 'Vote recorded successfully',
-        'wallet_address' => $wallet_address
+        'wallet_address' => $wallet_address,
+        'position_id' => $position_id
     ]);
 
     $conn->close();
     ob_end_flush();
     exit;
 }
-
 
 echo json_encode(['success' => false, 'message' => 'Invalid request method']);
 ob_end_flush();

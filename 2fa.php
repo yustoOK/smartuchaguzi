@@ -37,8 +37,8 @@ if (!isset($_SESSION['user_agent']) || $_SESSION['user_agent'] !== $_SERVER['HTT
 }
 
 // Session timeout handling
-$inactivity_timeout = 5 * 60;
-$max_session_duration = 30 * 60;
+$inactivity_timeout = 4 * 60;
+$max_session_duration = 10 * 60;
 
 if (!isset($_SESSION['start_time'])) {
     $_SESSION['start_time'] = time();
@@ -68,7 +68,6 @@ if ($inactive_time >= $inactivity_timeout) {
 
 $_SESSION['last_activity'] = time();
 
-// Fetch user TOTP secret
 $user_id = $_SESSION['user_id'];
 $totp_secret = '';
 try {
@@ -86,13 +85,11 @@ try {
     exit;
 }
 
-// Include TOTP and QR Code libraries
 require 'C:/xampp/htdocs/smartuchaguzi/2fa/vendor/autoload.php';
 use OTPHP\TOTP;
 use Endroid\QrCode\QrCode;
 use Endroid\QrCode\Writer\PngWriter;
 
-// Debug: Check if GD is loaded
 if (!extension_loaded('gd')) {
     $errors[] = "GD extension is not enabled. Please enable it in php.ini and restart Apache.";
 }
