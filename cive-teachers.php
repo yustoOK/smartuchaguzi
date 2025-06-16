@@ -113,7 +113,8 @@ try {
     exit;
 }
 
-function generateCsrfToken() {
+function generateCsrfToken()
+{
     if (!isset($_SESSION['csrf_token'])) {
         $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
     }
@@ -246,10 +247,11 @@ try {
 
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CIVE UDOMASA | Dashboard</title>
+    <title>Cive UDOMASA | Dashboard</title>
     <link rel="icon" href="./images/System Logo.jpg" type="image/x-icon">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -732,6 +734,7 @@ try {
         }
     </style>
 </head>
+
 <body>
     <header class="header">
         <div class="logo">
@@ -1171,7 +1174,9 @@ try {
                     return null;
                 }
 
-                const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+                const accounts = await window.ethereum.request({
+                    method: 'eth_requestAccounts'
+                });
                 if (accounts.length === 0) {
                     console.error('No MetaMask accounts available.');
                     alert('Please connect an account in MetaMask.');
@@ -1355,7 +1360,9 @@ try {
                     return;
                 }
 
-                const allVotes = await contract.methods.getVotesByElection(electionId).call({ from: voterAddress });
+                const allVotes = await contract.methods.getVotesByElection(electionId).call({
+                    from: voterAddress
+                });
                 let resultsHtml = `
                 <h4>Results for Election ID: ${electionId}</h4>
                 <div class="candidate-grid" style="margin-top: 20px;">
@@ -1375,7 +1382,11 @@ try {
                 const voteCounts = {};
                 allVotes.forEach(vote => {
                     const candidateId = vote.candidateId;
-                    voteCounts[candidateId] = voteCounts[candidateId] || { count: 0, name: vote.candidateName, position: vote.positionName };
+                    voteCounts[candidateId] = voteCounts[candidateId] || {
+                        count: 0,
+                        name: vote.candidateName,
+                        position: vote.positionName
+                    };
                     voteCounts[candidateId].count += 1;
                 });
 
@@ -1431,6 +1442,7 @@ try {
         });
     </script>
 </body>
+
 </html>
 <?php
 $conn->close();

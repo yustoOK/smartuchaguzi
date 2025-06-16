@@ -7,7 +7,6 @@ ob_start();
 
 require_once 'config.php';
 
-// Database connection
 try {
     $conn = new mysqli($host, $username, $password, $dbname);
     if ($conn->connect_error) {
@@ -20,7 +19,6 @@ try {
     exit;
 }
 
-// Include helper functions (copied from your original file)
 function logUserActivity($conn, $user_id, $action) {
     $stmt = $conn->prepare("INSERT INTO user_activity (user_id, action, timestamp) VALUES (?, ?, NOW())");
     $stmt->bind_param("is", $user_id, $action);
@@ -158,9 +156,8 @@ function getUserActivityCount($conn, $user_id) {
     return $result['activity_count'] ?: 0;
 }
 
-// Session validation
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['role']) || $_SESSION['role'] !== 'voter') {
-    error_log("Session validation failed for user_id: " . ($_SESSION['user_id'] ?? 'unknown'));
+    error_log("Session validation failed for user : " . ($_SESSION['user_id'] ?? 'unknown'));
     echo json_encode(['success' => false, 'message' => 'Access denied']);
     ob_end_flush();
     exit;
@@ -189,11 +186,10 @@ if (!$wallet_address) {
     exit;
 }
 
-// Process vote submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $input = json_decode(file_get_contents('php://input'), true);
     if (json_last_error() !== JSON_ERROR_NONE || !isset($input['vote_data'])) {
-        error_log("Invalid vote data for user_id: " . $user_id);
+        error_log("Invalid vote data for user: " . $user_id);
         echo json_encode(['success' => false, 'message' => 'Invalid vote data']);
         ob_end_flush();
         exit;
@@ -201,7 +197,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $vote_data = $input['vote_data'];
     if (!isset($vote_data['election_id'], $vote_data['position_id'], $vote_data['candidate_id'], $vote_data['candidate_name'], $vote_data['position_name'])) {
-        error_log("Incomplete vote data for user_id: " . $user_id);
+        error_log("Incomplete vote data for user: " . $user_id);
         echo json_encode(['success' => false, 'message' => 'Incomplete vote data']);
         ob_end_flush();
         exit;
@@ -209,12 +205,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $election_id = (int)$vote_data['election_id'];
     $position_id = (int)$vote_data['position_id'];
-    $candidate_id = (string)$vote_data['candidate_id']; // Ensure string
+    $candidate_id = (string)$vote_data['candidate_id']; // Needs to be string
     $candidate_name = $vote_data['candidate_name'];
     $position_name = $vote_data['position_name'];
 
-    // Validate candidate and position
-    $stmt = $conn->prepare("SELECT id, firstname, lastname FROM candidates WHERE id = ? AND election_id = ?");
+     $stmt = $conn->prepare("SELECT id, firstname, lastname FROM candidates WHERE id = ? AND election_id = ?");
     $stmt->bind_param("ii", $candidate_id, $election_id);
     $stmt->execute();
     $result = $stmt->get_result();
@@ -254,7 +249,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    // Fraud detection
     $ip_address = $_SERVER['REMOTE_ADDR'];
     $geo_location = getGeoLocation($ip_address);
     $ip_history = getIpHistory($conn, $user_id);

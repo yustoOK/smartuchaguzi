@@ -152,7 +152,7 @@ function getUserActivityCount($conn, $user_id) {
 }
 
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['role']) || $_SESSION['role'] !== 'voter') {
-    error_log("Session validation failed for user_id: " . ($_SESSION['user_id'] ?? 'unknown'));
+    error_log("Session validation failed for user : " . ($_SESSION['user_id'] ?? 'unknown'));
     session_unset();
     session_destroy();
     header('Location: login.php?error=' . urlencode('Access Denied.'));
