@@ -41,7 +41,6 @@ if (!isset($_SESSION['wallet_address']) || empty($_SESSION['wallet_address']) ||
     exit;
 }
 
-// Validate session wallet address against database
 try {
     $stmt = $conn->prepare("SELECT wallet_address FROM users WHERE user_id = ?");
     $stmt->bind_param("i", $_SESSION['user_id']);
@@ -51,9 +50,9 @@ try {
     $stmt->close();
 
     if (!$db_user || strtolower($db_user['wallet_address']) !== strtolower($_SESSION['wallet_address'])) {
-        error_log("Wallet address mismatch for user_id: " . ($_SESSION['user_id'] ?? 'unset') . 
-                  ". Session wallet: " . ($_SESSION['wallet_address'] ?? 'unset') . 
-                  ", DB wallet: " . ($db_user['wallet_address'] ?? 'unset'));
+        error_log("Wallet address mismatch for user_id: " . ($_SESSION['user_id'] ?? 'unset') .
+            ". Session wallet: " . ($_SESSION['wallet_address'] ?? 'unset') .
+            ", DB wallet: " . ($db_user['wallet_address'] ?? 'unset'));
         session_unset();
         session_destroy();
         header('Location: login.php?error=' . urlencode('Wallet address mismatch. Please log in again.'));
@@ -986,7 +985,7 @@ try {
         const resultsModal = document.getElementById('results-modal');
         const resultsContent = document.getElementById('results-content');
 
-        const contractAddress = '0xC046c854C85e56DB6AF41dF3934DD671831d9d09';
+        const contractAddress = '0x9875E209Eaa7c66B6117272cd87869c709Cd2A4c';
         const abi = [{
                 "inputs": [],
                 "stateMutability": "nonpayable",
@@ -1161,9 +1160,9 @@ try {
                         "type": "uint256"
                     },
                     {
-                        "internalType": "string",
+                        "internalType": "uint256",
                         "name": "",
-                        "type": "string"
+                        "type": "uint256"
                     }
                 ],
                 "name": "hasVoted",
@@ -1243,8 +1242,7 @@ try {
                 "type": "function"
             }
         ];
-
-        const alchemyApiKey = '1isPc6ojuMcMbyoNNeQkLDGM76n8oT8B';
+        const alchemyApiKey = 'q_DqVYxr5iR_uqer0W3xZ';
         let provider = new Web3.providers.WebsocketProvider(`wss://eth-sepolia.g.alchemy.com/v2/${alchemyApiKey}`);
         let web3 = new Web3(provider);
         let contract = new web3.eth.Contract(abi, contractAddress);
@@ -1363,7 +1361,7 @@ try {
             }
             try {
                 const association = '<?php echo htmlspecialchars($_SESSION['association'] ?? ''); ?>';
-                let electionId = 1; 
+                let electionId = 1;
                 if (association === 'UDOMASA') electionId = 2;
 
                 const allVotes = await contract.methods.getVotesByElection(electionId).call();
@@ -1401,7 +1399,7 @@ try {
             }
             try {
                 const association = '<?php echo htmlspecialchars($_SESSION['association'] ?? ''); ?>';
-                let electionId = 1; 
+                let electionId = 1;
                 if (association === 'UDOMASA') electionId = 2;
 
                 const allVotes = await contract.methods.getVotesByElection(electionId).call();
@@ -1462,17 +1460,23 @@ try {
                         },
                         options: {
                             scales: {
-                                y: { beginAtZero: true }
+                                y: {
+                                    beginAtZero: true
+                                }
                             },
                             plugins: {
                                 title: {
                                     display: true,
                                     text: `${pos.name} Vote Distribution (Bar)`,
                                     color: '#2d3748',
-                                    font: { size: 14 }
+                                    font: {
+                                        size: 14
+                                    }
                                 },
                                 legend: {
-                                    labels: { color: '#2d3748' }
+                                    labels: {
+                                        color: '#2d3748'
+                                    }
                                 }
                             }
                         }
@@ -1495,17 +1499,23 @@ try {
                         },
                         options: {
                             scales: {
-                                y: { beginAtZero: true }
+                                y: {
+                                    beginAtZero: true
+                                }
                             },
                             plugins: {
                                 title: {
                                     display: true,
                                     text: `${pos.name} Vote Trend (Line)`,
                                     color: '#2d3748',
-                                    font: { size: 14 }
+                                    font: {
+                                        size: 14
+                                    }
                                 },
                                 legend: {
-                                    labels: { color: '#2d3748' }
+                                    labels: {
+                                        color: '#2d3748'
+                                    }
                                 }
                             }
                         }
@@ -1529,10 +1539,14 @@ try {
                                     display: true,
                                     text: `${pos.name} Vote Distribution (Pie)`,
                                     color: '#2d3748',
-                                    font: { size: 14 }
+                                    font: {
+                                        size: 14
+                                    }
                                 },
                                 legend: {
-                                    labels: { color: '#2d3748' }
+                                    labels: {
+                                        color: '#2d3748'
+                                    }
                                 }
                             }
                         }

@@ -46,10 +46,9 @@ if (!isset($_SESSION['user_id']) || !isset($_SESSION['role']) || $_SESSION['role
         <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
         <script>
             async function loadAnalytics() {
-                const provider = new ethers.providers.Web3Provider(new ethers.providers.JsonRpcProvider('https://eth-sepolia.g.alchemy.com/v2/1isPc6ojuMcMbyoNNeQkLDGM76n8oT8B'));
-                // Use signer if write operations are needed; for read-only, provider is sufficient
+                const provider = new ethers.providers.Web3Provider(new ethers.providers.JsonRpcProvider('https://eth-sepolia.g.alchemy.com/v2/q_DqVYxr5iR_uqer0W3xZ'));
                 const signer = provider.getSigner();
-                const contractAddress = '0x7f37Ea78D22DA910e66F8FdC1640B75dc88fa44F'; // Replace with deployed address
+                const contractAddress = '0x9875E209Eaa7c66B6117272cd87869c709Cd2A4c'; 
                 const contractABI = [
     {
       "inputs": [],
@@ -79,9 +78,9 @@ if (!isset($_SESSION['user_id']) || !isset($_SESSION['role']) || $_SESSION['role
         },
         {
           "indexed": false,
-          "internalType": "uint256",
+          "internalType": "string",
           "name": "candidateId",
-          "type": "uint256"
+          "type": "string"
         },
         {
           "indexed": false,
@@ -125,9 +124,9 @@ if (!isset($_SESSION['user_id']) || !isset($_SESSION['role']) || $_SESSION['role
           "type": "uint256"
         },
         {
-          "internalType": "uint256",
+          "internalType": "string",
           "name": "candidateId",
-          "type": "uint256"
+          "type": "string"
         },
         {
           "internalType": "string",
@@ -153,9 +152,9 @@ if (!isset($_SESSION['user_id']) || !isset($_SESSION['role']) || $_SESSION['role
           "type": "uint256"
         },
         {
-          "internalType": "uint256",
+          "internalType": "string",
           "name": "candidateId",
-          "type": "uint256"
+          "type": "string"
         }
       ],
       "name": "getVoteCount",
@@ -197,9 +196,9 @@ if (!isset($_SESSION['user_id']) || !isset($_SESSION['role']) || $_SESSION['role
               "type": "uint256"
             },
             {
-              "internalType": "uint256",
+              "internalType": "string",
               "name": "candidateId",
-              "type": "uint256"
+              "type": "string"
             },
             {
               "internalType": "uint256",
@@ -262,9 +261,9 @@ if (!isset($_SESSION['user_id']) || !isset($_SESSION['role']) || $_SESSION['role
           "type": "uint256"
         },
         {
-          "internalType": "uint256",
+          "internalType": "string",
           "name": "",
-          "type": "uint256"
+          "type": "string"
         }
       ],
       "name": "voteCount",
@@ -304,9 +303,9 @@ if (!isset($_SESSION['user_id']) || !isset($_SESSION['role']) || $_SESSION['role
           "type": "uint256"
         },
         {
-          "internalType": "uint256",
+          "internalType": "string",
           "name": "candidateId",
-          "type": "uint256"
+          "type": "string"
         },
         {
           "internalType": "uint256",

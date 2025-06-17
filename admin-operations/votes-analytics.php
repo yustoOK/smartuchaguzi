@@ -435,264 +435,286 @@ if ($user['college_id']) {
                 return;
             }
 
-            const provider = new ethers.providers.JsonRpcProvider('https://eth-sepolia.g.alchemy.com/v2/1isPc6ojuMcMbyoNNeQkLDGM76n8oT8B');
-            const contractAddress = '0xC046c854C85e56DB6AF41dF3934DD671831d9d09';
-            const contractABI = [{
-                "inputs": [],
-                "stateMutability": "nonpayable",
-                "type": "constructor"
+            const provider = new ethers.providers.JsonRpcProvider('https://eth-sepolia.g.alchemy.com/v2/q_DqVYxr5iR_uqer0W3xZ');
+            const contractAddress = '0x9875E209Eaa7c66B6117272cd87869c709Cd2A4c';
+            const contractABI = [
+    {
+      "inputs": [],
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "electionId",
+          "type": "uint256"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "voter",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "positionId",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "string",
+          "name": "candidateId",
+          "type": "string"
+        },
+        {
+          "indexed": false,
+          "internalType": "string",
+          "name": "candidateName",
+          "type": "string"
+        },
+        {
+          "indexed": false,
+          "internalType": "string",
+          "name": "positionName",
+          "type": "string"
+        }
+      ],
+      "name": "VoteCast",
+      "type": "event"
+    },
+    {
+      "inputs": [],
+      "name": "admin",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "electionId",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "positionId",
+          "type": "uint256"
+        },
+        {
+          "internalType": "string",
+          "name": "candidateId",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "candidateName",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "positionName",
+          "type": "string"
+        }
+      ],
+      "name": "castVote",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "positionId",
+          "type": "uint256"
+        },
+        {
+          "internalType": "string",
+          "name": "candidateId",
+          "type": "string"
+        }
+      ],
+      "name": "getVoteCount",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "electionId",
+          "type": "uint256"
+        }
+      ],
+      "name": "getVotesByElection",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "uint256",
+              "name": "electionId",
+              "type": "uint256"
             },
             {
-                "anonymous": false,
-                "inputs": [{
-                        "indexed": false,
-                        "internalType": "uint256",
-                        "name": "electionId",
-                        "type": "uint256"
-                    },
-                    {
-                        "indexed": true,
-                        "internalType": "address",
-                        "name": "voter",
-                        "type": "address"
-                    },
-                    {
-                        "indexed": false,
-                        "internalType": "uint256",
-                        "name": "positionId",
-                        "type": "uint256"
-                    },
-                    {
-                        "indexed": false,
-                        "internalType": "string",
-                        "name": "candidateId",
-                        "type": "string"
-                    },
-                    {
-                        "indexed": false,
-                        "internalType": "string",
-                        "name": "candidateName",
-                        "type": "string"
-                    },
-                    {
-                        "indexed": false,
-                        "internalType": "string",
-                        "name": "positionName",
-                        "type": "string"
-                    }
-                ],
-                "name": "VoteCast",
-                "type": "event"
+              "internalType": "address",
+              "name": "voter",
+              "type": "address"
             },
             {
-                "inputs": [],
-                "name": "admin",
-                "outputs": [{
-                    "internalType": "address",
-                    "name": "",
-                    "type": "address"
-                }],
-                "stateMutability": "view",
-                "type": "function"
+              "internalType": "uint256",
+              "name": "positionId",
+              "type": "uint256"
             },
             {
-                "inputs": [{
-                        "internalType": "uint256",
-                        "name": "electionId",
-                        "type": "uint256"
-                    },
-                    {
-                        "internalType": "uint256",
-                        "name": "positionId",
-                        "type": "uint256"
-                    },
-                    {
-                        "internalType": "string",
-                        "name": "candidateId",
-                        "type": "string"
-                    },
-                    {
-                        "internalType": "string",
-                        "name": "candidateName",
-                        "type": "string"
-                    },
-                    {
-                        "internalType": "string",
-                        "name": "positionName",
-                        "type": "string"
-                    }
-                ],
-                "name": "castVote",
-                "outputs": [],
-                "stateMutability": "nonpayable",
-                "type": "function"
+              "internalType": "string",
+              "name": "candidateId",
+              "type": "string"
             },
             {
-                "inputs": [{
-                        "internalType": "uint256",
-                        "name": "positionId",
-                        "type": "uint256"
-                    },
-                    {
-                        "internalType": "string",
-                        "name": "candidateId",
-                        "type": "string"
-                    }
-                ],
-                "name": "getVoteCount",
-                "outputs": [{
-                    "internalType": "uint256",
-                    "name": "",
-                    "type": "uint256"
-                }],
-                "stateMutability": "view",
-                "type": "function"
+              "internalType": "uint256",
+              "name": "timestamp",
+              "type": "uint256"
             },
             {
-                "inputs": [{
-                    "internalType": "uint256",
-                    "name": "electionId",
-                    "type": "uint256"
-                }],
-                "name": "getVotesByElection",
-                "outputs": [{
-                    "components": [{
-                            "internalType": "uint256",
-                            "name": "electionId",
-                            "type": "uint256"
-                        },
-                        {
-                            "internalType": "address",
-                            "name": "voter",
-                            "type": "address"
-                        },
-                        {
-                            "internalType": "uint256",
-                            "name": "positionId",
-                            "type": "uint256"
-                        },
-                        {
-                            "internalType": "string",
-                            "name": "candidateId",
-                            "type": "string"
-                        },
-                        {
-                            "internalType": "uint256",
-                            "name": "timestamp",
-                            "type": "uint256"
-                        },
-                        {
-                            "internalType": "string",
-                            "name": "candidateName",
-                            "type": "string"
-                        },
-                        {
-                            "internalType": "string",
-                            "name": "positionName",
-                            "type": "string"
-                        }
-                    ],
-                    "internalType": "struct VoteContract.Vote[]",
-                    "name": "",
-                    "type": "tuple[]"
-                }],
-                "stateMutability": "view",
-                "type": "function"
+              "internalType": "string",
+              "name": "candidateName",
+              "type": "string"
             },
             {
-                "inputs": [{
-                        "internalType": "address",
-                        "name": "",
-                        "type": "address"
-                    },
-                    {
-                        "internalType": "uint256",
-                        "name": "",
-                        "type": "uint256"
-                    },
-                    {
-                        "internalType": "string",
-                        "name": "",
-                        "type": "string"
-                    }
-                ],
-                "name": "hasVoted",
-                "outputs": [{
-                    "internalType": "bool",
-                    "name": "",
-                    "type": "bool"
-                }],
-                "stateMutability": "view",
-                "type": "function"
-            },
-            {
-                "inputs": [{
-                        "internalType": "uint256",
-                        "name": "",
-                        "type": "uint256"
-                    },
-                    {
-                        "internalType": "string",
-                        "name": "",
-                        "type": "string"
-                    }
-                ],
-                "name": "voteCount",
-                "outputs": [{
-                    "internalType": "uint256",
-                    "name": "",
-                    "type": "uint256"
-                }],
-                "stateMutability": "view",
-                "type": "function"
-            },
-            {
-                "inputs": [{
-                    "internalType": "uint256",
-                    "name": "",
-                    "type": "uint256"
-                }],
-                "name": "votes",
-                "outputs": [{
-                        "internalType": "uint256",
-                        "name": "electionId",
-                        "type": "uint256"
-                    },
-                    {
-                        "internalType": "address",
-                        "name": "voter",
-                        "type": "address"
-                    },
-                    {
-                        "internalType": "uint256",
-                        "name": "positionId",
-                        "type": "uint256"
-                    },
-                    {
-                        "internalType": "string",
-                        "name": "candidateId",
-                        "type": "string"
-                    },
-                    {
-                        "internalType": "uint256",
-                        "name": "timestamp",
-                        "type": "uint256"
-                    },
-                    {
-                        "internalType": "string",
-                        "name": "candidateName",
-                        "type": "string"
-                    },
-                    {
-                        "internalType": "string",
-                        "name": "positionName",
-                        "type": "string"
-                    }
-                ],
-                "stateMutability": "view",
-                "type": "function"
-            }];
-
+              "internalType": "string",
+              "name": "positionName",
+              "type": "string"
+            }
+          ],
+          "internalType": "struct VoteContract.Vote[]",
+          "name": "",
+          "type": "tuple[]"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "name": "hasVoted",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        },
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "name": "voteCount",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "name": "votes",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "electionId",
+          "type": "uint256"
+        },
+        {
+          "internalType": "address",
+          "name": "voter",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "positionId",
+          "type": "uint256"
+        },
+        {
+          "internalType": "string",
+          "name": "candidateId",
+          "type": "string"
+        },
+        {
+          "internalType": "uint256",
+          "name": "timestamp",
+          "type": "uint256"
+        },
+        {
+          "internalType": "string",
+          "name": "candidateName",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "positionName",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ];
             const contract = new ethers.Contract(contractAddress, contractABI, provider);
 
             menuToggle.addEventListener('click', () => {

@@ -17,8 +17,8 @@ try {
     </head>
     <body>
         <script>
-            const provider = new ethers.providers.JsonRpcProvider('https://eth-sepolia.g.alchemy.com/v2/1isPc6ojuMcMbyoNNeQkLDGM76n8oT8B');
-            const contractAddress = '0xC046c854C85e56DB6AF41dF3934DD671831d9d09';
+            const provider = new ethers.providers.JsonRpcProvider('https://eth-sepolia.g.alchemy.com/v2/q_DqVYxr5iR_uqer0W3xZ');
+            const contractAddress = '0x9875E209Eaa7c66B6117272cd87869c709Cd2A4c';
 
             // Fetching ABI and initialize contract
             async function loadContract() {

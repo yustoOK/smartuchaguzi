@@ -23,7 +23,7 @@ function logUserActivity($conn, $user_id, $action) {
 
 function getUserVoteCount($conn, $user_id) {
     $stmt = $conn->prepare("SELECT COUNT(*) as vote_count FROM blockchainrecords WHERE voter = ? AND timestamp >= NOW() - INTERVAL 24 HOUR");
-    $stmt->bind_param("i", $user_id);
+    $stmt->bind_param("s", $_SESSION['wallet_address']);
     $stmt->execute();
     $result = $stmt->get_result()->fetch_assoc();
     $stmt->close();
@@ -98,7 +98,7 @@ function blockUser($conn, $user_id) {
 
 function checkRateLimit($conn, $user_id) {
     $stmt = $conn->prepare("SELECT COUNT(*) as attempts FROM blockchainrecords WHERE voter = ? AND timestamp >= NOW() - INTERVAL 1 HOUR");
-    $stmt->bind_param("i", $user_id);
+    $stmt->bind_param("s", $_SESSION['wallet_address']);
     $stmt->execute();
     $result = $stmt->get_result()->fetch_assoc();
     $stmt->close();
@@ -120,7 +120,7 @@ function getVotePattern($conn, $user_id) {
          FROM blockchainrecords 
          WHERE voter = ? AND timestamp >= NOW() - INTERVAL 24 HOUR"
     );
-    $stmt->bind_param("i", $user_id);
+    $stmt->bind_param("s", $_SESSION['wallet_address']);
     $stmt->execute();
     $result = $stmt->get_result()->fetch_assoc();
     $stmt->close();
@@ -257,7 +257,7 @@ if ($inactive_time >= $inactivity_timeout) {
 
 $_SESSION['last_activity'] = time();
 
-$profile_picture = 'uploads/passports/general.png';
+$profile_picture = 'Uploads/passports/general.png';
 $errors = [];
 $elections = [];
 
@@ -922,11 +922,11 @@ $conn->close();
     <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
     <script>
         let provider, signer, contract;
-        const contractAddress = '0xC046c854C85e56DB6AF41dF3934DD671831d9d09';
+        const contractAddress = '0x9875E209Eaa7c66B6117272cd87869c709Cd2A4c';
 
         async function initContract() {
             if (!window.ethereum) {
-                showError('MetaMask is not installed');
+                showError('MetaMask is not installed. Please install MetaMask to vote.');
                 return;
             }
             provider = new ethers.providers.Web3Provider(window.ethereum);
@@ -992,7 +992,7 @@ $conn->close();
             form.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 if (!contract) {
-                    showError('Contract not initialized. Please refresh the page.');
+                    showError('Voting contract not initialized. Please refresh the page.');
                     return;
                 }
 
@@ -1003,7 +1003,7 @@ $conn->close();
                 const candidateName = form.querySelector('input[name="candidate_id"]:checked')?.closest('.candidate-card')?.querySelector('.candidate-details h5')?.textContent || 'Unknown Candidate';
 
                 if (!candidateId || !electionId || !positionId || !positionName || !candidateName) {
-                    showError('Incomplete vote data. Please try again.');
+                    showError('Incomplete vote data. Please select a candidate.');
                     return;
                 }
 
@@ -1027,13 +1027,13 @@ $conn->close();
                     try {
                         await window.ethereum.request({ method: 'eth_requestAccounts' });
 
-                        const tx = await contract.castVote(
+                        const tx = await retryOperation(() => contract.castVote(
                             formData.electionId,
                             formData.positionId,
                             formData.candidateId,
                             formData.candidateName,
                             formData.positionName
-                        );
+                        ));
                         const receipt = await tx.wait();
 
                         const response = await fetch('api_process_vote.php', {
@@ -1055,7 +1055,7 @@ $conn->close();
                         submitButton.textContent = 'Vote Cast';
                     } catch (error) {
                         console.error('Vote submission error:', error);
-                        showError(error.message || 'Failed to cast vote');
+                        showError(error.message || 'Failed to cast vote. Please try again.');
                         submitButton.disabled = false;
                         submitButton.textContent = 'Cast Vote';
                     }

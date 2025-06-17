@@ -14,7 +14,7 @@ if ($electionId === false) {
     exit;
 }
 
-$contractAddress = '0x7f37Ea78D22DA910e66F8FdC1640B75dc88fa44F';
+$contractAddress = '0x9875E209Eaa7c66B6117272cd87869c709Cd2A4c';
 $abi = '[
     {
       "inputs": [],
@@ -44,9 +44,9 @@ $abi = '[
         },
         {
           "indexed": false,
-          "internalType": "uint256",
+          "internalType": "string",
           "name": "candidateId",
-          "type": "uint256"
+          "type": "string"
         },
         {
           "indexed": false,
@@ -90,9 +90,9 @@ $abi = '[
           "type": "uint256"
         },
         {
-          "internalType": "uint256",
+          "internalType": "string",
           "name": "candidateId",
-          "type": "uint256"
+          "type": "string"
         },
         {
           "internalType": "string",
@@ -118,9 +118,9 @@ $abi = '[
           "type": "uint256"
         },
         {
-          "internalType": "uint256",
+          "internalType": "string",
           "name": "candidateId",
-          "type": "uint256"
+          "type": "string"
         }
       ],
       "name": "getVoteCount",
@@ -162,9 +162,9 @@ $abi = '[
               "type": "uint256"
             },
             {
-              "internalType": "uint256",
+              "internalType": "string",
               "name": "candidateId",
-              "type": "uint256"
+              "type": "string"
             },
             {
               "internalType": "uint256",
@@ -227,9 +227,9 @@ $abi = '[
           "type": "uint256"
         },
         {
-          "internalType": "uint256",
+          "internalType": "string",
           "name": "",
-          "type": "uint256"
+          "type": "string"
         }
       ],
       "name": "voteCount",
@@ -269,9 +269,9 @@ $abi = '[
           "type": "uint256"
         },
         {
-          "internalType": "uint256",
+          "internalType": "string",
           "name": "candidateId",
-          "type": "uint256"
+          "type": "string"
         },
         {
           "internalType": "uint256",
