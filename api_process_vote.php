@@ -7,7 +7,6 @@ ob_start();
 
 require_once 'config.php';
 
-// Database connection
 try {
     $conn = new mysqli($host, $username, $password, $dbname);
     if ($conn->connect_error) {
@@ -47,12 +46,7 @@ function checkMultipleLogins($conn, $user_id) {
 
 function getGeoLocation($ip) {
     $ipParts = explode('.', $ip);
-    if (count($ipParts) < 4) return 4;
-    if ($ipParts[0] == 41 || $ipParts[0] == 102) return 0; // Tanzania
-    if ($ipParts[0] == 105 || $ipParts[0] == 197) return 1; // Kenya
-    if ($ipParts[0] == 154) return 2; // Uganda
-    if ($ipParts[0] == 168) return 3; // Rwanda
-    return 4; // Other
+    return count($ipParts) < 4 ? 4 : (($ipParts[0] == 41 || $ipParts[0] == 102) ? 0 : ($ipParts[0] == 105 || $ipParts[0] == 197) ? 1 : ($ipParts[0] == 154) ? 2 : ($ipParts[0] == 168) ? 3 : 4);
 }
 
 function detectVPN($geo_location, $ip) {
@@ -188,8 +182,25 @@ if (!isset($_SESSION['user_agent']) || $_SESSION['user_agent'] !== $_SERVER['HTT
 }
 
 $user_id = $_SESSION['user_id'];
-$wallet_address = $_SESSION['wallet_address'] ?? null;
+$session_wallet = $_SESSION['wallet_address'] ?? '';
 
+// Checking wallet address against database
+$stmt = $conn->prepare("SELECT wallet_address FROM users WHERE user_id = ?");
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$result = $stmt->get_result();
+$user = $result->fetch_assoc();
+$stmt->close();
+
+$db_wallet = $user['wallet_address'] ?? '';
+if ($session_wallet !== $db_wallet && !empty($db_wallet)) {
+    error_log("Wallet address mismatch for user_id: " . $user_id);
+    echo json_encode(['success' => false, 'message' => 'Wallet address mismatch detected']);
+    ob_end_flush();
+    exit;
+}
+
+$wallet_address = $session_wallet;
 if (!$wallet_address) {
     error_log("No wallet address in session for user_id: " . $user_id);
     echo json_encode(['success' => false, 'message' => 'Wallet address not set']);
@@ -200,28 +211,64 @@ if (!$wallet_address) {
 // Process vote submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $input = json_decode(file_get_contents('php://input'), true);
-    if (json_last_error() !== JSON_ERROR_NONE || !isset($input['vote_data'])) {
-        error_log("Invalid vote data for user_id: " . $user_id);
+    if (json_last_error() !== JSON_ERROR_NONE || !isset($input['vote_data']) || !is_array($input['vote_data'])) {
+        error_log("Invalid or missing vote data for user_id: " . $user_id);
         echo json_encode(['success' => false, 'message' => 'Invalid vote data']);
         ob_end_flush();
         exit;
     }
 
     $vote_data = $input['vote_data'];
-    $election_id = isset($vote_data['election_id']) ? (int)$vote_data['election_id'] : null;
-    $position_id = isset($vote_data['position_id']) ? (int)$vote_data['position_id'] : null;
-    $candidate_id = isset($vote_data['candidate_id']) ? (int)$vote_data['candidate_id'] : null; // Use numeric id
-    $candidate_name = isset($vote_data['candidate_name']) ? $vote_data['candidate_name'] : '';
-    $position_name = isset($vote_data['position_name']) ? $vote_data['position_name'] : '';
+    if (!isset($vote_data['electionId'], $vote_data['positionId'], $vote_data['candidateId'], $vote_data['candidateName'], $vote_data['positionName'])) {
+        error_log("Incomplete vote data for user_id: " . $user_id . " Data: " . json_encode($vote_data));
+        echo json_encode(['success' => false, 'message' => 'Incomplete vote data']);
+        ob_end_flush();
+        exit;
+    }
 
-    // Log incomplete data for debugging
-    if (!$election_id || !$position_id || !$candidate_id) {
-        error_log("Incomplete vote data for user_id: " . $user_id . " - Data: " . json_encode($vote_data));
+    $election_id = (int)$vote_data['electionId'];
+    $position_id = (int)$vote_data['positionId'];
+    $candidate_id = (string)$vote_data['candidateId'];
+    $candidate_name = $vote_data['candidateName'];
+    $position_name = $vote_data['positionName'];
+
+    // Double voting check with database and blockchain (placeholder for blockchain check)
+    if (hasVotedForPosition($conn, $user_id, $election_id, $position_id)) {
+        echo json_encode(['success' => false, 'message' => 'You have already voted for this position']);
+        ob_end_flush();
+        exit;
+    }
+
+    $stmt = $conn->prepare("SELECT id, firstname, lastname FROM candidates WHERE id = ? AND election_id = ?");
+    $stmt->bind_param("ii", $candidate_id, $election_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $candidate = $result->fetch_assoc();
+    $stmt->close();
+    if ($candidate) {
+        $candidate_name = $candidate['firstname'] . ' ' . $candidate['lastname'];
+    } else {
+        echo json_encode(['success' => false, 'message' => 'Invalid candidate']);
+        ob_end_flush();
+        exit;
+    }
+
+    $stmt = $conn->prepare("SELECT name FROM electionpositions WHERE position_id = ? AND election_id = ?");
+    $stmt->bind_param("ii", $position_id, $election_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $position = $result->fetch_assoc();
+    $stmt->close();
+    if ($position) {
+        $position_name = $position['name'];
+    } else {
+        echo json_encode(['success' => false, 'message' => 'Invalid position']);
+        ob_end_flush();
+        exit;
     }
 
     logUserActivity($conn, $user_id, 'vote_attempt');
 
-    // Rate limiting
     if (!checkRateLimit($conn, $user_id)) {
         logUserActivity($conn, $user_id, 'rate_limit_exceeded');
         logFraud($conn, $user_id, $user_id, $_SERVER['REMOTE_ADDR'], $election_id, 1, 0.95, json_encode(['reason' => 'Rate limit exceeded']), 'block_user');
@@ -231,7 +278,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    // Fraud detection data collection
     $ip_address = $_SERVER['REMOTE_ADDR'];
     $geo_location = getGeoLocation($ip_address);
     $ip_history = getIpHistory($conn, $user_id);
@@ -252,7 +298,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'session_duration' => $session_duration,
         'geo_location' => $geo_location,
         'device_fingerprint' => $device_fingerprint,
-        'ip_history' => json_decode($ip_history, true),
+        'ip_history' => json_decode($ip_history, true) ?: [],
         'vote_pattern' => $vote_pattern,
         'user_behavior' => min($user_behavior, 12)
     ];
@@ -266,16 +312,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ]
     ]));
 
+    $is_fraudulent = 0;
+    $confidence = 0.0;
     if ($fraud_response === false) {
-        error_log("Fraud detection API failed for user_id: " . $user_id);
-        $is_fraudulent = 0;
-        $confidence = 0.0;
+        error_log("Fraud detection API failed for user_id: " . $user_id . " Data: " . json_encode($fraud_data));
     } else {
         $fraud_result = json_decode($fraud_response, true);
         if (json_last_error() !== JSON_ERROR_NONE || !isset($fraud_result['fraud_label'], $fraud_result['fraud_probability'])) {
-            error_log("Invalid fraud detection response for user_id: " . $user_id);
-            $is_fraudulent = 0;
-            $confidence = 0.0;
+            error_log("Invalid fraud detection response for user_id: " . $user_id . " Response: " . $fraud_response);
         } else {
             $is_fraudulent = (int)$fraud_result['fraud_label'];
             $confidence = floatval($fraud_result['fraud_probability']);
@@ -301,20 +345,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         logFraud($conn, $user_id, $user_id, $ip_address, $election_id, $is_fraudulent, $confidence, json_encode(array_merge($fraud_data, ['api_response' => $fraud_result ?? []])), $action);
     }
 
-    // Insert into blockchainrecords and user_votes after successful blockchain call
     $stmt = $conn->prepare("INSERT INTO blockchainrecords (election_id, voter, hash, timestamp, vote, candidate_id, position_id) VALUES (?, ?, ?, NOW(), ?, ?, ?)");
     $hash = hash('sha256', $wallet_address . $candidate_id . $position_id . $election_id);
     $stmt->bind_param("isssii", $election_id, $user_id, $hash, $candidate_id, $candidate_id, $position_id);
-    $stmt->execute();
+    if (!$stmt->execute()) {
+        error_log("Failed to insert into blockchainrecords for user_id: " . $user_id . " Error: " . $conn->error);
+    }
     $stmt->close();
 
-    // Populate user_votes regardless of other validations, using available data
-    if ($election_id !== null && $position_id !== null && $candidate_id !== null) {
-        $stmt = $conn->prepare("INSERT INTO user_votes (user_id, election_id, position_id, candidate_id, voted_at) VALUES (?, ?, ?, ?, NOW())");
-        $stmt->bind_param("iiii", $user_id, $election_id, $position_id, $candidate_id);
-        $stmt->execute();
-        $stmt->close();
+    $stmt = $conn->prepare("INSERT INTO user_votes (user_id, election_id, position_id, candidate_id, voted_at) VALUES (?, ?, ?, ?, NOW())");
+    $stmt->bind_param("iiii", $user_id, $election_id, $position_id, $candidate_id);
+    if (!$stmt->execute()) {
+        error_log("Failed to insert into user_votes for user_id: " . $user_id . " Error: " . $conn->error);
     }
+    $stmt->close();
 
     logUserActivity($conn, $user_id, 'vote_cast');
 

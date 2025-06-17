@@ -41,12 +41,15 @@ function checkMultipleLogins($conn, $user_id) {
 
 function getGeoLocation($ip) {
     $ipParts = explode('.', $ip);
-    if (count($ipParts) < 4) return 4;
-    if ($ipParts[0] == 41 || $ipParts[0] == 102) return 0; // Tanzania
-    if ($ipParts[0] == 105 || $ipParts[0] == 197) return 1; // Kenya
-    if ($ipParts[0] == 154) return 2; // Uganda
-    if ($ipParts[0] == 168) return 3; // Rwanda
-    return 4; // Other
+    return count($ipParts) < 4 ? 4 : (
+        ($ipParts[0] == 41 || $ipParts[0] == 102) ? 0 : (
+            ($ipParts[0] == 105 || $ipParts[0] == 197) ? 1 : (
+                ($ipParts[0] == 154) ? 2 : (
+                    ($ipParts[0] == 168) ? 3 : 4
+                )
+            )
+        )
+    );
 }
 
 function detectVPN($geo_location, $ip) {
@@ -182,6 +185,8 @@ if (!isset($_SESSION['user_agent']) || $_SESSION['user_agent'] !== $_SERVER['HTT
 }
 
 $user_id = $_SESSION['user_id'];
+$session_wallet = $_SESSION['wallet_address'] ?? '';
+
 if (!isset($_SESSION['session_stored'])) {
     $session_id = session_id();
     $session_token = session_id();
@@ -196,7 +201,31 @@ if (!isset($_SESSION['session_stored'])) {
     $_SESSION['session_stored'] = true;
 }
 
-$inactivity_timeout = 3 * 60 * 60; // 3 hours
+$stmt = $conn->prepare("SELECT wallet_address, fname, college_id, hostel_id, association, active FROM users WHERE user_id = ?");
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$result = $stmt->get_result();
+$user = $result->fetch_assoc();
+$stmt->close();
+
+if (!$user || $user['active'] == 0) {
+    error_log("User not found or blocked for user_id: " . $user_id);
+    session_unset();
+    session_destroy();
+    header('Location: login.php?error=' . urlencode('User not found or blocked. Please log in again.'));
+    exit;
+}
+
+$db_wallet = $user['wallet_address'] ?? '';
+if ($session_wallet !== $db_wallet && !empty($db_wallet)) {
+    error_log("Wallet address mismatch for user_id: " . $user_id);
+    session_unset();
+    session_destroy();
+    header('Location: login.php?error=' . urlencode('Wallet address mismatch detected. Please log in again.'));
+    exit;
+}
+
+$inactivity_timeout = 3 * 60 * 60;
 $max_session_duration = 3 * 60 * 60;
 $warning_time = 60;
 
@@ -227,24 +256,6 @@ if ($inactive_time >= $inactivity_timeout) {
 }
 
 $_SESSION['last_activity'] = time();
-
-$user = [];
-try {
-    $stmt = $conn->prepare("SELECT fname, college_id, hostel_id, association, active FROM users WHERE user_id = ?");
-    $stmt->bind_param("i", $user_id);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    $user = $result->fetch_assoc();
-    if (!$user || $user['active'] == 0) {
-        throw new Exception("No user found or user is blocked for user_id: " . $user_id);
-    }
-} catch (Exception $e) {
-    error_log("Query error: " . $e->getMessage());
-    session_unset();
-    session_destroy();
-    header('Location: login.php?error=' . urlencode('User not found, blocked, or server error. Please log in again.'));
-    exit;
-}
 
 $profile_picture = 'uploads/passports/general.png';
 $errors = [];
@@ -330,8 +341,8 @@ try {
                 $scope = $position['scope'];
                 $is_vice = $position['is_vice'];
 
-                // Check if user has voted for this position
-                $position['has_voted'] = hasVotedForPosition($conn, $user_id, $election_id, $position_id);
+                $has_voted_blockchain = false; 
+                $position['has_voted'] = hasVotedForPosition($conn, $user_id, $election_id, $position_id) || $has_voted_blockchain;
 
                 $candidates = [];
                 if ($scope === 'hostel') {
@@ -853,7 +864,7 @@ $conn->close();
                                                                 </div>
                                                             </div>
                                                             <label class="vote-label">
-                                                                <input type="radio" name="candidate_id" value="<?php echo htmlspecialchars($pair_id); ?>" id="candidate_<?php echo htmlspecialchars($mainCandidate['id']); ?>" required aria-label="Vote for <?php echo htmlspecialchars($mainCandidate['firstname'] . ' ' . $mainCandidate['lastname'] . ' and ' . $viceCandidate['firstname'] . ' ' . $viceCandidate['lastname']); ?>">
+                                                                <input type="radio" name="candidate_id" value="<?php echo htmlspecialchars($pair_id); ?>" id="candidate_<?php echo htmlspecialchars($mainCandidate['id']); ?>" required aria-label="Vote for <?php echo htmlspecialchars($mainCandidate['firstname'] . ' ' . $mainCandidate['lastname'] . ' and ' . $viceCandidate['firstname'] . ' ' . $viceCandidate['lastname']); ?>" <?php echo $position['has_voted'] ? 'disabled' : ''; ?>>
                                                                 <span class="vote-checkmark"></span>
                                                             </label>
                                                         </div>
@@ -872,7 +883,7 @@ $conn->close();
                                                                 </div>
                                                             </div>
                                                             <label class="vote-label">
-                                                                <input type="radio" name="candidate_id" value="<?php echo htmlspecialchars($candidate_id); ?>" id="candidate_<?php echo htmlspecialchars($candidate_id); ?>" required aria-label="Vote for <?php echo htmlspecialchars($candidate['firstname'] . ' ' . $candidate['lastname']); ?>">
+                                                                <input type="radio" name="candidate_id" value="<?php echo htmlspecialchars($candidate_id); ?>" id="candidate_<?php echo htmlspecialchars($candidate_id); ?>" required aria-label="Vote for <?php echo htmlspecialchars($candidate['firstname'] . ' ' . $candidate['lastname']); ?>" <?php echo $position['has_voted'] ? 'disabled' : ''; ?>>
                                                                 <span class="vote-checkmark"></span>
                                                             </label>
                                                         </div>
@@ -991,8 +1002,8 @@ $conn->close();
                 const candidateId = form.querySelector('input[name="candidate_id"]:checked')?.value?.toString();
                 const candidateName = form.querySelector('input[name="candidate_id"]:checked')?.closest('.candidate-card')?.querySelector('.candidate-details h5')?.textContent || 'Unknown Candidate';
 
-                if (!candidateId) {
-                    showError('Please select a candidate to vote for.');
+                if (!candidateId || !electionId || !positionId || !positionName || !candidateName) {
+                    showError('Incomplete vote data. Please try again.');
                     return;
                 }
 

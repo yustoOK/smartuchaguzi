@@ -33,16 +33,44 @@ if (!isset($_SESSION['2fa_verified']) || $_SESSION['2fa_verified'] !== true) {
     exit;
 }
 
+// Wallet address validation
+if (!isset($_SESSION['wallet_address']) || empty($_SESSION['wallet_address']) || !preg_match('/^0x[a-fA-F0-9]{40}$/', $_SESSION['wallet_address'])) {
+    error_log("Invalid or unset wallet address in session for user_id: " . ($_SESSION['user_id'] ?? 'unset'));
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32)); // Regenerate CSRF token for redirect
+    header('Location: post-login.php?role=' . urlencode($_SESSION['role']) . '&college_id=' . urlencode($_SESSION['college_id'] ?? '') . '&association=' . urlencode($_SESSION['association'] ?? '') . '&csrf_token=' . urlencode($_SESSION['csrf_token']));
+    exit;
+}
+
+// Validate session wallet address against database
+try {
+    $stmt = $conn->prepare("SELECT wallet_address FROM users WHERE user_id = ?");
+    $stmt->bind_param("i", $_SESSION['user_id']);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $db_user = $result->fetch_assoc();
+    $stmt->close();
+
+    if (!$db_user || strtolower($db_user['wallet_address']) !== strtolower($_SESSION['wallet_address'])) {
+        error_log("Wallet address mismatch for user_id: " . ($_SESSION['user_id'] ?? 'unset') . 
+                  ". Session wallet: " . ($_SESSION['wallet_address'] ?? 'unset') . 
+                  ", DB wallet: " . ($db_user['wallet_address'] ?? 'unset'));
+        session_unset();
+        session_destroy();
+        header('Location: login.php?error=' . urlencode('Wallet address mismatch. Please log in again.'));
+        exit;
+    }
+} catch (Exception $e) {
+    error_log("Wallet validation error: " . $e->getMessage());
+    session_unset();
+    session_destroy();
+    header('Location: login.php?error=' . urlencode('Error validating wallet address. Please log in again.'));
+    exit;
+}
+
 error_log("Session after validation: user_id=" . ($_SESSION['user_id'] ?? 'unset') .
     ", role=" . ($_SESSION['role'] ?? 'unset') .
     ", college_id=" . ($_SESSION['college_id'] ?? 'unset') .
     ", association=" . ($_SESSION['association'] ?? 'unset'));
-
-if (!isset($_SESSION['wallet_address']) || empty($_SESSION['wallet_address'])) {
-    error_log("Wallet address not set in session for user_id: " . ($_SESSION['user_id'] ?? 'unset'));
-    header('Location: post-login.php?role=' . urlencode($_SESSION['role']) . '&college_id=' . urlencode($_SESSION['college_id'] ?? '') . '&association=' . urlencode($_SESSION['association'] ?? '') . '&csrf_token=' . urlencode($_SESSION['csrf_token'] ?? ''));
-    exit;
-}
 
 if (isset($_SESSION['college_id']) && $_SESSION['college_id'] != 1) {
     error_log("College ID mismatch: expected 1, got " . $_SESSION['college_id']);
