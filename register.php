@@ -124,7 +124,8 @@
             padding: 0 10px;
         }
 
-        .input-group input {
+        .input-group input,
+        .input-group select {
             border: none;
             background: transparent;
             outline: none;
@@ -135,7 +136,8 @@
             transition: all 0.3s ease;
         }
 
-        .input-group input:focus {
+        .input-group input:focus,
+        .input-group select:focus {
             border-bottom: 2px solid #f4a261;
         }
 
@@ -237,7 +239,7 @@
             <div class="line"></div>
         </div>
         <div class="avatar">
-            <img src="./uploads/passports/general.png" alt="User Icon">
+            <img src="./Uploads/passports/general.png" alt="User Icon">
         </div>
         <form class="register-form" action="register_process.php" method="POST" onsubmit="return validateForm()">
             <div class="input-group">
@@ -247,6 +249,22 @@
             <div class="input-group">
                 <label for="email" aria-label="Email Address"><i class="fas fa-envelope"></i></label>
                 <input type="email" id="email" name="email" placeholder="Email ID" required>
+            </div>
+            <div class="input-group">
+                <label for="fname" aria-label="First Name"><i class="fas fa-user"></i></label>
+                <input type="text" id="fname" name="fname" placeholder="First Name" required>
+            </div>
+            <div class="input-group">
+                <label for="lname" aria-label="Last Name"><i class="fas fa-user"></i></label>
+                <input type="text" id="lname" name="lname" placeholder="Last Name" required>
+            </div>
+            <div class="input-group">
+                <label for="association" aria-label="Association"><i class="fas fa-users"></i></label>
+                <select id="association" name="association" required>
+                    <option value="" disabled selected>Select Association</option>
+                    <option value="UDOSO">UDOSO</option>
+                    <option value="UDOMASA">UDOMASA</option>
+                </select>
             </div>
             <div class="input-group">
                 <label for="password" aria-label="Password"><i class="fas fa-lock"></i></label>
@@ -266,10 +284,34 @@
             const password = document.getElementById('password').value;
             const confirmPassword = document.getElementById('confirm_password').value;
             const email = document.getElementById('email').value;
+            const officialId = document.getElementById('official_id').value;
+            const fname = document.getElementById('fname').value;
+            const lname = document.getElementById('lname').value;
+            const association = document.getElementById('association').value;
 
             const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
             if (!emailPattern.test(email)) {
                 alert('Please enter a valid email address.');
+                return false;
+            }
+
+            if (!officialId.match(/^[A-Za-z0-9\-]+$/)) {
+                alert('Official ID must contain only letters, numbers, and hyphens.');
+                return false;
+            }
+
+            if (!fname.match(/^[A-Za-z]+$/)) {
+                alert('First name must contain only letters.');
+                return false;
+            }
+
+            if (!lname.match(/^[A-Za-z]+$/)) {
+                alert('Last name must contain only letters.');
+                return false;
+            }
+
+            if (!association) {
+                alert('Please select an association.');
                 return false;
             }
 

@@ -33,16 +33,43 @@ if (!isset($_SESSION['2fa_verified']) || $_SESSION['2fa_verified'] !== true) {
     exit;
 }
 
+// Wallet address validation
+if (!isset($_SESSION['wallet_address']) || empty($_SESSION['wallet_address']) || !preg_match('/^0x[a-fA-F0-9]{40}$/', $_SESSION['wallet_address'])) {
+    error_log("Invalid or unset wallet address in session for user_id: " . ($_SESSION['user_id'] ?? 'unset'));
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32)); 
+    header('Location: post-login.php?role=' . urlencode($_SESSION['role']) . '&college_id=' . urlencode($_SESSION['college_id'] ?? '') . '&association=' . urlencode($_SESSION['association'] ?? '') . '&csrf_token=' . urlencode($_SESSION['csrf_token']));
+    exit;
+}
+
+try {
+    $stmt = $conn->prepare("SELECT wallet_address FROM users WHERE user_id = ?");
+    $stmt->bind_param("i", $_SESSION['user_id']);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $db_user = $result->fetch_assoc();
+    $stmt->close();
+
+    if (!$db_user || strtolower($db_user['wallet_address']) !== strtolower($_SESSION['wallet_address'])) {
+        error_log("Wallet address mismatch for user_id: " . ($_SESSION['user_id'] ?? 'unset') .
+            ". Session wallet: " . ($_SESSION['wallet_address'] ?? 'unset') .
+            ", DB wallet: " . ($db_user['wallet_address'] ?? 'unset'));
+        session_unset();
+        session_destroy();
+        header('Location: login.php?error=' . urlencode('Wallet address mismatch. Please log in again.'));
+        exit;
+    }
+} catch (Exception $e) {
+    error_log("Wallet validation error: " . $e->getMessage());
+    session_unset();
+    session_destroy();
+    header('Location: login.php?error=' . urlencode('Error validating wallet address. Please log in again.'));
+    exit;
+}
+
 error_log("Session after validation: user_id=" . ($_SESSION['user_id'] ?? 'unset') .
     ", role=" . ($_SESSION['role'] ?? 'unset') .
     ", college_id=" . ($_SESSION['college_id'] ?? 'unset') .
     ", association=" . ($_SESSION['association'] ?? 'unset'));
-
-if (!isset($_SESSION['wallet_address']) || empty($_SESSION['wallet_address'])) {
-    error_log("Wallet address not set in session for user_id: " . ($_SESSION['user_id'] ?? 'unset'));
-    header('Location: post-login.php?role=' . urlencode($_SESSION['role']) . '&college_id=' . urlencode($_SESSION['college_id'] ?? '') . '&association=' . urlencode($_SESSION['association'] ?? '') . '&csrf_token=' . urlencode($_SESSION['csrf_token'] ?? ''));
-    exit;
-}
 
 if (isset($_SESSION['college_id']) && $_SESSION['college_id'] != 1) {
     error_log("College ID mismatch: expected 1, got " . $_SESSION['college_id']);
@@ -251,10 +278,11 @@ try {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cive UDOMASA | Dashboard</title>
+    <title>CIVE UDOMASA | SmartUchaguzi</title>
     <link rel="icon" href="./images/System Logo.jpg" type="image/x-icon">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/web3@1.10.0/dist/web3.min.js"></script>
     <style>
         * {
@@ -632,6 +660,25 @@ try {
             background: #f4a261;
         }
 
+        .summary-analytics {
+            margin-top: 30px;
+        }
+
+        .summary-analytics h3 {
+            font-size: 22px;
+            color: #2d3748;
+            margin-bottom: 15px;
+        }
+
+        .summary-analytics canvas {
+            max-width: 600px;
+            margin: 20px auto;
+            background: #fff;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
         @media (max-width: 768px) {
             .header {
                 flex-direction: column;
@@ -720,6 +767,10 @@ try {
             .candidate-details p {
                 font-size: 12px;
             }
+
+            .summary-analytics canvas {
+                max-width: 100%;
+            }
         }
 
         @media (min-width: 600px) {
@@ -759,8 +810,9 @@ try {
 
     <section class="dashboard">
         <div class="dash-content">
-            <h2>The Candidate Details</h2>
+            <h2>User Analytics</h2>
 
+            <!-- My Votes Section -->
             <div class="my-votes-section">
                 <h3>Votes</h3>
                 <div id="my-votes"></div>
@@ -846,11 +898,17 @@ try {
                     </div>
                 <?php endforeach; ?>
             <?php endif; ?>
+
+            <!-- Summary Analytics Section -->
+            <div class="summary-analytics">
+                <h3>Summary Analytics</h3>
+                <div id="summary-analytics"></div>
+            </div>
         </div>
     </section>
 
     <div class="verify-modal" id="verify-modal">
-        <div class="verify-modal-content" style="background: #fff; padding: 30px; border-radius: 12px; max-width: 500px; width: 90%; box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);">
+        <div class="verify-modal-content">
             <h3 style="font-size: 24px; color: #1a3c34; margin-bottom: 20px;">Verify Your Vote</h3>
             <div style="margin-bottom: 15px;">
                 <label for="verify-election-id" style="display: block; font-size: 14px; color: #2d3748; margin-bottom: 5px;">Election ID:</label>
@@ -897,12 +955,13 @@ try {
         const verifyVoteLink = document.getElementById('verify-vote-link');
         const verifyModal = document.getElementById('verify-modal');
         const myVotesSection = document.getElementById('my-votes');
+        const summaryAnalytics = document.getElementById('summary-analytics');
         const castVoteLink = document.getElementById('cast-vote-link');
         const resultsLink = document.getElementById('results-link');
         const resultsModal = document.getElementById('results-modal');
         const resultsContent = document.getElementById('results-content');
 
-        const contractAddress = '0xC046c854C85e56DB6AF41dF3934DD671831d9d09';
+        const contractAddress = '0x9875E209Eaa7c66B6117272cd87869c709Cd2A4c';
         const abi = [{
                 "inputs": [],
                 "stateMutability": "nonpayable",
@@ -1077,9 +1136,9 @@ try {
                         "type": "uint256"
                     },
                     {
-                        "internalType": "string",
+                        "internalType": "uint256",
                         "name": "",
-                        "type": "string"
+                        "type": "uint256"
                     }
                 ],
                 "name": "hasVoted",
@@ -1159,8 +1218,7 @@ try {
                 "type": "function"
             }
         ];
-
-        const alchemyApiKey = '1isPc6ojuMcMbyoNNeQkLDGM76n8oT8B';
+        const alchemyApiKey = 'q_DqVYxr5iR_uqer0W3xZ';
         let provider = new Web3.providers.WebsocketProvider(`wss://eth-sepolia.g.alchemy.com/v2/${alchemyApiKey}`);
         let web3 = new Web3(provider);
         let contract = new web3.eth.Contract(abi, contractAddress);
@@ -1187,19 +1245,87 @@ try {
                 const currentAddress = accounts[0];
                 const sessionAddress = '<?php echo htmlspecialchars($_SESSION['wallet_address'] ?? '0x0'); ?>';
 
+                console.log('Current MetaMask Wallet Address:', currentAddress);
+                console.log('Session Wallet Address:', sessionAddress);
+
+                if (isDevMode) {
+                    console.warn('Development Mode: Skipping wallet address validation.');
+                    return currentAddress;
+                }
+
                 if (currentAddress.toLowerCase() !== sessionAddress.toLowerCase()) {
-                    console.error('Wallet address mismatch. Session locked to initial wallet.');
-                    alert('Your MetaMask account does not match the logged-in wallet. Please log in with the correct account.');
-                    window.location.href = 'login.php?error=' + encodeURIComponent('Wallet mismatch detected.');
-                    return null;
+                    await updateWalletAddress(currentAddress);
+                    location.reload();
                 }
 
                 return currentAddress;
             } catch (error) {
-                console.error('Error accessing MetaMask wallet:', error);
+                console.error('Error accessing MetaMask wallet:', error.code, error.message);
                 alert('Failed to connect to MetaMask: ' + error.message);
                 window.location.href = 'login.php?error=' + encodeURIComponent('MetaMask connection failed.');
                 return null;
+            }
+        }
+
+        if (window.ethereum) {
+            window.ethereum.on('accountsChanged', async (accounts) => {
+                if (accounts.length === 0) {
+                    console.error('MetaMask disconnected.');
+                    alert('MetaMask has been disconnected. Please reconnect to continue.');
+                    window.location.href = 'login.php?error=' + encodeURIComponent('MetaMask disconnected.');
+                    return;
+                }
+
+                const newAddress = accounts[0];
+                console.log('MetaMask account changed to:', newAddress);
+
+                if (isDevMode) {
+                    console.warn('Development Mode: Auto-updating session wallet address.');
+                    await updateWalletAddress(newAddress);
+                    return;
+                }
+
+                const sessionAddress = '<?php echo htmlspecialchars($_SESSION['wallet_address'] ?? '0x0'); ?>';
+                if (newAddress.toLowerCase() !== sessionAddress.toLowerCase()) {
+                    const confirmUpdate = confirm(`Your MetaMask account has changed to ${newAddress}. Would you like to update your session to use this account? Selecting "Cancel" will log you out.`);
+                    if (confirmUpdate) {
+                        await updateWalletAddress(newAddress);
+                    } else {
+                        window.location.href = 'login.php?error=' + encodeURIComponent('Wallet account changed. Please log in again.');
+                    }
+                }
+            });
+
+            window.ethereum.on('disconnect', () => {
+                console.error('MetaMask provider disconnected.');
+                alert('MetaMask has been disconnected. Please reconnect to continue.');
+                window.location.href = 'login.php?error=' + encodeURIComponent('MetaMask disconnected.');
+            });
+        }
+
+        async function updateWalletAddress(newAddress) {
+            try {
+                const response = await fetch('update-wallet.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: `wallet_address=${encodeURIComponent(newAddress)}&csrf_token=<?php echo htmlspecialchars($csrf_token); ?>`
+                });
+                const result = await response.json();
+                if (result.success) {
+                    console.log('Session wallet address updated to:', newAddress);
+                    alert('Wallet address updated successfully. The page will now reload.');
+                    location.reload();
+                } else {
+                    console.error('Failed to update wallet address:', result.error);
+                    alert('Failed to update wallet address: ' + result.error);
+                    window.location.href = 'login.php?error=' + encodeURIComponent('Wallet update failed.');
+                }
+            } catch (error) {
+                console.error('Error updating wallet address:', error.code, error.message);
+                alert('Error updating wallet address: ' + error.message);
+                window.location.href = 'login.php?error=' + encodeURIComponent('Wallet update error.');
             }
         }
 
@@ -1212,7 +1338,6 @@ try {
             try {
                 const association = '<?php echo htmlspecialchars($_SESSION['association'] ?? ''); ?>';
                 let electionId = 2; // UDOMASA election ID
-                console.log('Fetching votes for electionId:', electionId, 'voter:', voterAddress);
 
                 const allVotes = await contract.methods.getVotesByElection(electionId).call();
                 console.log('Votes returned:', allVotes);
@@ -1241,6 +1366,172 @@ try {
             }
         }
 
+        async function loadSummaryAnalytics() {
+            const voterAddress = await getAndValidateWalletAddress();
+            if (!voterAddress) {
+                summaryAnalytics.innerHTML = '<p class="error">Unable to load analytics: Wallet validation failed.</p>';
+                return;
+            }
+            try {
+                const association = '<?php echo htmlspecialchars($_SESSION['association'] ?? ''); ?>';
+                let electionId = 2; // UDOMASA election ID
+
+                const allVotes = await contract.methods.getVotesByElection(electionId).call();
+                if (!allVotes || allVotes.length === 0) {
+                    summaryAnalytics.innerHTML = '<p class="error">No votes found for this election.</p>';
+                    return;
+                }
+
+                const positionsMap = {};
+                allVotes.forEach(vote => {
+                    const positionId = vote.positionId.toString();
+                    const candidateId = vote.candidateId.toString();
+                    if (!positionsMap[positionId]) {
+                        positionsMap[positionId] = {
+                            name: vote.positionName,
+                            candidates: {}
+                        };
+                    }
+                    if (!positionsMap[positionId].candidates[candidateId]) {
+                        positionsMap[positionId].candidates[candidateId] = {
+                            name: vote.candidateName,
+                            votes: 0
+                        };
+                    }
+                    positionsMap[positionId].candidates[candidateId].votes++;
+                });
+
+                let html = '';
+                for (const [positionId, pos] of Object.entries(positionsMap)) {
+                    const candidates = Object.values(pos.candidates);
+                    html += `
+                        <div>
+                            <h4>${pos.name}</h4>
+                            <canvas id="bar-chart-${positionId}" style="max-width: 600px;"></canvas>
+                            <canvas id="line-chart-${positionId}" style="max-width: 600px;"></canvas>
+                            <canvas id="pie-chart-${positionId}" style="max-width: 600px;"></canvas>
+                        </div>
+                    `;
+                }
+                summaryAnalytics.innerHTML = html;
+
+                for (const [positionId, pos] of Object.entries(positionsMap)) {
+                    const candidates = Object.values(pos.candidates);
+
+                    // Bar Chart
+                    const barCtx = document.getElementById(`bar-chart-${positionId}`).getContext('2d');
+                    new Chart(barCtx, {
+                        type: 'bar',
+                        data: {
+                            labels: candidates.map(c => c.name),
+                            datasets: [{
+                                label: 'Votes',
+                                data: candidates.map(c => c.votes),
+                                backgroundColor: '#f4a261',
+                                borderColor: '#e76f51',
+                                borderWidth: 1
+                            }]
+                        },
+                        options: {
+                            scales: {
+                                y: {
+                                    beginAtZero: true
+                                }
+                            },
+                            plugins: {
+                                title: {
+                                    display: true,
+                                    text: `${pos.name} Vote Distribution (Bar)`,
+                                    color: '#2d3748',
+                                    font: {
+                                        size: 14
+                                    }
+                                },
+                                legend: {
+                                    labels: {
+                                        color: '#2d3748'
+                                    }
+                                }
+                            }
+                        }
+                    });
+
+                    // Line Chart
+                    const lineCtx = document.getElementById(`line-chart-${positionId}`).getContext('2d');
+                    new Chart(lineCtx, {
+                        type: 'line',
+                        data: {
+                            labels: candidates.map(c => c.name),
+                            datasets: [{
+                                label: 'Votes',
+                                data: candidates.map(c => c.votes),
+                                backgroundColor: 'rgba(244, 162, 97, 0.2)',
+                                borderColor: '#f4a261',
+                                borderWidth: 2,
+                                tension: 0.4
+                            }]
+                        },
+                        options: {
+                            scales: {
+                                y: {
+                                    beginAtZero: true
+                                }
+                            },
+                            plugins: {
+                                title: {
+                                    display: true,
+                                    text: `${pos.name} Vote Trend (Line)`,
+                                    color: '#2d3748',
+                                    font: {
+                                        size: 14
+                                    }
+                                },
+                                legend: {
+                                    labels: {
+                                        color: '#2d3748'
+                                    }
+                                }
+                            }
+                        }
+                    });
+
+                    // Pie Chart
+                    const pieCtx = document.getElementById(`pie-chart-${positionId}`).getContext('2d');
+                    new Chart(pieCtx, {
+                        type: 'pie',
+                        data: {
+                            labels: candidates.map(c => c.name),
+                            datasets: [{
+                                data: candidates.map(c => c.votes),
+                                backgroundColor: ['#f4a261', '#e76f51', '#2a9d8f', '#264653', '#e9c46a'],
+                                borderWidth: 1
+                            }]
+                        },
+                        options: {
+                            plugins: {
+                                title: {
+                                    display: true,
+                                    text: `${pos.name} Vote Distribution (Pie)`,
+                                    color: '#2d3748',
+                                    font: {
+                                        size: 14
+                                    }
+                                },
+                                legend: {
+                                    labels: {
+                                        color: '#2d3748'
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading analytics:', error.code, error.message);
+                summaryAnalytics.innerHTML = '<p class="error">Error loading analytics: ' + (error.message || 'Unknown error') + '</p>';
+            }
+        }
+
         function resetInactivityTimer() {
             clearTimeout(inactivityTimer);
             clearTimeout(warningTimer);
@@ -1265,6 +1556,7 @@ try {
 
         window.addEventListener('load', async () => {
             await loadMyVotes();
+            await loadSummaryAnalytics();
             resetInactivityTimer();
         });
 
@@ -1277,13 +1569,13 @@ try {
             e.preventDefault();
             resultsModal.style.display = 'flex';
             resultsContent.innerHTML = `
-            <h3>Election Results</h3>
-            <div style="margin-bottom: 20px;">
-                <input type="number" id="election-id-input" placeholder="Search Election ID..." style="padding: 10px; border: 1px solid #e0e0e0; border-radius: 4px; width: 100%; max-width: 300px; font-size: 14px; outline: none;" onfocus="this.style.borderColor='#1a3c34';" onblur="this.style.borderColor='#e0e0e0';">
-                <button id="fetch-results-btn" style="padding: 10px 20px; background: #1a3c34; color: #fff; border: none; border-radius: 4px; cursor: pointer; margin-left: 10px; font-size: 14px; transition: background 0.3s;">Fetch Results</button>
-            </div>
-            <div id="results-display"></div>
-        `;
+                <h3>Election Results</h3>
+                <div style="margin-bottom: 20px;">
+                    <input type="number" id="election-id-input" placeholder="Search Election ID..." style="padding: 10px; border: 1px solid #e0e0e0; border-radius: 4px; width: 100%; max-width: 300px; font-size: 14px; outline: none;" onfocus="this.style.borderColor='#1a3c34';" onblur="this.style.borderColor='#e0e0e0';">
+                    <button id="fetch-results-btn" style="padding: 10px 20px; background: #1a3c34; color: #fff; border: none; border-radius: 4px; cursor: pointer; margin-left: 10px; font-size: 14px; transition: background 0.3s;">Fetch Results</button>
+                </div>
+                <div id="results-display"></div>
+            `;
 
             document.getElementById('fetch-results-btn').addEventListener('click', displayResults);
         });
@@ -1364,20 +1656,20 @@ try {
                     from: voterAddress
                 });
                 let resultsHtml = `
-                <h4>Results for Election ID: ${electionId}</h4>
-                <div class="candidate-grid" style="margin-top: 20px;">
-                    <div class="candidate-card" style="padding: 20px; border: 1px solid #e0e0e0; border-radius: 12px;">
-                        <table style="width: 100%; border-collapse: collapse;">
-                            <thead>
-                                <tr style="background: #1a3c34; color: #fff;">
-                                    <th style="padding: 10px; text-align: left;">Candidate ID</th>
-                                    <th style="padding: 10px; text-align: left;">Name</th>
-                                    <th style="padding: 10px; text-align: left;">Position</th>
-                                    <th style="padding: 10px; text-align: left;">Votes</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-            `;
+                    <h4>Results for Election ID: ${electionId}</h4>
+                    <div class="candidate-grid" style="margin-top: 20px;">
+                        <div class="candidate-card" style="padding: 20px; border: 1px solid #e0e0e0; border-radius: 12px;">
+                            <table style="width: 100%; border-collapse: collapse;">
+                                <thead>
+                                    <tr style="background: #1a3c34; color: #fff;">
+                                        <th style="padding: 10px; text-align: left;">Candidate ID</th>
+                                        <th style="padding: 10px; text-align: left;">Name</th>
+                                        <th style="padding: 10px; text-align: left;">Position</th>
+                                        <th style="padding: 10px; text-align: left;">Votes</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                `;
 
                 const voteCounts = {};
                 allVotes.forEach(vote => {
@@ -1392,28 +1684,30 @@ try {
 
                 for (let candidateId in voteCounts) {
                     resultsHtml += `
-                    <tr style="border-bottom: 1px solid #e0e0e0;">
-                        <td style="padding: 10px;">${candidateId}</td>
-                        <td style="padding: 10px;">${voteCounts[candidateId].name}</td>
-                        <td style="padding: 10px;">${voteCounts[candidateId].position}</td>
-                        <td style="padding: 10px;">${voteCounts[candidateId].count} vote(s)</td>
-                    </tr>
-                `;
+                        <tr style="border-bottom: 1px solid #e0e0e0;">
+                            <td style="padding: 10px;">${candidateId}</td>
+                            <td style="padding: 10px;">${voteCounts[candidateId].name}</td>
+                            <td style="padding: 10px;">${voteCounts[candidateId].position}</td>
+                            <td style="padding: 10px;">${voteCounts[candidateId].count} vote(s)</td>
+                        </tr>
+                    `;
                 }
 
                 if (Object.keys(voteCounts).length === 0) {
                     resultsHtml += `
-                    <td colspan="4" style="padding: 10px; text-align: center; color: #e76f51;">No votes recorded yet.</td>
-                </tr>`;
+                        <tr>
+                            <td colspan="4" style="padding: 10px; text-align: center; color: #e76f51;">No votes recorded yet.</td>
+                        </tr>
+                    `;
                 }
 
                 resultsHtml += `
-                            </tbody>
-                        </table>
-                        <button onclick="closeResultsModal()" style="margin-top: 20px; padding: 10px 20px; background: #e76f51; color: white; border: none; cursor: pointer; border-radius: 4px; font-size: 14px; transition: background 0.3s;">Close</button>
+                                </tbody>
+                            </table>
+                            <button onclick="closeResultsModal()" style="margin-top: 20px; padding: 10px 20px; background: #e76f51; color: white; border: none; cursor: pointer; border-radius: 4px; font-size: 14px; transition: background 0.3s;">Close</button>
+                        </div>
                     </div>
-                </div>
-            `;
+                `;
 
                 resultsDisplay.innerHTML = resultsHtml;
             } catch (error) {

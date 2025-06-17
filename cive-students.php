@@ -11,7 +11,7 @@ try {
     }
 } catch (Exception $e) {
     error_log("Database connection error: " . $e->getMessage());
-    die("Unable to connect to the database. Please try again later.");
+    die("Unable to connect to database. Please try again later.");
 }
 
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['role'])) {
@@ -36,7 +36,7 @@ if (!isset($_SESSION['2fa_verified']) || $_SESSION['2fa_verified'] !== true) {
 // Wallet address validation
 if (!isset($_SESSION['wallet_address']) || empty($_SESSION['wallet_address']) || !preg_match('/^0x[a-fA-F0-9]{40}$/', $_SESSION['wallet_address'])) {
     error_log("Invalid or unset wallet address in session for user_id: " . ($_SESSION['user_id'] ?? 'unset'));
-    $_SESSION['csrf_token'] = bin2hex(random_bytes(32)); // Regenerate CSRF token for redirect
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32)); 
     header('Location: post-login.php?role=' . urlencode($_SESSION['role']) . '&college_id=' . urlencode($_SESSION['college_id'] ?? '') . '&association=' . urlencode($_SESSION['association'] ?? '') . '&csrf_token=' . urlencode($_SESSION['csrf_token']));
     exit;
 }
