@@ -930,7 +930,7 @@ $conn->close();
                 return;
             }
             provider = new ethers.providers.Web3Provider(window.ethereum);
-            signer = provider.getSigner();
+            signer = provider.getSigner(); 
             try {
                 const response = await fetch('./js/contract-abi.json');
                 if (!response.ok) throw new Error('Failed to fetch ABI');
