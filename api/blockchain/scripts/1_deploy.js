@@ -19,7 +19,7 @@ async function main() {
 
   // Waiting for the deployment transaction to be mined
   console.log("Waiting for deployment to be mined...");
-  await voteContract.waitForDeployment(); // Use waitForDeployment() instead of deployed()
+  await voteContract.waitForDeployment(); 
   const txReceipt = await voteContract.deploymentTransaction().wait();
   console.log("Transaction receipt:", txReceipt);
 

@@ -33,6 +33,9 @@ CREATE TABLE `all_users` (
   `fname` varchar(30) DEFAULT NULL,
   `mname` varchar(30) DEFAULT NULL,
   `lname` varchar(30) DEFAULT NULL,
+  `password` varchar(255) NOT NULL,
+  `is_verified` tinyint(1) DEFAULT '0',
+  `wallet_address` varchar(50) NOT NULL DEFAULT '',
   `hostel_id` int DEFAULT NULL,
   `college_id` int DEFAULT NULL,
   PRIMARY KEY (`official_id`),
@@ -50,6 +53,7 @@ CREATE TABLE `all_users` (
 
 LOCK TABLES `all_users` WRITE;
 /*!40000 ALTER TABLE `all_users` DISABLE KEYS */;
+INSERT INTO `all_users` VALUES ('T22-03-098765','yustobitalio27@gmail.com','UDOSO','2025-06-17 10:34:41',NULL,'voter',1,'Yusto','Bitalio','Obonyo','',0,'0x1234567890abcdef1234567890abcdef12345678',1,1);
 /*!40000 ALTER TABLE `all_users` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -64,7 +68,7 @@ CREATE TABLE `colleges` (
   `id` int NOT NULL AUTO_INCREMENT,
   `name` varchar(100) NOT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -73,6 +77,7 @@ CREATE TABLE `colleges` (
 
 LOCK TABLES `colleges` WRITE;
 /*!40000 ALTER TABLE `colleges` DISABLE KEYS */;
+INSERT INTO `colleges` VALUES (1,'CIVE'),(2,'CoED'),(3,'CNMS');
 /*!40000 ALTER TABLE `colleges` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -90,7 +95,7 @@ CREATE TABLE `hostels` (
   PRIMARY KEY (`id`),
   KEY `college_id` (`college_id`),
   CONSTRAINT `hostels_ibfk_1` FOREIGN KEY (`college_id`) REFERENCES `colleges` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=41 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -99,6 +104,7 @@ CREATE TABLE `hostels` (
 
 LOCK TABLES `hostels` WRITE;
 /*!40000 ALTER TABLE `hostels` DISABLE KEYS */;
+INSERT INTO `hostels` VALUES (1,'Block 1',1),(2,'Block 2',1),(3,'Block 3',1),(4,'Block 4',1),(5,'Block 5',1),(6,'Block 6',1),(7,'Block 1',2),(8,'Block 2',2),(9,'Block 3',2),(10,'Block 4',2),(11,'Block 5',2),(12,'Block 6',2),(13,'Block 7',2),(14,'Block 8',2),(15,'Block 9',2),(16,'Block 10',2),(17,'Block 11',2),(18,'Block 12',2),(19,'Block 13',2),(20,'Block 14',2),(21,'Block 15',2),(22,'Block 16',2),(23,'Block 17',2),(24,'Block 18',2),(25,'Block 19',2),(26,'Block 20',2),(27,'Block 1',3),(28,'Block 2',3),(29,'Block 3',3),(30,'Block 4',3),(31,'Block 5',3),(32,'Block 6',3),(33,'Block 7',3),(34,'Block 8',3),(35,'Block 9',3),(36,'Block 10',3),(37,'Block 11',3),(38,'Block 12',3),(39,'Block 13',3),(40,'Block 14',3);
 /*!40000 ALTER TABLE `hostels` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -111,4 +117,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-06-06 18:38:15
+-- Dump completed on 2025-06-27  8:42:08

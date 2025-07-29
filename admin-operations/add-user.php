@@ -15,7 +15,6 @@ $colleges = [];
 $hostels = [];
 $associations = ['UDOSO', 'UDOMASA']; 
 
-// Check if database connection is successful
 if (!isset($db) || $db->connect_error) {
     error_log("Database connection failed: " . ($db ? $db->connect_error : "DB object not set"));
     $errors[] = "Unable to connect to the database.";

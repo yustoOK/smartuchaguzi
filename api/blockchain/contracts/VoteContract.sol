@@ -4,7 +4,6 @@ pragma solidity ^0.8.28;
 contract VoteContract {
     address public admin;
 
-    // Track if a voter has voted for a position in an election
     mapping(address => mapping(uint256 => mapping(uint256 => bool))) public hasVoted;
 
     mapping(uint256 => mapping(string => uint256)) public voteCount;
@@ -46,7 +45,6 @@ contract VoteContract {
         string memory candidateName,
         string memory positionName
     ) external {
-        // Check if voter has already voted for this position in this election
         require(
             !hasVoted[msg.sender][electionId][positionId],
             "Already voted for this position in this election"
