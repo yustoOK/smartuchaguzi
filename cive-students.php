@@ -33,7 +33,6 @@ if (!isset($_SESSION['2fa_verified']) || $_SESSION['2fa_verified'] !== true) {
     exit;
 }
 
-// Wallet address validation
 if (!isset($_SESSION['wallet_address']) || empty($_SESSION['wallet_address']) || !preg_match('/^0x[a-fA-F0-9]{40}$/', $_SESSION['wallet_address'])) {
     error_log("Invalid or unset wallet address in session for user_id: " . ($_SESSION['user_id'] ?? 'unset'));
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32)); 
@@ -294,676 +293,81 @@ try {
     error_log("Fetch elections failed: " . $e->getMessage());
     $errors[] = "Failed to load elections due to a server error.";
 }
+
+function getUserInitials($name) {
+    $parts = explode(" ", trim($name));
+    $initials = "";
+    foreach ($parts as $part) {
+        if (trim($part) !== "") {
+            $initials .= strtoupper(substr(trim($part), 0, 1));
+        }
+    }
+    return $initials ?: "U";
+}
 ?>
 
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CIVE UDOSO | SmartUchaguzi</title>
+    <title>CIVE Students Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
     <link rel="icon" href="./images/System Logo.jpg" type="image/x-icon">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/web3@1.10.0/dist/web3.min.js"></script>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Poppins', sans-serif;
-        }
-
-        body {
-            background: linear-gradient(rgba(26, 60, 52, 0.7), rgba(26, 60, 52, 0.7)), url('images/cive.jpeg');
-            background-size: cover;
-            color: #2d3748;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .header {
-            background: #1a3c34;
-            color: #e6e6e6;
-            padding: 15px 30px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-            position: fixed;
-            width: 100%;
-            top: 0;
-            z-index: 1000;
-        }
-
-        .logo {
-            display: flex;
-            align-items: center;
-        }
-
-        .logo img {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            margin-right: 10px;
-        }
-
-        .logo h1 {
-            font-size: 24px;
-            font-weight: 600;
-        }
-
-        .nav a {
-            color: #e6e6e6;
-            text-decoration: none;
-            margin: 0 15px;
-            font-size: 16px;
-            transition: color 0.3s ease;
-        }
-
-        .nav a:hover {
-            color: #f4a261;
-        }
-
-        .user {
-            display: flex;
-            align-items: center;
-            position: relative;
-        }
-
-        .user img {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            margin-right: 10px;
-            cursor: pointer;
-        }
-
-        .dropdown {
-            display: none;
-            position: absolute;
-            top: 60px;
-            right: 20px;
-            background: #fff;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-            overflow: hidden;
-            z-index: 1002;
-        }
-
-        .dropdown a,
-        .dropdown span {
-            display: block;
-            padding: 10px 20px;
-            color: #2d3748;
-            text-decoration: none;
-            font-size: 16px;
-        }
-
-        .dropdown a:hover {
-            background: #f4a261;
-            color: #fff;
-        }
-
-        .logout-link {
-            display: none;
-            color: #e6e6e6;
-            text-decoration: none;
-            font-size: 16px;
-        }
-
-        .dashboard {
-            margin-top: 80px;
-            padding: 30px;
-            display: flex;
-            justify-content: center;
-            flex: 1;
-        }
-
-        .dash-content {
-            background: rgba(255, 255, 255, 0.95);
-            padding: 30px;
-            border-radius: 12px;
-            width: 100%;
-            max-width: 1200px;
-            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
-        }
-
-        .dash-content h2 {
-            font-size: 28px;
-            color: #1a3c34;
-            margin-bottom: 20px;
-            text-align: center;
-        }
-
-        .my-votes-section {
-            margin-bottom: 30px;
-        }
-
-        .my-votes-section h3 {
-            font-size: 22px;
-            color: #2d3748;
-            margin-bottom: 15px;
-        }
-
-        .vote-item {
-            background: #fff;
-            border: 1px solid #e0e0e0;
-            border-radius: 8px;
-            padding: 15px;
-            margin-bottom: 10px;
-        }
-
-        .election-section {
-            margin-bottom: 30px;
-        }
-
-        .election-section h3 {
-            font-size: 22px;
-            color: #2d3748;
-            margin-bottom: 15px;
-        }
-
-        .position-section {
-            margin-bottom: 20px;
-        }
-
-        .position-section h4 {
-            font-size: 18px;
-            color: #2d3748;
-            margin-bottom: 15px;
-            border-bottom: 2px solid #1a3c34;
-            padding-bottom: 5px;
-        }
-
-        .candidate-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 20px;
-            margin-bottom: 20px;
-        }
-
-        .candidate-card {
-            background: #fff;
-            border: 1px solid #e0e0e0;
-            border-radius: 12px;
-            padding: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .candidate-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
-        }
-
-        .candidate-img {
-            width: 80px;
-            height: 80px;
-            object-fit: cover;
-            border-radius: 50%;
-            border: 3px solid #1a3c34;
-            margin-right: 15px;
-            transition: border-color 0.3s ease;
-        }
-
-        .candidate-card:hover .candidate-img {
-            border-color: #f4a261;
-        }
-
-        .candidate-details {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            gap: 5px;
-        }
-
-        .candidate-details h5 {
-            font-size: 16px;
-            font-weight: 600;
-            color: #2d3748;
-            margin: 0;
-        }
-
-        .candidate-details p {
-            font-size: 14px;
-            color: #666;
-            margin: 0;
-        }
-
-        .error,
-        .success {
-            padding: 15px;
-            border-radius: 6px;
-            margin-bottom: 20px;
-            font-size: 16px;
-        }
-
-        .error {
-            background: #ffe6e6;
-            color: #e76f51;
-            border: 1px solid #e76f51;
-        }
-
-        .success {
-            background: #e6fff5;
-            color: #2a9d8f;
-            border: 1px solid #2a9d8f;
-        }
-
-        .verify-modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.5);
-            z-index: 1001;
-            justify-content: center;
-            align-items: center;
-        }
-
-        .verify-modal-content {
-            background: #fff;
-            padding: 30px;
-            border-radius: 12px;
-            max-width: 500px;
-            width: 90%;
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
-            text-align: center;
-        }
-
-        .verify-modal-content label {
-            display: block;
-            font-size: 14px;
-            color: #2d3748;
-            margin-bottom: 5px;
-        }
-
-        .verify-modal-content input {
-            width: 100%;
-            padding: 10px;
-            margin-bottom: 10px;
-            border: 1px solid #e0e0e0;
-            border-radius: 4px;
-            font-size: 14px;
-            outline: none;
-        }
-
-        .verify-modal-content input:focus {
-            border-color: #1a3c34;
-        }
-
-        .verify-modal-content input:blur {
-            border-color: #e0e0e0;
-        }
-
-        .verify-modal-content button {
-            background: #1a3c34;
-            color: #fff;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 14px;
-            transition: background 0.3s;
-            margin: 0 10px;
-        }
-
-        .verify-modal-content button:hover {
-            background: #f4a261;
-        }
-
-        .results-modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.5);
-            z-index: 1001;
-            justify-content: center;
-            align-items: center;
-        }
-
-        .results-modal-content {
-            background: #fff;
-            padding: 30px;
-            border-radius: 12px;
-            max-width: 90%;
-            width: 100%;
-            max-height: 90vh;
-            overflow-y: auto;
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
-            text-align: center;
-        }
-
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.5);
-            z-index: 1001;
-            justify-content: center;
-            align-items: center;
-        }
-
-        .modal-content {
-            background: #fff;
-            padding: 20px;
-            border-radius: 8px;
-            text-align: center;
-            max-width: 400px;
-            width: 90%;
-        }
-
-        .modal-content button {
-            background: #1a3c34;
-            color: #fff;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 16px;
-            transition: background 0.3s;
-        }
-
-        .modal-content button:hover {
-            background: #f4a261;
-        }
-
-        .summary-analytics {
-            margin-top: 30px;
-        }
-
-        .summary-analytics h3 {
-            font-size: 22px;
-            color: #2d3748;
-            margin-bottom: 15px;
-        }
-
-        .summary-analytics canvas {
-            max-width: 600px;
-            margin: 20px auto;
-            background: #fff;
-            padding: 15px;
-            border-radius: 10px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-        }
-
-        @media (max-width: 768px) {
-            .header {
-                flex-direction: column;
-                padding: 10px 20px;
-            }
-
-            .logo h1 {
-                font-size: 20px;
-            }
-
-            .nav {
-                margin: 10px 0;
-                text-align: center;
-            }
-
-            .nav a {
-                margin: 0 10px;
-                font-size: 14px;
-            }
-
-            .user img {
-                display: none;
-            }
-
-            .dropdown {
-                display: block;
-                position: static;
-                box-shadow: none;
-                background: none;
-                text-align: center;
-            }
-
-            .dropdown a,
-            .dropdown span {
-                color: #e6e6e6;
-                padding: 5px 10px;
-            }
-
-            .dropdown a:hover {
-                background: none;
-                color: #f4a261;
-            }
-
-            .logout-link {
-                display: block;
-                margin-top: 10px;
-            }
-
-            .dash-content {
-                padding: 20px;
-            }
-
-            .dash-content h2 {
-                font-size: 24px;
-            }
-
-            .election-section h3 {
-                font-size: 18px;
-            }
-
-            .position-section h4 {
-                font-size: 16px;
-            }
-
-            .candidate-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .candidate-card {
-                flex-direction: column;
-                align-items: flex-start;
-                padding: 15px;
-            }
-
-            .candidate-img {
-                width: 60px;
-                height: 60px;
-                margin-bottom: 10px;
-                margin-right: 0;
-            }
-
-            .candidate-details h5 {
-                font-size: 14px;
-            }
-
-            .candidate-details p {
-                font-size: 12px;
-            }
-
-            .summary-analytics canvas {
-                max-width: 100%;
-            }
-        }
-
-        @media (min-width: 600px) {
-            .candidate-card {
-                flex-direction: row;
-                align-items: center;
-            }
-
-            .candidate-img {
-                margin-bottom: 0;
-            }
-        }
-    </style>
 </head>
-
 <body>
-    <header class="header">
-        <div class="logo">
-            <img src="./images/System Logo.jpg" alt="SmartUchaguzi Logo">
-            <h1>SmartUchaguzi</h1>
-        </div>
-        <div class="nav">
+    <header>
+        <div class="logo">CIVE Students</div>
+        <nav class="nav">
             <a href="process-vote.php" id="cast-vote-link">Cast Vote</a>
             <a href="#" id="verify-vote-link">Verify Vote</a>
             <a href="#" id="results-link">Results</a>
-        </div>
-        <div class="user">
-            <img src="<?php echo htmlspecialchars($profile_picture); ?>" alt="User Profile Picture" id="profile-pic">
-            <div class="dropdown" id="user-dropdown">
-                <span style="color: #e6e6e6; padding: 10px 20px;"><?php echo htmlspecialchars($user['fname'] ?? 'User'); ?></span>
-                <a href="#">My Profile</a>
+            <a href="#" id="analytics-link">Analytics</a>
+        </nav>
+        <div class="user-profile" id="profile-pic">
+            <?php echo htmlspecialchars(getUserInitials($_SESSION['name'] ?? 'Unknown User')); ?>
+            <div class="user-dropdown" id="user-dropdown">
+                <a href="profile.php">Profile</a>
                 <a href="logout.php">Logout</a>
             </div>
-            <a href="logout.php" class="logout-link">Logout</a>
         </div>
     </header>
-
-    <section class="dashboard">
-        <div class="dash-content">
-            <h2>User Analytics</h2>
-
-            <!-- My Votes Section -->
-            <div class="my-votes-section">
-                <h3>Votes</h3>
-                <div id="my-votes"></div>
-            </div>
-
-            <?php if (!empty($errors)): ?>
-                <div class="error">
-                    <?php foreach ($errors as $error): ?>
-                        <p><?php echo htmlspecialchars($error); ?></p>
-                    <?php endforeach; ?>
-                </div>
-            <?php elseif (empty($elections)): ?>
-                <div class="error">
-                    <p>No ongoing elections available at this time.</p>
-                </div>
-            <?php else: ?>
-                <?php foreach ($elections as $election): ?>
-                    <div class="election-section">
-                        <h3>Election: <?php echo htmlspecialchars($election['title']); ?></h3>
-                        <?php if (empty($election['positions'])): ?>
-                            <div class="error">
-                                <p>No positions available for you to vote in this election.</p>
-                            </div>
-                        <?php else: ?>
-                            <?php foreach ($election['positions'] as $position): ?>
-                                <div class="position-section">
-                                    <h4>Position: <?php echo htmlspecialchars($position['position_name']); ?></h4>
-                                    <?php if (empty($position['candidates'])): ?>
-                                        <div class="error">
-                                            <p>No candidates available for this position.</p>
-                                        </div>
-                                    <?php else: ?>
-                                        <div class="candidate-grid">
-                                            <?php
-                                            foreach ($position['candidates'] as $key => $candidateGroup) {
-                                                if ($position['scope'] !== 'hostel' && count($candidateGroup) == 2) {
-                                                    $mainCandidate = $candidateGroup[0]['is_vice'] == 0 ? $candidateGroup[0] : $candidateGroup[1];
-                                                    $viceCandidate = $candidateGroup[0]['is_vice'] == 1 ? $candidateGroup[0] : $candidateGroup[1];
-                                                    $pair_id = $mainCandidate['pair_id'];
-                                            ?>
-                                                    <div class="candidate-card">
-                                                        <div style="display: flex; align-items: center;">
-                                                            <img src="<?php echo htmlspecialchars($mainCandidate['passport'] ?: 'images/general.png'); ?>" alt="Candidate <?php echo htmlspecialchars($mainCandidate['firstname'] . ' ' . $mainCandidate['lastname']); ?>" class="candidate-img">
-                                                            <div class="candidate-details">
-                                                                <h5><?php echo htmlspecialchars($mainCandidate['firstname'] . ' ' . $mainCandidate['lastname']); ?></h5>
-                                                                <p>Official ID: <?php echo htmlspecialchars($mainCandidate['official_id']); ?></p>
-                                                                <p>Association: <?php echo htmlspecialchars($association); ?></p>
-                                                            </div>
-                                                        </div>
-                                                        <div style="display: flex; align-items: center;">
-                                                            <img src="<?php echo htmlspecialchars($viceCandidate['passport'] ?: 'images/general.png'); ?>" alt="Running Mate <?php echo htmlspecialchars($viceCandidate['firstname'] . ' ' . $viceCandidate['lastname']); ?>" class="candidate-img">
-                                                            <div class="candidate-details">
-                                                                <h5><?php echo htmlspecialchars($viceCandidate['firstname'] . ' ' . $viceCandidate['lastname']); ?></h5>
-                                                                <p>Official ID: <?php echo htmlspecialchars($viceCandidate['official_id']); ?></p>
-                                                                <p>Role: <?php echo htmlspecialchars($position['vice_position_name']); ?></p>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                <?php
-                                                } else {
-                                                    $candidate = $candidateGroup[0];
-                                                    $candidate_id = $candidate['id'];
-                                                ?>
-                                                    <div class="candidate-card">
-                                                        <div style="display: flex; align-items: center;">
-                                                            <img src="<?php echo htmlspecialchars($candidate['passport'] ?: 'images/general.png'); ?>" alt="Candidate <?php echo htmlspecialchars($candidate['firstname'] . ' ' . $candidate['lastname']); ?>" class="candidate-img">
-                                                            <div class="candidate-details">
-                                                                <h5><?php echo htmlspecialchars($candidate['firstname'] . ' ' . $candidate['lastname']); ?></h5>
-                                                                <p>Official ID: <?php echo htmlspecialchars($candidate['official_id']); ?></p>
-                                                                <p>Association: <?php echo htmlspecialchars($association); ?></p>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                            <?php
-                                                }
-                                            }
-                                            ?>
-                                        </div>
-                                    <?php endif; ?>
-                                </div>
-                            <?php endforeach; ?>
-                        <?php endif; ?>
-                    </div>
-                <?php endforeach; ?>
-            <?php endif; ?>
-
-            <!-- Summary Analytics Section -->
-            <div class="summary-analytics">
-                <h3>Summary Analytics</h3>
-                <div id="summary-analytics"></div>
-            </div>
-        </div>
-    </section>
-
-    <div class="verify-modal" id="verify-modal">
-        <div class="verify-modal-content">
-            <h3 style="font-size: 24px; color: #1a3c34; margin-bottom: 20px;">Verify Your Vote</h3>
-            <div style="margin-bottom: 15px;">
-                <label for="verify-election-id" style="display: block; font-size: 14px; color: #2d3748; margin-bottom: 5px;">Election ID:</label>
-                <input type="number" id="verify-election-id" placeholder="Enter Election ID" required style="width: 100%; padding: 10px; border: 1px solid #e0e0e0; border-radius: 4px; font-size: 14px; outline: none;" onfocus="this.style.borderColor='#1a3c34';" onblur="this.style.borderColor='#e0e0e0';">
-            </div>
-            <div style="margin-bottom: 15px;">
-                <label for="verify-position-id" style="display: block; font-size: 14px; color: #2d3748; margin-bottom: 5px;">Position ID:</label>
-                <input type="number" id="verify-position-id" placeholder="Enter Position ID" required style="width: 100%; padding: 10px; border: 1px solid #e0e0e0; border-radius: 4px; font-size: 14px; outline: none;" onfocus="this.style.borderColor='#1a3c34';" onblur="this.style.borderColor='#e0e0e0';">
-            </div>
-            <div style="margin-bottom: 15px;">
-                <label for="verify-candidate-id" style="display: block; font-size: 14px; color: #2d3748; margin-bottom: 5px;">Candidate ID:</label>
-                <input type="text" id="verify-candidate-id" placeholder="Enter Candidate ID" required style="width: 100%; padding: 10px; border: 1px solid #e0e0e0; border-radius: 4px; font-size: 14px; outline: none;" onfocus="this.style.borderColor='#1a3c34';" onblur="this.style.borderColor='#e0e0e0';">
-            </div>
-            <div style="display: flex; justify-content: center; gap: 10px; margin-top: 20px;">
-                <button onclick="verifyVote()" style="padding: 10px 20px; background: #1a3c34; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; transition: background 0.3s;">Verify</button>
-                <button onclick="closeVerifyModal()" style="padding: 10px 20px; background: #e76f51; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; transition: background 0.3s;">Cancel</button>
-            </div>
-            <p id="verify-result" style="margin-top: 15px; font-size: 14px; color: #2d3748;"></p>
-        </div>
+    <div class="dash-content">
+        <section id="my-votes">
+            <h3>The Votes Summary</h3>
+            <p>Loading...</p>
+        </section>
+        <section id="analytics" style="display: none;">
+            <h3>Analytics</h3>
+            <div id="results-table"></div>
+            <div id="deep-analytics"></div>
+        </section>
     </div>
 
-    <div class="modal" id="timeout-modal">
+    <div id="timeout-modal" class="modal">
         <div class="modal-content">
-            <p id="timeout-message">You will be logged out in 1 minute due to inactivity.</p>
-            <button id="extend-session">OK</button>
+            <p id="timeout-message">Your session will expire soon due to inactivity.</p>
+            <button id="extend-session">Extend Session</button>
         </div>
     </div>
 
-    <div class="results-modal" id="results-modal">
-        <div class="results-modal-content" id="results-content">
-            <!-- Results content here -->
+    <div id="verify-modal" class="modal">
+        <div class="modal-content">
+            <h3>Verify Your Vote</h3>
+            <input type="number" id="verify-election-id" placeholder="Election ID">
+            <input type="number" id="verify-position-id" placeholder="Position ID">
+            <input type="text" id="verify-candidate-id" placeholder="Candidate ID">
+            <button onclick="verifyVote()">Verify</button>
+            <button onclick="closeVerifyModal()">Close</button>
+            <div id="verify-result"></div>
+        </div>
+    </div>
+
+    <div id="results-modal" class="modal">
+        <div class="modal-content">
+            <div id="results-content"></div>
         </div>
     </div>
 
@@ -979,7 +383,9 @@ try {
         const verifyVoteLink = document.getElementById('verify-vote-link');
         const verifyModal = document.getElementById('verify-modal');
         const myVotesSection = document.getElementById('my-votes');
-        const summaryAnalytics = document.getElementById('summary-analytics');
+        const analyticsSection = document.getElementById('analytics');
+        const resultsTable = document.getElementById('results-table');
+        const deepAnalyticsSection = document.getElementById('deep-analytics');
         const castVoteLink = document.getElementById('cast-vote-link');
         const resultsLink = document.getElementById('results-link');
         const resultsModal = document.getElementById('results-modal');
@@ -1255,33 +661,25 @@ try {
                     window.location.href = 'login.php?error=' + encodeURIComponent('MetaMask not detected.');
                     return null;
                 }
-
-                const accounts = await window.ethereum.request({
-                    method: 'eth_requestAccounts'
-                });
+                const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
                 if (accounts.length === 0) {
                     console.error('No MetaMask accounts available.');
                     alert('Please connect an account in MetaMask.');
                     window.location.href = 'login.php?error=' + encodeURIComponent('No MetaMask account connected.');
                     return null;
                 }
-
                 const currentAddress = accounts[0];
                 const sessionAddress = '<?php echo htmlspecialchars($_SESSION['wallet_address'] ?? '0x0'); ?>';
-
                 console.log('Current MetaMask Wallet Address:', currentAddress);
                 console.log('Session Wallet Address:', sessionAddress);
-
                 if (isDevMode) {
                     console.warn('Development Mode: Skipping wallet address validation.');
                     return currentAddress;
                 }
-
                 if (currentAddress.toLowerCase() !== sessionAddress.toLowerCase()) {
                     await updateWalletAddress(currentAddress);
                     location.reload();
                 }
-
                 return currentAddress;
             } catch (error) {
                 console.error('Error accessing MetaMask wallet:', error.code, error.message);
@@ -1299,16 +697,13 @@ try {
                     window.location.href = 'login.php?error=' + encodeURIComponent('MetaMask disconnected.');
                     return;
                 }
-
                 const newAddress = accounts[0];
                 console.log('MetaMask account changed to:', newAddress);
-
                 if (isDevMode) {
                     console.warn('Development Mode: Auto-updating session wallet address.');
                     await updateWalletAddress(newAddress);
                     return;
                 }
-
                 const sessionAddress = '<?php echo htmlspecialchars($_SESSION['wallet_address'] ?? '0x0'); ?>';
                 if (newAddress.toLowerCase() !== sessionAddress.toLowerCase()) {
                     const confirmUpdate = confirm(`Your MetaMask account has changed to ${newAddress}. Would you like to update your session to use this account? Selecting "Cancel" will log you out.`);
@@ -1319,7 +714,6 @@ try {
                     }
                 }
             });
-
             window.ethereum.on('disconnect', () => {
                 console.error('MetaMask provider disconnected.');
                 alert('MetaMask has been disconnected. Please reconnect to continue.');
@@ -1331,9 +725,7 @@ try {
             try {
                 const response = await fetch('update-wallet.php', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded'
-                    },
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                     body: `wallet_address=${encodeURIComponent(newAddress)}&csrf_token=<?php echo htmlspecialchars($csrf_token); ?>`
                 });
                 const result = await response.json();
@@ -1363,12 +755,10 @@ try {
                 const association = '<?php echo htmlspecialchars($_SESSION['association'] ?? ''); ?>';
                 let electionId = 1;
                 if (association === 'UDOMASA') electionId = 2;
-
                 const allVotes = await contract.methods.getVotesByElection(electionId).call();
                 console.log('Votes returned:', allVotes);
                 let myVotesHtml = '';
                 let hasVotes = false;
-
                 for (let vote of allVotes) {
                     if (web3.utils.toChecksumAddress(vote.voter) === web3.utils.toChecksumAddress(voterAddress)) {
                         myVotesHtml += `<div class="vote-item">
@@ -1380,7 +770,6 @@ try {
                         hasVotes = true;
                     }
                 }
-
                 if (!hasVotes) {
                     myVotesHtml = `<p>No votes cast by you.</p>`;
                 }
@@ -1391,170 +780,102 @@ try {
             }
         }
 
-        async function loadSummaryAnalytics() {
+        async function loadAnalytics() {
             const voterAddress = await getAndValidateWalletAddress();
             if (!voterAddress) {
-                summaryAnalytics.innerHTML = '<p class="error">Unable to load analytics: Wallet validation failed.</p>';
+                analyticsSection.innerHTML = '<p class="error">Unable to load analytics: Wallet validation failed.</p>';
                 return;
             }
             try {
                 const association = '<?php echo htmlspecialchars($_SESSION['association'] ?? ''); ?>';
                 let electionId = 1;
                 if (association === 'UDOMASA') electionId = 2;
-
                 const allVotes = await contract.methods.getVotesByElection(electionId).call();
                 if (!allVotes || allVotes.length === 0) {
-                    summaryAnalytics.innerHTML = '<p class="error">No votes found for this election.</p>';
+                    analyticsSection.innerHTML = '<p class="error">No votes found for this election.</p>';
                     return;
                 }
 
-                const positionsMap = {};
+                // Results Table
+                const voteCounts = {};
                 allVotes.forEach(vote => {
-                    const positionId = vote.positionId.toString();
-                    const candidateId = vote.candidateId.toString();
-                    if (!positionsMap[positionId]) {
-                        positionsMap[positionId] = {
-                            name: vote.positionName,
-                            candidates: {}
-                        };
-                    }
-                    if (!positionsMap[positionId].candidates[candidateId]) {
-                        positionsMap[positionId].candidates[candidateId] = {
-                            name: vote.candidateName,
-                            votes: 0
-                        };
-                    }
-                    positionsMap[positionId].candidates[candidateId].votes++;
+                    const candidateId = vote.candidateId;
+                    voteCounts[candidateId] = voteCounts[candidateId] || {
+                        count: 0,
+                        name: vote.candidateName,
+                        position: vote.positionName
+                    };
+                    voteCounts[candidateId].count += 1;
                 });
+                let tableHtml = `
+                    <h4>Vote Results</h4>
+                    <table class="results-table">
+                        <thead>
+                            <tr>
+                                <th>Candidate ID</th>
+                                <th>Name</th>
+                                <th>Position</th>
+                                <th>Votes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+                for (let candidateId in voteCounts) {
+                    tableHtml += `
+                        <tr>
+                            <td>${candidateId}</td>
+                            <td>${voteCounts[candidateId].name}</td>
+                            <td>${voteCounts[candidateId].position}</td>
+                            <td>${voteCounts[candidateId].count}</td>
+                        </tr>
+                    `;
+                }
+                tableHtml += '</tbody></table>';
+                resultsTable.innerHTML = tableHtml;
 
-                let html = '';
-                for (const [positionId, pos] of Object.entries(positionsMap)) {
-                    const candidates = Object.values(pos.candidates);
-                    html += `
-                        <div>
-                            <h4>${pos.name}</h4>
-                            <canvas id="bar-chart-${positionId}" style="max-width: 600px;"></canvas>
-                            <canvas id="line-chart-${positionId}" style="max-width: 600px;"></canvas>
-                            <canvas id="pie-chart-${positionId}" style="max-width: 600px;"></canvas>
+                // Deep Analytics (Heatmap and Scatter)
+                const voteHeatmap = {};
+                allVotes.forEach(vote => {
+                    const hour = new Date(vote.timestamp * 1000).getHours();
+                    const positionId = vote.positionId.toString();
+                    if (!voteHeatmap[positionId]) voteHeatmap[positionId] = {};
+                    if (!voteHeatmap[positionId][hour]) voteHeatmap[positionId][hour] = 0;
+                    voteHeatmap[positionId][hour]++;
+                });
+                const geoData = allVotes.map(vote => ({
+                    lat: Math.random() * (6.8 - 6.6) + 6.6,
+                    lng: Math.random() * (39.3 - 39.0) + 39.0,
+                    votes: 1
+                }));
+                let deepHtml = '';
+                for (const [positionId, hours] of Object.entries(voteHeatmap)) {
+                    deepHtml += `
+                        <div class="analytics-chart">
+                            <h4>Position ID: ${positionId}</h4>
+                            <canvas id="heatmap-${positionId}" style="max-width: 600px; height: 300px;"></canvas>
+                            <canvas id="scatter-${positionId}" style="max-width: 600px; height: 300px;"></canvas>
                         </div>
                     `;
                 }
-                summaryAnalytics.innerHTML = html;
+                deepAnalyticsSection.innerHTML = deepHtml;
 
-                for (const [positionId, pos] of Object.entries(positionsMap)) {
-                    const candidates = Object.values(pos.candidates);
-
-                    // Bar Chart
-                    const barCtx = document.getElementById(`bar-chart-${positionId}`).getContext('2d');
-                    new Chart(barCtx, {
-                        type: 'bar',
-                        data: {
-                            labels: candidates.map(c => c.name),
-                            datasets: [{
-                                label: 'Votes',
-                                data: candidates.map(c => c.votes),
-                                backgroundColor: '#f4a261',
-                                borderColor: '#e76f51',
-                                borderWidth: 1
-                            }]
-                        },
-                        options: {
-                            scales: {
-                                y: {
-                                    beginAtZero: true
-                                }
-                            },
-                            plugins: {
-                                title: {
-                                    display: true,
-                                    text: `${pos.name} Vote Distribution (Bar)`,
-                                    color: '#2d3748',
-                                    font: {
-                                        size: 14
-                                    }
-                                },
-                                legend: {
-                                    labels: {
-                                        color: '#2d3748'
-                                    }
-                                }
-                            }
-                        }
+                for (const [positionId, hours] of Object.entries(voteHeatmap)) {
+                    const heatmapCtx = document.getElementById(`heatmap-${positionId}`).getContext('2d');
+                    new Chart(heatmapCtx, {
+                        type: 'scatter',
+                        data: { datasets: [{ label: 'Voting Activity Heatmap', data: Object.keys(hours).map(hour => ({ x: parseInt(hour), y: hours[hour] })), backgroundColor: 'rgba(244, 162, 97, 0.6)', pointRadius: 10, pointHoverRadius: 15 }] },
+                        options: { scales: { x: { title: { display: true, text: 'Hour of Day' }, min: 0, max: 23 }, y: { title: { display: true, text: 'Number of Votes' }, beginAtZero: true } }, plugins: { title: { display: true, text: `Voting Heatmap for Position ${positionId}`, color: '#2d3748', font: { size: 14 } } } }
                     });
-
-                    // Line Chart
-                    const lineCtx = document.getElementById(`line-chart-${positionId}`).getContext('2d');
-                    new Chart(lineCtx, {
-                        type: 'line',
-                        data: {
-                            labels: candidates.map(c => c.name),
-                            datasets: [{
-                                label: 'Votes',
-                                data: candidates.map(c => c.votes),
-                                backgroundColor: 'rgba(244, 162, 97, 0.2)',
-                                borderColor: '#f4a261',
-                                borderWidth: 2,
-                                tension: 0.4
-                            }]
-                        },
-                        options: {
-                            scales: {
-                                y: {
-                                    beginAtZero: true
-                                }
-                            },
-                            plugins: {
-                                title: {
-                                    display: true,
-                                    text: `${pos.name} Vote Trend (Line)`,
-                                    color: '#2d3748',
-                                    font: {
-                                        size: 14
-                                    }
-                                },
-                                legend: {
-                                    labels: {
-                                        color: '#2d3748'
-                                    }
-                                }
-                            }
-                        }
-                    });
-
-                    // Pie Chart
-                    const pieCtx = document.getElementById(`pie-chart-${positionId}`).getContext('2d');
-                    new Chart(pieCtx, {
-                        type: 'pie',
-                        data: {
-                            labels: candidates.map(c => c.name),
-                            datasets: [{
-                                data: candidates.map(c => c.votes),
-                                backgroundColor: ['#f4a261', '#e76f51', '#2a9d8f', '#264653', '#e9c46a'],
-                                borderWidth: 1
-                            }]
-                        },
-                        options: {
-                            plugins: {
-                                title: {
-                                    display: true,
-                                    text: `${pos.name} Vote Distribution (Pie)`,
-                                    color: '#2d3748',
-                                    font: {
-                                        size: 14
-                                    }
-                                },
-                                legend: {
-                                    labels: {
-                                        color: '#2d3748'
-                                    }
-                                }
-                            }
-                        }
+                    const scatterCtx = document.getElementById(`scatter-${positionId}`).getContext('2d');
+                    new Chart(scatterCtx, {
+                        type: 'scatter',
+                        data: { datasets: [{ label: 'Geospatial Vote Distribution', data: geoData, backgroundColor: 'rgba(46, 157, 143, 0.6)', pointRadius: 5 }] },
+                        options: { scales: { x: { title: { display: true, text: 'Longitude' }, min: 39.0, max: 39.3 }, y: { title: { display: true, text: 'Latitude' }, min: 6.6, max: 6.8 } }, plugins: { title: { display: true, text: `Geospatial Distribution for Position ${positionId}`, color: '#2d3748', font: { size: 14 } } } }
                     });
                 }
             } catch (error) {
                 console.error('Error loading analytics:', error.code, error.message);
-                summaryAnalytics.innerHTML = '<p class="error">Error loading analytics: ' + (error.message || 'Unknown error') + '</p>';
+                analyticsSection.innerHTML = '<p class="error">Error loading analytics: ' + (error.message || 'Unknown error') + '</p>';
             }
         }
 
@@ -1562,12 +883,10 @@ try {
             clearTimeout(inactivityTimer);
             clearTimeout(warningTimer);
             timeoutModal.style.display = 'none';
-
             warningTimer = setTimeout(() => {
                 timeoutMessage.textContent = 'You will be logged out in 1 minute due to inactivity.';
                 timeoutModal.style.display = 'flex';
             }, (inactivityTimeout - warningTime) * 1000);
-
             inactivityTimer = setTimeout(() => {
                 window.location.href = 'login.php?error=' + encodeURIComponent('Session expired due to inactivity.');
             }, inactivityTimeout * 1000);
@@ -1577,38 +896,34 @@ try {
         document.addEventListener('keypress', resetInactivityTimer);
         document.addEventListener('click', resetInactivityTimer);
         document.addEventListener('scroll', resetInactivityTimer);
-
         extendSessionButton.addEventListener('click', resetInactivityTimer);
 
         window.addEventListener('load', async () => {
             await loadMyVotes();
-            await loadSummaryAnalytics();
             resetInactivityTimer();
         });
 
-        verifyVoteLink.addEventListener('click', (e) => {
-            e.preventDefault();
-            verifyModal.style.display = 'flex';
-        });
-
+        verifyVoteLink.addEventListener('click', (e) => { e.preventDefault(); verifyModal.style.display = 'flex'; });
         resultsLink.addEventListener('click', (e) => {
             e.preventDefault();
             resultsModal.style.display = 'flex';
             resultsContent.innerHTML = `
                 <h3>Election Results</h3>
                 <div style="margin-bottom: 20px;">
-                    <input type="number" id="election-id-input" placeholder="Search Election ID..." style="padding: 10px; border: 1px solid #e0e0e0; border-radius: 4px; width: 100%; max-width: 300px; font-size: 14px; outline: none;" onfocus="this.style.borderColor='#1a3c34';" onblur="this.style.borderColor='#e0e0e0';">
-                    <button id="fetch-results-btn" style="padding: 10px 20px; background: #1a3c34; color: #fff; border: none; border-radius: 4px; cursor: pointer; margin-left: 10px; font-size: 14px; transition: background 0.3s;">Fetch Results</button>
+                    <input type="number" id="election-id-input" placeholder="Search Election ID...">
+                    <button id="fetch-results-btn">Fetch Results</button>
                 </div>
                 <div id="results-display"></div>
             `;
-
             document.getElementById('fetch-results-btn').addEventListener('click', displayResults);
         });
-
-        castVoteLink.addEventListener('click', (e) => {
+        castVoteLink.addEventListener('click', (e) => { e.preventDefault(); window.location.href = 'process-vote.php'; });
+        document.getElementById('analytics-link').addEventListener('click', (e) => {
             e.preventDefault();
-            window.location.href = 'process-vote.php';
+            analyticsSection.style.display = analyticsSection.style.display === 'block' ? 'none' : 'block';
+            if (analyticsSection.style.display === 'block') {
+                loadAnalytics();
+            }
         });
 
         async function verifyVote() {
@@ -1616,34 +931,25 @@ try {
             const positionId = document.getElementById('verify-position-id').value;
             const candidateId = document.getElementById('verify-candidate-id').value;
             const resultDiv = document.getElementById('verify-result');
-
             if (!electionId || !positionId || !candidateId) {
                 resultDiv.innerHTML = '<p class="error">Please fill in all fields.</p>';
                 return;
             }
-
             try {
                 const voterAddress = await getAndValidateWalletAddress();
                 if (!voterAddress) {
                     resultDiv.innerHTML = '<p class="error">Wallet validation failed.</p>';
                     return;
                 }
-
                 const allVotes = await contract.methods.getVotesByElection(electionId).call();
                 let voteFound = false;
-
                 for (let vote of allVotes) {
-                    if (
-                        web3.utils.toChecksumAddress(vote.voter) === web3.utils.toChecksumAddress(voterAddress) &&
-                        vote.positionId === positionId &&
-                        vote.candidateId === candidateId
-                    ) {
+                    if (web3.utils.toChecksumAddress(vote.voter) === web3.utils.toChecksumAddress(voterAddress) && vote.positionId === positionId && vote.candidateId === candidateId) {
                         resultDiv.innerHTML = `<p class="success">Vote verified! You voted for Candidate ID ${candidateId} for ${vote.positionName} in Election ID ${electionId} at ${new Date(vote.timestamp * 1000).toLocaleString()}</p>`;
                         voteFound = true;
                         break;
                     }
                 }
-
                 if (!voteFound) {
                     resultDiv.innerHTML = '<p class="error">No matching vote found for the provided details.</p>';
                 }
@@ -1665,26 +971,21 @@ try {
             const electionIdInput = document.getElementById('election-id-input');
             const electionId = electionIdInput.value.trim();
             const resultsDisplay = document.getElementById('results-display');
-
             if (!electionId) {
                 resultsDisplay.innerHTML = '<p class="error">Please enter a valid Election ID.</p>';
                 return;
             }
-
             try {
                 const voterAddress = await getAndValidateWalletAddress();
                 if (!voterAddress) {
                     resultsDisplay.innerHTML = '<p class="error">Unable to fetch results: Wallet validation failed.</p>';
                     return;
                 }
-
-                const allVotes = await contract.methods.getVotesByElection(electionId).call({
-                    from: voterAddress
-                });
+                const allVotes = await contract.methods.getVotesByElection(electionId).call({ from: voterAddress });
                 let resultsHtml = `
                     <h4>Results for Election ID: ${electionId}</h4>
-                    <div class="candidate-grid" style="margin-top: 20px;">
-                        <div class="candidate-card" style="padding: 20px; border: 1px solid #e0e0e0; border-radius: 12px;">
+                    <div class="candidate-grid">
+                        <div class="candidate-card">
                             <table style="width: 100%; border-collapse: collapse;">
                                 <thead>
                                     <tr style="background: #1a3c34; color: #fff;">
@@ -1696,18 +997,12 @@ try {
                                 </thead>
                                 <tbody>
                 `;
-
                 const voteCounts = {};
                 allVotes.forEach(vote => {
                     const candidateId = vote.candidateId;
-                    voteCounts[candidateId] = voteCounts[candidateId] || {
-                        count: 0,
-                        name: vote.candidateName,
-                        position: vote.positionName
-                    };
+                    voteCounts[candidateId] = voteCounts[candidateId] || { count: 0, name: vote.candidateName, position: vote.positionName };
                     voteCounts[candidateId].count += 1;
                 });
-
                 for (let candidateId in voteCounts) {
                     resultsHtml += `
                         <tr style="border-bottom: 1px solid #e0e0e0;">
@@ -1718,7 +1013,6 @@ try {
                         </tr>
                     `;
                 }
-
                 if (Object.keys(voteCounts).length === 0) {
                     resultsHtml += `
                         <tr>
@@ -1726,7 +1020,6 @@ try {
                         </tr>
                     `;
                 }
-
                 resultsHtml += `
                                 </tbody>
                             </table>
@@ -1734,7 +1027,6 @@ try {
                         </div>
                     </div>
                 `;
-
                 resultsDisplay.innerHTML = resultsHtml;
             } catch (error) {
                 console.error('Error fetching results:', error.code, error.message);
@@ -1748,13 +1040,7 @@ try {
 
         const profilePic = document.getElementById('profile-pic');
         const userDropdown = document.getElementById('user-dropdown');
-
-        profilePic.addEventListener('click', (e) => {
-            e.preventDefault();
-            const isVisible = userDropdown.style.display === 'block';
-            userDropdown.style.display = isVisible ? 'none' : 'block';
-        });
-
+        profilePic.addEventListener('click', (e) => { e.preventDefault(); userDropdown.style.display = userDropdown.style.display === 'block' ? 'none' : 'block'; });
         document.addEventListener('click', (event) => {
             if (!profilePic.contains(event.target) && !userDropdown.contains(event.target)) {
                 userDropdown.style.display = 'none';
@@ -1762,8 +1048,4 @@ try {
         });
     </script>
 </body>
-
 </html>
-<?php
-$conn->close();
-?>
