@@ -72,7 +72,7 @@ error_log("Session after validation: user_id=" . ($_SESSION['user_id'] ?? 'unset
     ", association=" . ($_SESSION['association'] ?? 'unset'));
 
 if (isset($_SESSION['college_id']) && $_SESSION['college_id'] != 1) {
-    error_log("College ID mismatch: expected 1, got " . $_SESSION['college_id']);
+    error_log("College ID mismatch: expected CIVE, got " . $_SESSION['college_id']. ":Not CIVE");
     header('Location: login.php?error=' . urlencode('Invalid college for this dashboard.'));
     exit;
 }
@@ -1660,7 +1660,7 @@ function getUserInitials($name) {
                         }
                     });
 
-                    // Check for 50/50 tie (for exactly 2 candidates)
+                    // Check for 50/50 tie 
                     if (candidates.length === 2 && candidates[0].votes === candidates[1].votes) {
                         isTie = true;
                     }

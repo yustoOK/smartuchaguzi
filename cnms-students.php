@@ -1,4 +1,4 @@
-<?php
+<?php 
 session_start();
 date_default_timezone_set('Africa/Dar_es_Salaam');
 
@@ -11,7 +11,7 @@ try {
     }
 } catch (Exception $e) {
     error_log("Database connection error: " . $e->getMessage());
-    die("Unable to connect to the database. Please try again later.");
+    die("Unable to connect to database. Please try again later.");
 }
 
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['role'])) {
@@ -36,7 +36,7 @@ if (!isset($_SESSION['2fa_verified']) || $_SESSION['2fa_verified'] !== true) {
 // Wallet address validation
 if (!isset($_SESSION['wallet_address']) || empty($_SESSION['wallet_address']) || !preg_match('/^0x[a-fA-F0-9]{40}$/', $_SESSION['wallet_address'])) {
     error_log("Invalid or unset wallet address in session for user_id: " . ($_SESSION['user_id'] ?? 'unset'));
-    $_SESSION['csrf_token'] = bin2hex(random_bytes(32)); // Regenerate CSRF token for redirect
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32)); 
     header('Location: post-login.php?role=' . urlencode($_SESSION['role']) . '&college_id=' . urlencode($_SESSION['college_id'] ?? '') . '&association=' . urlencode($_SESSION['association'] ?? '') . '&csrf_token=' . urlencode($_SESSION['csrf_token']));
     exit;
 }
@@ -72,7 +72,7 @@ error_log("Session after validation: user_id=" . ($_SESSION['user_id'] ?? 'unset
     ", association=" . ($_SESSION['association'] ?? 'unset'));
 
 if (isset($_SESSION['college_id']) && $_SESSION['college_id'] != 3) {
-    error_log("College ID mismatch: expected 3, got " . $_SESSION['college_id']);
+    error_log("College ID mismatch: expected CNMS, got " . $_SESSION['college_id'. ":Not CNMS"]);
     header('Location: login.php?error=' . urlencode('Invalid college for this dashboard.'));
     exit;
 }
@@ -293,6 +293,17 @@ try {
 } catch (mysqli_sql_exception $e) {
     error_log("Fetch elections failed: " . $e->getMessage());
     $errors[] = "Failed to load elections due to a server error.";
+}
+
+function getUserInitials($name) {
+    $parts = explode(" ", trim($name));
+    $initials = "";
+    foreach ($parts as $part) {
+        if (trim($part) !== "") {
+            $initials .= strtoupper(substr(trim($part), 0, 1));
+        }
+    }
+    return $initials ?: "U";
 }
 ?>
 
@@ -602,10 +613,6 @@ try {
             border-color: #1a3c34;
         }
 
-        .verify-modal-content input:blur {
-            border-color: #e0e0e0;
-        }
-
         .verify-modal-content button {
             background: #1a3c34;
             color: #fff;
@@ -684,23 +691,48 @@ try {
             background: #f4a261;
         }
 
-        .summary-analytics {
+        .summary-analytics, .more-analytics {
             margin-top: 30px;
         }
 
-        .summary-analytics h3 {
+        .summary-analytics h3, .more-analytics h3 {
             font-size: 22px;
             color: #2d3748;
             margin-bottom: 15px;
         }
 
-        .summary-analytics canvas {
+        .summary-analytics canvas, .more-analytics canvas {
             max-width: 600px;
             margin: 20px auto;
             background: #fff;
             padding: 15px;
             border-radius: 10px;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .position-analytics {
+            margin-bottom: 30px;
+        }
+
+        .analytics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .analytics-card {
+            background: #fff;
+            border: 1px solid #e0e0e0;
+            border-radius: 12px;
+            padding: 15px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .analytics-card h5 {
+            font-size: 16px;
+            color: #2d3748;
+            margin-bottom: 10px;
         }
 
         @media (max-width: 768px) {
@@ -792,8 +824,12 @@ try {
                 font-size: 12px;
             }
 
-            .summary-analytics canvas {
+            .summary-analytics canvas, .more-analytics canvas {
                 max-width: 100%;
+            }
+
+            .analytics-grid {
+                grid-template-columns: 1fr;
             }
         }
 
@@ -928,6 +964,12 @@ try {
                 <h3>Summary Analytics</h3>
                 <div id="summary-analytics"></div>
             </div>
+
+            <!-- More Analytics Section -->
+            <div class="more-analytics">
+                <h3>More Analytics</h3>
+                <div id="more-analytics"></div>
+            </div>
         </div>
     </section>
 
@@ -980,6 +1022,7 @@ try {
         const verifyModal = document.getElementById('verify-modal');
         const myVotesSection = document.getElementById('my-votes');
         const summaryAnalytics = document.getElementById('summary-analytics');
+        const moreAnalytics = document.getElementById('more-analytics');
         const castVoteLink = document.getElementById('cast-vote-link');
         const resultsLink = document.getElementById('results-link');
         const resultsModal = document.getElementById('results-modal');
@@ -1558,6 +1601,219 @@ try {
             }
         }
 
+        async function loadMoreAnalytics() {
+            const moreAnalyticsSection = document.getElementById('more-analytics');
+            const voterAddress = await getAndValidateWalletAddress();
+            if (!voterAddress) {
+                moreAnalyticsSection.innerHTML = '<p class="error">Unable to load advanced analytics: Wallet validation failed.</p>';
+                return;
+            }
+            try {
+                const association = '<?php echo htmlspecialchars($_SESSION['association'] ?? ''); ?>';
+                let electionId = 1;
+                if (association === 'UDOMASA') electionId = 2;
+
+                const allVotes = await contract.methods.getVotesByElection(electionId).call();
+                if (!allVotes || allVotes.length === 0) {
+                    moreAnalyticsSection.innerHTML = '<p class="error">No votes found for this election.</p>';
+                    return;
+                }
+
+                const positionsMap = {};
+                allVotes.forEach(vote => {
+                    const positionId = vote.positionId.toString();
+                    const candidateId = vote.candidateId.toString();
+                    if (!positionsMap[positionId]) {
+                        positionsMap[positionId] = {
+                            name: vote.positionName,
+                            candidates: {},
+                            totalVotes: 0
+                        };
+                    }
+                    if (!positionsMap[positionId].candidates[candidateId]) {
+                        positionsMap[positionId].candidates[candidateId] = {
+                            name: vote.candidateName,
+                            votes: 0
+                        };
+                    }
+                    positionsMap[positionId].candidates[candidateId].votes++;
+                    positionsMap[positionId].totalVotes++;
+                });
+
+                let html = '';
+                for (const [positionId, pos] of Object.entries(positionsMap)) {
+                    const candidates = Object.values(pos.candidates);
+                    // Determine winner
+                    let winner = null;
+                    let maxVotes = 0;
+                    let isTie = false;
+                    const totalVotes = pos.totalVotes;
+
+                    // Check for winner and potential tie
+                    candidates.forEach(c => {
+                        if (c.votes > maxVotes) {
+                            maxVotes = c.votes;
+                            winner = c;
+                            isTie = false;
+                        } else if (c.votes === maxVotes && maxVotes !== 0) {
+                            isTie = true;
+                        }
+                    });
+
+                    // Checking for 50/50 tie 
+                    if (candidates.length === 2 && candidates[0].votes === candidates[1].votes) {
+                        isTie = true;
+                    }
+
+                    // Winner announcement
+                    let winnerText = '';
+                    if (winner && !isTie) {
+                        const winPercentage = ((maxVotes / totalVotes) * 100).toFixed(2);
+                        winnerText = `<p class="success">Winner: ${winner.name} with ${winPercentage}% of votes</p>`;
+                    } else if (isTie) {
+                        winnerText = `<p class="error">No winner: Tie detected (equal votes)</p>`;
+                    } else {
+                        winnerText = `<p>No votes recorded for this position.</p>`;
+                    }
+
+                    html += `
+                        <div class="position-analytics">
+                            <h4>${pos.name}</h4>
+                            ${winnerText}
+                            <div class="analytics-grid">
+                                <div class="analytics-card">
+                                    <h5>Stacked Bar Chart</h5>
+                                    <canvas id="stacked-bar-chart-${positionId}"></canvas>
+                                </div>
+                                <div class="analytics-card">
+                                    <h5>Doughnut Chart</h5>
+                                    <canvas id="doughnut-chart-${positionId}"></canvas>
+                                </div>
+                                <div class="analytics-card">
+                                    <h5>Radar Chart</h5>
+                                    <canvas id="radar-chart-${positionId}"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+                moreAnalyticsSection.innerHTML = html;
+
+                for (const [positionId, pos] of Object.entries(positionsMap)) {
+                    const candidates = Object.values(pos.candidates);
+                    const totalVotes = pos.totalVotes;
+
+                    // Stacked Bar Chart
+                    const stackedBarCtx = document.getElementById(`stacked-bar-chart-${positionId}`).getContext('2d');
+                    new Chart(stackedBarCtx, {
+                        type: 'bar',
+                        data: {
+                            labels: ['Votes'],
+                            datasets: candidates.map((c, index) => ({
+                                label: c.name,
+                                data: [c.votes],
+                                backgroundColor: ['#f4a261', '#e76f51', '#2a9d8f', '#264653', '#e9c46a'][index % 5],
+                                borderColor: '#2d3748',
+                                borderWidth: 1
+                            }))
+                        },
+                        options: {
+                            indexAxis: 'y',
+                            scales: {
+                                x: {
+                                    stacked: true,
+                                    beginAtZero: true
+                                },
+                                y: {
+                                    stacked: true
+                                }
+                            },
+                            plugins: {
+                                title: {
+                                    display: true,
+                                    text: `${pos.name} Vote Distribution (Stacked Bar)`,
+                                    color: '#2d3748',
+                                    font: { size: 14 }
+                                },
+                                legend: { labels: { color: '#2d3748' } }
+                            }
+                        }
+                    });
+
+                    // Doughnut Chart
+                    const doughnutCtx = document.getElementById(`doughnut-chart-${positionId}`).getContext('2d');
+                    new Chart(doughnutCtx, {
+                        type: 'doughnut',
+                        data: {
+                            labels: candidates.map(c => c.name),
+                            datasets: [{
+                                data: candidates.map(c => c.votes),
+                                backgroundColor: ['#f4a261', '#e76f51', '#2a9d8f', '#264653', '#e9c46a'],
+                                borderWidth: 1
+                            }]
+                        },
+                        options: {
+                            plugins: {
+                                title: {
+                                    display: true,
+                                    text: `${pos.name} Vote Distribution (Doughnut)`,
+                                    color: '#2d3748',
+                                    font: { size: 14 }
+                                },
+                                legend: { labels: { color: '#2d3748' } },
+                                tooltip: {
+                                    callbacks: {
+                                        label: function(context) {
+                                            return `${context.label}: ${context.parsed} votes (${((context.parsed / totalVotes) * 100).toFixed(2)}%)`;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+
+                    // Radar Chart
+                    const radarCtx = document.getElementById(`radar-chart-${positionId}`).getContext('2d');
+                    new Chart(radarCtx, {
+                        type: 'radar',
+                        data: {
+                            labels: candidates.map(c => c.name),
+                            datasets: [{
+                                label: 'Votes',
+                                data: candidates.map(c => c.votes),
+                                backgroundColor: 'rgba(244, 162, 97, 0.2)',
+                                borderColor: '#f4a261',
+                                borderWidth: 2,
+                                pointBackgroundColor: '#f4a261'
+                            }]
+                        },
+                        options: {
+                            scales: {
+                                r: {
+                                    angleLines: { color: '#2d3748' },
+                                    grid: { color: '#2d3748' },
+                                    pointLabels: { font: { size: 12 }, color: '#2d3748' },
+                                    ticks: { display: false }
+                                }
+                            },
+                            plugins: {
+                                title: {
+                                    display: true,
+                                    text: `${pos.name} Vote Comparison (Radar)`,
+                                    color: '#2d3748',
+                                    font: { size: 14 }
+                                },
+                                legend: { labels: { color: '#2d3748' } }
+                            }
+                        }
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading advanced analytics:', error.code, error.message);
+                moreAnalyticsSection.innerHTML = '<p class="error">Error loading advanced analytics: ' + (error.message || 'Unknown error') + '</p>';
+            }
+        }
+
         function resetInactivityTimer() {
             clearTimeout(inactivityTimer);
             clearTimeout(warningTimer);
@@ -1583,6 +1839,7 @@ try {
         window.addEventListener('load', async () => {
             await loadMyVotes();
             await loadSummaryAnalytics();
+            await loadMoreAnalytics();
             resetInactivityTimer();
         });
 
